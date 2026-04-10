@@ -100,6 +100,14 @@ input:focus{outline:none;border-color:var(--orange);}
 .ps-table{width:100%;border-collapse:collapse;font-size:14px;}
 .ps-table th{font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:3px;color:var(--muted);text-transform:uppercase;text-align:left;padding:8px 10px;border-bottom:1px solid var(--border);}
 .ps-table th.num{text-align:right;}
+.ps-th-wrap{display:flex;align-items:center;justify-content:space-between;gap:6px;}
+.ps-th-controls{display:flex;align-items:center;gap:4px;}
+.ps-th-btn{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border:1px solid var(--border);border-radius:4px;background:transparent;color:var(--muted);cursor:pointer;padding:0;}
+.ps-th-btn:hover{border-color:var(--orange);color:var(--orange);}
+.ps-th-btn.active{border-color:var(--orange);color:var(--orange);background:#1b2942;}
+.ps-filter-row th{padding:6px 10px;border-bottom:1px solid var(--border);}
+.ps-filter-input,.ps-filter-select{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:5px 6px;color:var(--text);font-family:'Rajdhani',sans-serif;font-size:12px;}
+.ps-filter-input:focus,.ps-filter-select:focus{outline:none;border-color:var(--orange);}
 .ps-table td{padding:9px 10px;border-bottom:1px solid #0e1e35;vertical-align:middle;}
 .ps-table td.num{text-align:right;font-family:'Barlow Condensed',sans-serif;font-size:16px;}
 .ps-table tr:hover td{background:#0a1828;}
@@ -241,7 +249,70 @@ select.field-input{cursor:pointer;}
       </div>
       <div class="ps-table-wrap">
         <table class="ps-table">
-          <thead><tr><th>#</th><th>Player</th><th>Role</th><th>Team</th><th class="num">Pts</th></tr></thead>
+          <thead>
+            <tr>
+              <th>
+                <div class="ps-th-wrap">
+                  <span>#</span>
+                  <span class="ps-th-controls">
+                    <button class="ps-th-btn" type="button" onclick="togglePlayersSort('rank')" id="psSort-rank" title="Sort">S</button>
+                    <button class="ps-th-btn" type="button" onclick="focusPlayersFilter('rank')" id="psFilterIcon-rank" title="Filter">F</button>
+                  </span>
+                </div>
+              </th>
+              <th>
+                <div class="ps-th-wrap">
+                  <span>Player</span>
+                  <span class="ps-th-controls">
+                    <button class="ps-th-btn" type="button" onclick="togglePlayersSort('name')" id="psSort-name" title="Sort">S</button>
+                    <button class="ps-th-btn" type="button" onclick="focusPlayersFilter('name')" id="psFilterIcon-name" title="Filter">F</button>
+                  </span>
+                </div>
+              </th>
+              <th>
+                <div class="ps-th-wrap">
+                  <span>Role</span>
+                  <span class="ps-th-controls">
+                    <button class="ps-th-btn" type="button" onclick="togglePlayersSort('role')" id="psSort-role" title="Sort">S</button>
+                    <button class="ps-th-btn" type="button" onclick="focusPlayersFilter('role')" id="psFilterIcon-role" title="Filter">F</button>
+                  </span>
+                </div>
+              </th>
+              <th>
+                <div class="ps-th-wrap">
+                  <span>Team</span>
+                  <span class="ps-th-controls">
+                    <button class="ps-th-btn" type="button" onclick="togglePlayersSort('team')" id="psSort-team" title="Sort">S</button>
+                    <button class="ps-th-btn" type="button" onclick="focusPlayersFilter('team')" id="psFilterIcon-team" title="Filter">F</button>
+                  </span>
+                </div>
+              </th>
+              <th class="num">
+                <div class="ps-th-wrap">
+                  <span>Pts</span>
+                  <span class="ps-th-controls">
+                    <button class="ps-th-btn" type="button" onclick="togglePlayersSort('pts')" id="psSort-pts" title="Sort">S</button>
+                    <button class="ps-th-btn" type="button" onclick="focusPlayersFilter('pts')" id="psFilterIcon-pts" title="Filter">F</button>
+                  </span>
+                </div>
+              </th>
+            </tr>
+            <tr class="ps-filter-row">
+              <th><input id="psFilter-rank" class="ps-filter-input" type="text" placeholder="filter" oninput="setPlayersColumnFilter('rank',this.value)"></th>
+              <th><input id="psFilter-name" class="ps-filter-input" type="text" placeholder="filter" oninput="setPlayersColumnFilter('name',this.value)"></th>
+              <th>
+                <select id="psFilter-role" class="ps-filter-select" onchange="setPlayersColumnFilter('role',this.value)">
+                  <option value="">All</option>
+                  <option value="BAT">BAT</option>
+                  <option value="BOW">BOW</option>
+                  <option value="ALL">ALL</option>
+                  <option value="WIC">WIC</option>
+                </select>
+              </th>
+              <th><input id="psFilter-team" class="ps-filter-input" type="text" placeholder="filter" oninput="setPlayersColumnFilter('team',this.value)"></th>
+              <th><input id="psFilter-pts" class="ps-filter-input" type="text" placeholder="filter" oninput="setPlayersColumnFilter('pts',this.value)"></th>
+            </tr>
+          </thead>
           <tbody id="psTableBody"></tbody>
         </table>
       </div>
@@ -481,6 +552,8 @@ let liveData = { matches: [] };
 let isAdmin = false;
 let currentTab = 'leaderboard';
 let playerFilter = 'ALL';
+let playersSort = { key: 'pts', dir: 'desc' };
+let playersColumnFilters = { rank: '', name: '', role: '', team: '', pts: '' };
 
 const POLL_INTERVAL_NORMAL = 30 * 60 * 1000;
 const POLL_INTERVAL_SLOW   = 30 * 60 * 1000;
@@ -848,20 +921,112 @@ function filterPlayers(f) {
   renderPlayers();
 }
 
+function togglePlayersSort(key) {
+  if (playersSort.key !== key) {
+    playersSort = { key, dir: 'asc' };
+  } else {
+    playersSort.dir = playersSort.dir === 'asc' ? 'desc' : 'asc';
+  }
+  renderPlayers();
+}
+
+function setPlayersColumnFilter(key, value) {
+  playersColumnFilters[key] = String(value || '').trim();
+  renderPlayers();
+}
+
+function focusPlayersFilter(key) {
+  const input = document.getElementById('psFilter-' + key);
+  if (input) input.focus();
+}
+
+function updatePlayersHeaderControls() {
+  const cols = ['rank','name','role','team','pts'];
+  cols.forEach(col => {
+    const sortBtn = document.getElementById('psSort-' + col);
+    if (sortBtn) {
+      sortBtn.classList.remove('active');
+      if (playersSort.key === col) {
+        sortBtn.classList.add('active');
+        sortBtn.textContent = playersSort.dir === 'asc' ? 'A' : 'D';
+      } else {
+        sortBtn.textContent = 'S';
+      }
+    }
+
+    const filterBtn = document.getElementById('psFilterIcon-' + col);
+    if (filterBtn) {
+      const active = !!playersColumnFilters[col];
+      filterBtn.classList.toggle('active', active);
+    }
+  });
+}
+
+function applyPlayersColumnFilters(rows) {
+  return rows.filter(r => {
+    const rankFilter = playersColumnFilters.rank;
+    if (rankFilter && !String(r.rank).includes(rankFilter)) return false;
+
+    const nameFilter = playersColumnFilters.name.toLowerCase();
+    if (nameFilter && !r.name.toLowerCase().includes(nameFilter)) return false;
+
+    const roleFilter = playersColumnFilters.role;
+    if (roleFilter && r.role !== roleFilter) return false;
+
+    const teamFilter = playersColumnFilters.team.toLowerCase();
+    if (teamFilter && !r.teamName.toLowerCase().includes(teamFilter)) return false;
+
+    const ptsFilter = playersColumnFilters.pts;
+    if (ptsFilter && !String(r.pts).includes(ptsFilter)) return false;
+
+    return true;
+  });
+}
+
+function sortPlayersRows(rows) {
+  const { key, dir } = playersSort;
+  const sign = dir === 'asc' ? 1 : -1;
+  rows.sort((a, b) => {
+    if (key === 'name' || key === 'role' || key === 'team') {
+      const av = key === 'team' ? a.teamName : a[key];
+      const bv = key === 'team' ? b.teamName : b[key];
+      return sign * av.localeCompare(bv);
+    }
+    const av = key === 'rank' ? a.rank : a.pts;
+    const bv = key === 'rank' ? b.rank : b.pts;
+    if (av !== bv) return sign * (av - bv);
+    return a.name.localeCompare(b.name);
+  });
+  return rows;
+}
+
 function renderPlayers() {
   const tbody=document.getElementById('psTableBody');
   const container=document.getElementById('tabContentPlayers');
   if(container)container.scrollTop=0;
   if(!tbody)return;
   const totals=getPlayerTotals();
-  let rows=Object.entries(totals);
-  if(playerFilter!=='ALL'){const rm={BAT:'BAT',BOW:'BOW',ALL_ROLE:'ALL',WIC:'WIC'};rows=rows.filter(([,v])=>v.role===rm[playerFilter]);}
-  rows.sort((a,b)=>b[1].pts-a[1].pts||a[0].localeCompare(b[0]));
-  tbody.innerHTML=rows.map(([name,v],i)=>{
+  let rows=Object.entries(totals).map(([name,v])=>(
+    { name, pts: v.pts, teamName: v.teamName, role: v.role, rank: 0 }
+  ));
+
+  const baseByPts=[...rows].sort((a,b)=>b.pts-a.pts||a.name.localeCompare(b.name));
+  baseByPts.forEach((r,idx)=>{ r.rank=idx+1; });
+
+  if(playerFilter!=='ALL'){
+    const rm={BAT:'BAT',BOW:'BOW',ALL_ROLE:'ALL',WIC:'WIC'};
+    rows=rows.filter(v=>v.role===rm[playerFilter]);
+  }
+
+  rows=applyPlayersColumnFilters(rows);
+  rows=sortPlayersRows(rows);
+  updatePlayersHeaderControls();
+
+  tbody.innerHTML=rows.map((v,i)=>{
     const pc=v.pts>0?'pts-positive':v.pts<0?'pts-negative':'pts-zero';
-    return `<tr style="cursor:pointer;" onclick="openPlayerModal('${name.replace(/'/g,"\\'")}')">
+    return `<tr style="cursor:pointer;" onclick="openPlayerModal('${v.name.replace(/'/g,"\\'")}')">
       <td style="color:var(--muted);font-size:13px;">${i+1}</td>
-      <td><div class="ps-player-name">${name}</div><div class="ps-player-team">${v.teamName}</div></td>
+      <td><div class="ps-player-name">${v.name}</div><div class="ps-player-team">${v.teamName}</div></td>
       <td><span class="role-tag">${v.role}</span></td>
       <td style="font-size:13px;color:var(--muted);">${v.teamName}</td>
       <td class="num ${pc}">${v.pts}</td>
