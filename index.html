@@ -482,7 +482,7 @@ let isAdmin = false;
 let currentTab = 'leaderboard';
 let playerFilter = 'ALL';
 
-const POLL_INTERVAL_NORMAL = 15 * 60 * 1000;
+const POLL_INTERVAL_NORMAL = 30 * 60 * 1000;
 const POLL_INTERVAL_SLOW   = 30 * 60 * 1000;
 const DAILY_LIMIT          = 2000;
 const DAILY_LIMIT_SLOW_AT  = 1800;
@@ -958,7 +958,7 @@ function renderAdmin() {
 
     <div class="admin-section-title">IPL 2026 Schedule</div>
     <div class="match-input-card" style="margin-bottom:16px;">
-      <p style="font-size:13px;color:var(--muted);letter-spacing:1px;margin-bottom:12px;line-height:1.6;">All IPL 2026 matches are fetched automatically. Live and completed matches sync every ${isSlowing?30:15} minutes.</p>
+      <p style="font-size:13px;color:var(--muted);letter-spacing:1px;margin-bottom:12px;line-height:1.6;">All IPL 2026 matches are fetched automatically. Live and completed matches sync every 30 minutes.</p>
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px;">
         <button onclick="fetchAndShowSchedule()" id="fetchScheduleBtn" style="background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:12px 8px;cursor:pointer;font-family:Barlow Condensed,sans-serif;font-size:15px;font-weight:700;letter-spacing:2px;text-transform:uppercase;">Refresh Schedule</button>
         <button onclick="fetchRecentResults()" id="fetchResultsBtn" style="background:var(--surface2);border:1px solid var(--gold);color:var(--gold);border-radius:8px;padding:12px 8px;cursor:pointer;font-family:Barlow Condensed,sans-serif;font-size:15px;font-weight:700;letter-spacing:2px;text-transform:uppercase;">Import Results</button>
@@ -1804,9 +1804,20 @@ function upsertMatch(apiId,name,date,scorecardData) {
   if (scheduleMatch) setCricapiIdForScheduleMatch(scheduleMatch, apiId);
   const performances=parseScorecard(scorecardData);
   const status=scorecardData.matchEnded?'done':scorecardData.matchStarted?'live':'upcoming';
-  const obj={apiId,label:name,date,teams:name,status,performances};
   const ei=liveData.matches.findIndex(m=>m.apiId===apiId);
-  if(ei>=0)liveData.matches[ei]=obj; else liveData.matches.push(obj);
+  if(ei>=0){
+    const existing=liveData.matches[ei];
+    // Preserve ESPN-sourced fields: dots per player and potm
+    Object.keys(performances).forEach(player=>{
+      const ex=existing.performances&&existing.performances[player];
+      if(ex&&ex.dots!=null)performances[player].dots=ex.dots;
+    });
+    const potm=existing.potm||null;
+    liveData.matches[ei]={apiId,label:name,date,teams:name,status,performances};
+    if(potm)liveData.matches[ei].potm=potm;
+  } else {
+    liveData.matches.push({apiId,label:name,date,teams:name,status,performances});
+  }
   saveLiveData();
 }
 
