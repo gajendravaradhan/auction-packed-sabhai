@@ -499,6 +499,50 @@ function incrementApiCalls(n=1) {
 }
 function apiCallsRemaining() { return Math.max(0, DAILY_LIMIT - getApiCallsToday()); }
 
+function formatAdminDateTime(iso) {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '—';
+  return d.toLocaleString();
+}
+
+function getImportAllScheduledStatusMarkup() {
+  const st = liveData.importAllScheduledStatus || null;
+  if (!st) {
+    return '<div style="font-size:12px;color:var(--muted);letter-spacing:1px;">No import has been run yet.</div>';
+  }
+
+  const state = st.state || 'idle';
+  const color = state === 'running' ? 'var(--gold)' : state === 'error' ? 'var(--red)' : 'var(--green)';
+  const title = state === 'running' ? 'RUNNING' : state === 'error' ? 'FAILED' : 'LAST RUN';
+  const processed = st.processed || 0;
+  const total = st.total || 0;
+  const imported = st.imported || 0;
+  const refreshed = st.refreshed || 0;
+  const failed = st.failed || 0;
+  const skippedNoId = st.skippedNoId || 0;
+  const startedAt = formatAdminDateTime(st.startedAt);
+  const finishedAt = formatAdminDateTime(st.finishedAt);
+  const summary = st.summary || '';
+
+  return `
+    <div style="border:1px solid var(--border);border-radius:8px;padding:10px;background:var(--bg);">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;">
+        <div style="font-family:Barlow Condensed,sans-serif;font-size:12px;font-weight:700;letter-spacing:2px;color:${color};">${title}</div>
+        <div style="font-size:11px;color:var(--muted);letter-spacing:1px;">${processed}${total ? ' / ' + total : ''} processed</div>
+      </div>
+      <div style="font-size:12px;color:var(--muted);letter-spacing:1px;margin-top:6px;line-height:1.5;">Imported: ${imported} · Refreshed: ${refreshed} · Failed: ${failed} · Missing ID: ${skippedNoId}</div>
+      <div style="font-size:11px;color:var(--muted);letter-spacing:1px;margin-top:4px;line-height:1.5;">Started: ${startedAt}${state === 'running' ? '' : ' · Finished: ' + finishedAt}</div>
+      ${summary ? `<div style="font-size:12px;color:${color};letter-spacing:1px;margin-top:6px;line-height:1.5;">${summary}</div>` : ''}
+    </div>`;
+}
+
+function refreshImportAllScheduledStatusUI() {
+  const el = document.getElementById('importAllStatus');
+  if (!el) return;
+  el.innerHTML = getImportAllScheduledStatusMarkup();
+}
+
 function ensureCricapiIdMap() {
   if (!liveData.cricapiIdMap || typeof liveData.cricapiIdMap !== 'object' || Array.isArray(liveData.cricapiIdMap)) {
     liveData.cricapiIdMap = {};
@@ -914,6 +958,7 @@ function renderAdmin() {
         <button onclick="fetchRecentResults()" id="fetchResultsBtn" style="background:var(--surface2);border:1px solid var(--gold);color:var(--gold);border-radius:8px;padding:12px 8px;cursor:pointer;font-family:Barlow Condensed,sans-serif;font-size:15px;font-weight:700;letter-spacing:2px;text-transform:uppercase;">Import Results</button>
         <button onclick="importAllScheduledMatches()" id="importAllScheduledBtn" style="background:var(--surface2);border:1px solid var(--blue);color:var(--blue);border-radius:8px;padding:12px 8px;cursor:pointer;font-family:Barlow Condensed,sans-serif;font-size:15px;font-weight:700;letter-spacing:2px;text-transform:uppercase;">Import All Scheduled</button>
       </div>
+      <div id="importAllStatus" style="margin-top:8px;">${getImportAllScheduledStatusMarkup()}</div>
       <div id="scheduleList" style="margin-top:8px;max-height:300px;overflow-y:auto;"></div>
     </div>
 
@@ -2169,9 +2214,23 @@ window.addEventListener('DOMContentLoaded',()=>{
 async function importAllScheduledMatches() {
   const btn = document.getElementById('importAllScheduledBtn');
   if (btn) { btn.textContent = 'Importing...'; btn.disabled = true; }
-  let imported = 0, refreshed = 0, failed = 0;
+  let imported = 0, refreshed = 0, failed = 0, skippedNoId = 0, processed = 0;
   if (!liveData.matches) liveData.matches = [];
   ensureCricapiIdMap();
+
+  liveData.importAllScheduledStatus = {
+    state: 'running',
+    startedAt: new Date().toISOString(),
+    finishedAt: null,
+    processed: 0,
+    total: 0,
+    imported: 0,
+    refreshed: 0,
+    failed: 0,
+    skippedNoId: 0,
+    summary: 'Import started...'
+  };
+  refreshImportAllScheduledStatusUI();
 
   const setMatch = (apiId, name, date, status, performances) => {
     const idx = liveData.matches.findIndex(m => m.apiId === apiId);
@@ -2196,9 +2255,12 @@ async function importAllScheduledMatches() {
   try {
     const today = new Date().toISOString().slice(0, 10);
     const seriesMatches = await fetchSeriesMatchList();
+    const eligible = IPL_2026_SCHEDULE.filter(scheduleMatch => scheduleMatch && scheduleMatch.date && scheduleMatch.date <= today);
+    liveData.importAllScheduledStatus.total = eligible.length;
+    refreshImportAllScheduledStatusUI();
 
-    for (const scheduleMatch of IPL_2026_SCHEDULE) {
-      if (!scheduleMatch || !scheduleMatch.date || scheduleMatch.date > today) continue;
+    for (const scheduleMatch of eligible) {
+      processed++;
 
       if (!scheduleMatch.cricapi_match_id && seriesMatches.length > 0) {
         const seriesMatch = findSeriesMatchForScheduleMatch(scheduleMatch, seriesMatches);
@@ -2207,7 +2269,13 @@ async function importAllScheduledMatches() {
         }
       }
 
-      if (!scheduleMatch.cricapi_match_id) continue;
+      if (!scheduleMatch.cricapi_match_id) {
+        skippedNoId++;
+        liveData.importAllScheduledStatus.processed = processed;
+        liveData.importAllScheduledStatus.skippedNoId = skippedNoId;
+        if (processed % 5 === 0) refreshImportAllScheduledStatusUI();
+        continue;
+      }
 
       try {
         const r = await fetch(API_BASE + '/match_scorecard?apikey=' + CRICKETDATA_API_KEY + '&id=' + scheduleMatch.cricapi_match_id, { signal: AbortSignal.timeout(12000) });
@@ -2227,13 +2295,46 @@ async function importAllScheduledMatches() {
       } catch (e) {
         failed++;
       }
+
+      liveData.importAllScheduledStatus.processed = processed;
+      liveData.importAllScheduledStatus.imported = imported;
+      liveData.importAllScheduledStatus.refreshed = refreshed;
+      liveData.importAllScheduledStatus.failed = failed;
+      liveData.importAllScheduledStatus.skippedNoId = skippedNoId;
+      if (processed % 3 === 0) refreshImportAllScheduledStatusUI();
     }
 
     saveLiveData();
     const msg = imported > 0 && refreshed > 0 ? imported + ' new, ' + refreshed + ' refreshed' : imported > 0 ? imported + ' imported' : refreshed > 0 ? refreshed + ' refreshed' : 'No new data';
+    liveData.importAllScheduledStatus = {
+      state: 'success',
+      startedAt: liveData.importAllScheduledStatus.startedAt,
+      finishedAt: new Date().toISOString(),
+      processed,
+      total: eligible.length,
+      imported,
+      refreshed,
+      failed,
+      skippedNoId,
+      summary: msg + (failed > 0 ? (', ' + failed + ' scorecards unavailable') : '')
+    };
+    refreshImportAllScheduledStatusUI();
     showToast(msg + (failed > 0 ? (', ' + failed + ' scorecards unavailable') : ''), (imported + refreshed > 0) ? 'success' : '');
     renderAdmin(); renderTab(currentTab);
   } catch (e) {
+    liveData.importAllScheduledStatus = {
+      state: 'error',
+      startedAt: (liveData.importAllScheduledStatus && liveData.importAllScheduledStatus.startedAt) || new Date().toISOString(),
+      finishedAt: new Date().toISOString(),
+      processed,
+      total: (liveData.importAllScheduledStatus && liveData.importAllScheduledStatus.total) || 0,
+      imported,
+      refreshed,
+      failed,
+      skippedNoId,
+      summary: 'Import failed: ' + e.message
+    };
+    refreshImportAllScheduledStatusUI();
     showToast('Import failed: ' + e.message, 'error');
   }
 
