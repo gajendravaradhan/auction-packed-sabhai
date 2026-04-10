@@ -454,18 +454,14 @@ function calcFantasyPoints(p, teamName, matchPotm) {
   const isCap = teamCV.captain === p.playerName;
   const isVC  = teamCV.viceCaptain === p.playerName;
 
-  let pts;
-  if (isCap)     pts = Math.round(base * 2);
-  else if (isVC) pts = Math.floor(base * 1.5);
-  else           pts = base;
-
-  // POTM added after multiplier (name-normalized to handle provider spelling variants)
   const isPotm = normalizePlayerKey(matchPotm) && normalizePlayerKey(p.playerName) === normalizePlayerKey(matchPotm);
-  if (isPotm) {
-    if      (isCap) pts += 60;
-    else if (isVC)  pts += 40;
-    else            pts += 30;
-  }
+  const totalBeforeMultiplier = base + (isPotm ? 30 : 0);
+
+  let pts;
+  if (isCap)     pts = Math.round(totalBeforeMultiplier * 2);
+  else if (isVC) pts = Math.floor(totalBeforeMultiplier * 1.5);
+  else           pts = totalBeforeMultiplier;
+
   return pts;
 }
 
@@ -2166,21 +2162,16 @@ function getPointsBreakdown(p, teamName, matchPotm) {
   if(rod>0)lines.push({label:rod+' run out direct ×10',pts:rod*10});
   if(roi>0)lines.push({label:roi+' run out indirect ×10',pts:roi*10});
 
-  // POTM (added after C/VC multiplier, so exclude from base for multiplier calc)
+  // POTM is included before C/VC multiplier
   const hasPotm=normalizePlayerKey(matchPotm)&&normalizePlayerKey(p.playerName)===normalizePlayerKey(matchPotm);
+  if(hasPotm)lines.push({label:'Player of the Match',pts:30});
 
-  // C/VC multiplier — computed on pre-POTM base
+  // C/VC multiplier — applied on full total including POTM
   const cv=liveData.captains||{},tcv=cv[teamName]||{};
   const isCap2=tcv.captain===p.playerName,isVC2=tcv.viceCaptain===p.playerName;
   const baseForMult=lines.reduce((s,l)=>s+l.pts,0);
   if(isCap2){lines.push({label:'Captain 2× bonus (+'+baseForMult+' extra)',pts:baseForMult});}
   else if(isVC2){const bonus=Math.floor(baseForMult*0.5);lines.push({label:'Vice Captain 1.5× bonus (+'+bonus+' extra)',pts:bonus});}
-
-  // Now add POTM (after multiplier)
-  if(hasPotm){
-    const potmPts=isCap2?60:isVC2?40:30;
-    lines.push({label:'Player of the Match',pts:potmPts});
-  }
 
   return lines;
 }
