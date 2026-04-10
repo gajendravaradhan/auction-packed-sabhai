@@ -1936,13 +1936,20 @@ function parseScorecard(matchData) {
       if(dt==='runout'){
         let dn='',idn='';
         const rm=dr.match(/run out \(([^)]+)\)/i);
-        if(rm){const parts=rm[1].split('/').map(s=>s.trim());dn=parts[0]||'';idn=parts[1]||'';}
-        if(!dn)dn=b.bowler?.name||'';
-        if(!idn)idn=b.catcher?.name||'';
-        const direct=findPlayerTeamAware(dn,mtt);
+        if(rm){
+          const parts=rm[1].split('/').map(s=>s.trim()).filter(Boolean);
+          if(parts.length>=2){
+            // Two-player runout: credit ONLY second player as indirect
+            idn=parts[1];
+          } else if(parts.length===1){
+            // One-player runout: credit that player as direct
+            dn=parts[0];
+          }
+        }
+        const direct=dn?findPlayerTeamAware(dn,mtt):null;
         if(direct){if(!performances[direct])performances[direct]={played:true,_warnings:[]};performances[direct].runoutDirect=(performances[direct].runoutDirect||0)+1;}
         const indirect=idn?findPlayerTeamAware(idn,mtt):null;
-        if(indirect&&indirect!==direct){if(!performances[indirect])performances[indirect]={played:true,_warnings:[]};performances[indirect].runoutIndirect=(performances[indirect].runoutIndirect||0)+1;}
+        if(indirect){if(!performances[indirect])performances[indirect]={played:true,_warnings:[]};performances[indirect].runoutIndirect=(performances[indirect].runoutIndirect||0)+1;}
       }
     });
   });
