@@ -2029,6 +2029,30 @@ window.addEventListener('DOMContentLoaded',()=>{
 
   initMatchDayWatcher();
 });
+// ═══════════════════════════════════════════════════════
+// IMPORT ALL SCHEDULED MATCHES (ADMIN)
+// ═══════════════════════════════════════════════════════
+async function importAllScheduledMatches() {
+  const btn = document.getElementById('importAllScheduledBtn');
+  if (btn) { btn.textContent = 'Importing...'; btn.disabled = true; }
+  let imported = 0, refreshed = 0, failed = 0;
+  for (const sched of IPL_2026_SCHEDULE) {
+    if (!sched.match_id) continue;
+    try {
+      const r = await fetch(API_BASE + '/match_scorecard?apikey=' + CRICKETDATA_API_KEY + '&id=' + sched.match_id, { signal: AbortSignal.timeout(12000) });
+      const d = await r.json(); incrementApiCalls(1);
+      if (!d || !d.data) { failed++; continue; }
+      const existed = (liveData.matches || []).some(x => x.apiId == sched.match_id);
+      upsertMatch(sched.match_id, sched.home + ' vs ' + sched.away, sched.date, d.data);
+      existed ? refreshed++ : imported++;
+    } catch (e) { failed++; }
+  }
+  const msg = imported > 0 && refreshed > 0 ? imported + ' new, ' + refreshed + ' refreshed' : imported > 0 ? imported + ' imported' : refreshed > 0 ? refreshed + ' refreshed' : 'No new data';
+  showToast(msg + (failed > 0 ? (', ' + failed + ' failed') : ''), (imported + refreshed > 0) ? 'success' : '');
+  renderAdmin(); renderTab(currentTab);
+  if (btn) { btn.textContent = 'Import All Scheduled'; btn.disabled = false; }
+}
+window.importAllScheduledMatches = importAllScheduledMatches;
 </script>
 </body>
 </html>
