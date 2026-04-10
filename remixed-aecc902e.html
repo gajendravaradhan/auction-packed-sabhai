@@ -1,0 +1,1949 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Auction Packed · Live</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js"></script>
+<script>
+  try {
+    firebase.initializeApp({
+      apiKey:"AIzaSyDz3qVrfofnM-vdYwV9wcC0oZ5G65qay0c",
+      authDomain:"auctionpacked-98d34.firebaseapp.com",
+      databaseURL:"https://auctionpacked-98d34-default-rtdb.firebaseio.com",
+      projectId:"auctionpacked-98d34",
+      storageBucket:"auctionpacked-98d34.firebasestorage.app",
+      messagingSenderId:"673490131984",
+      appId:"1:673490131984:web:6807d346436a7692b9fe95"
+    });
+    window._db = firebase.database();
+  } catch(e) { console.warn('Firebase unavailable',e); window._db=null; }
+</script>
+
+<style>
+:root{--bg:#050e1d;--surface:#0b1a2e;--surface2:#0f2240;--orange:#ff5c00;--gold:#ffb800;--red:#ff2d55;--green:#00e676;--text:#eef2ff;--muted:#5b7ba8;--border:#162d4a;--navy-light:#1a3a5c;}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Rajdhani',sans-serif;background:var(--bg);color:var(--text);min-height:100dvh;overflow-x:hidden;}
+.screen{display:none;}.screen.active{display:block;}
+.logo{text-align:center;padding:48px 20px 32px;}
+.logo h1{font-family:'Barlow Condensed',sans-serif;line-height:1;font-weight:900;text-transform:uppercase;}
+.logo-word-top{display:block;font-size:clamp(22px,5vw,38px);letter-spacing:clamp(10px,3vw,22px);color:var(--muted);font-weight:700;text-indent:clamp(10px,3vw,22px);}
+.logo-word-bot{display:block;font-size:clamp(72px,18vw,160px);letter-spacing:-2px;color:var(--orange);font-weight:900;line-height:.9;text-shadow:0 0 60px #ff5c0060,0 0 120px #ff5c0030;}
+.logo-live{display:block;font-size:13px;font-weight:700;letter-spacing:6px;color:var(--red);text-transform:uppercase;margin-top:8px;animation:pulse-text 1.5s ease-in-out infinite;}
+.logo p{font-size:12px;letter-spacing:4px;color:var(--muted);margin-top:8px;}
+.landing-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;max-width:700px;margin:0 auto;padding:0 20px 40px;}
+.landing-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:32px 24px;cursor:pointer;transition:all 0.2s;position:relative;overflow:hidden;text-align:center;}
+.landing-card::before{content:'';position:absolute;inset:0;opacity:0;transition:opacity 0.3s;border-radius:16px;}
+.landing-card.viewer::before{background:radial-gradient(circle at 50% 0%,#ffb80010 0%,transparent 70%);}
+.landing-card.admin::before{background:radial-gradient(circle at 50% 0%,#ff5c0010 0%,transparent 70%);}
+.landing-card:hover{transform:translateY(-4px);}
+.landing-card.viewer:hover{border-color:var(--gold);box-shadow:0 12px 40px #ffb80025;}
+.landing-card.admin:hover{border-color:var(--orange);box-shadow:0 12px 40px #ff5c0025;}
+.landing-card:hover::before{opacity:1;}
+.landing-card-title{font-family:'Barlow Condensed',sans-serif;font-size:32px;font-weight:900;letter-spacing:3px;text-transform:uppercase;margin-bottom:6px;}
+.landing-card.viewer .landing-card-title{color:var(--gold);}
+.landing-card.admin .landing-card-title{color:var(--orange);}
+.landing-card-sub{font-size:13px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;}
+.setup-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:32px;max-width:480px;margin:0 auto;}
+.setup-card h2{font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:800;letter-spacing:3px;text-transform:uppercase;margin-bottom:8px;}
+.setup-card p{font-size:13px;color:var(--muted);letter-spacing:1px;line-height:1.7;margin-bottom:24px;}
+input[type=text],input[type=password]{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:12px 16px;color:var(--text);font-family:'Rajdhani',sans-serif;font-size:18px;letter-spacing:2px;margin-bottom:12px;}
+input:focus{outline:none;border-color:var(--orange);}
+.error-msg{color:var(--red);font-size:13px;letter-spacing:1px;min-height:20px;margin-bottom:12px;}
+.btn{width:100%;background:var(--orange);color:#fff;border:none;border-radius:8px;padding:14px;cursor:pointer;font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:700;letter-spacing:3px;text-transform:uppercase;transition:background 0.2s;}
+.btn:hover{background:#ff7a30;}
+.btn.secondary{background:transparent;color:var(--muted);border:1px solid var(--border);margin-top:8px;}
+.btn.secondary:hover{border-color:var(--muted);color:var(--text);}
+.btn.gold{background:var(--gold);color:#000;}
+.btn.gold:hover{background:#ffc930;}
+.app-header{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;background:var(--surface);border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100;}
+.app-header-logo{font-family:'Barlow Condensed',sans-serif;font-weight:900;text-transform:uppercase;cursor:pointer;line-height:1;}
+.app-header-logo .ahl-top{display:block;font-size:11px;font-weight:700;letter-spacing:6px;color:var(--muted);line-height:1;text-indent:3px;}
+.app-header-logo .ahl-bot{display:block;font-size:28px;font-weight:900;letter-spacing:-1px;color:var(--orange);line-height:.95;text-shadow:0 0 20px #ff5c0060;}
+.app-header-logo .ahl-live{display:block;font-size:10px;font-weight:700;letter-spacing:4px;color:var(--red);margin-top:2px;line-height:1;animation:pulse-text 1.5s ease-in-out infinite;}
+@keyframes pulse-text{0%,100%{opacity:1;}50%{opacity:0.3;}}
+.nav-tabs{display:flex;gap:4px;background:var(--bg);border-radius:10px;padding:4px;}
+.nav-tab{font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;letter-spacing:2px;padding:6px 12px;border-radius:7px;border:none;background:transparent;color:var(--muted);cursor:pointer;transition:all 0.15s;text-transform:uppercase;white-space:nowrap;}
+.nav-tab.active{background:var(--surface2);color:var(--text);}
+.nav-tab:hover:not(.active){color:var(--text);}
+.tab-content{display:none;}.tab-content.active{display:block;}
+.leaderboard-wrap{max-width:700px;margin:0 auto;padding:20px 16px;}
+.leaderboard-title{font-family:'Barlow Condensed',sans-serif;font-size:13px;letter-spacing:6px;color:var(--muted);text-transform:uppercase;margin-bottom:16px;text-align:center;}
+.lb-row{display:flex;align-items:center;gap:12px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:8px;transition:all 0.2s;}
+.lb-row.top1{border-color:var(--gold);background:linear-gradient(90deg,#0f2240,#1a2800 200%);}
+.lb-row.top2{border-color:#aaa;}
+.lb-row.top3{border-color:#cd7f32;}
+.lb-rank{font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:900;width:28px;text-align:center;color:var(--muted);}
+.lb-row.top1 .lb-rank{color:var(--gold);}
+.lb-row.top2 .lb-rank{color:#ccc;}
+.lb-row.top3 .lb-rank{color:#cd7f32;}
+.lb-team{flex:1;}
+.lb-team-name{font-family:'Barlow Condensed',sans-serif;font-size:22px;font-weight:800;letter-spacing:2px;text-transform:uppercase;}
+.lb-team-meta{font-size:12px;color:var(--muted);letter-spacing:1px;margin-top:1px;}
+.lb-pts{font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:900;color:var(--orange);letter-spacing:1px;}
+.lb-row.top1 .lb-pts{color:var(--gold);}
+.lb-pts-label{font-size:10px;letter-spacing:2px;color:var(--muted);text-align:right;}
+.lb-sparkbar{height:3px;background:var(--border);border-radius:2px;margin-top:8px;}
+.lb-sparkfill{height:100%;border-radius:2px;background:var(--orange);transition:width 0.5s;}
+.mbm-wrap{max-width:900px;margin:0 auto;padding:20px 16px;}
+.match-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;margin-bottom:12px;overflow:hidden;padding:14px 16px;}
+.match-badge{font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:700;letter-spacing:2px;padding:3px 8px;border-radius:5px;text-transform:uppercase;}
+.ps-wrap{max-width:900px;margin:0 auto;padding:20px 16px;}
+.ps-filters{display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;}
+.ps-filter-btn{font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;letter-spacing:2px;padding:5px 12px;border-radius:6px;border:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;text-transform:uppercase;transition:all 0.15s;}
+.ps-filter-btn.active{background:var(--surface2);color:var(--text);border-color:var(--navy-light);}
+.ps-table-wrap{overflow-x:auto;}
+.ps-table{width:100%;border-collapse:collapse;font-size:14px;}
+.ps-table th{font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:3px;color:var(--muted);text-transform:uppercase;text-align:left;padding:8px 10px;border-bottom:1px solid var(--border);}
+.ps-table th.num{text-align:right;}
+.ps-table td{padding:9px 10px;border-bottom:1px solid #0e1e35;vertical-align:middle;}
+.ps-table td.num{text-align:right;font-family:'Barlow Condensed',sans-serif;font-size:16px;}
+.ps-table tr:hover td{background:#0a1828;}
+.ps-player-name{font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;letter-spacing:1px;}
+.ps-player-team{font-size:11px;color:var(--muted);letter-spacing:1px;}
+.role-tag{display:inline-block;font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:800;letter-spacing:1px;padding:1px 5px;border-radius:3px;background:var(--surface2);color:var(--muted);text-transform:uppercase;}
+.pts-positive{color:var(--green);}.pts-negative{color:var(--red);}.pts-zero{color:var(--muted);}
+.live-wrap{max-width:700px;margin:0 auto;padding:20px 16px;}
+.live-match-header{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;text-align:center;margin-bottom:16px;}
+.live-match-teams{font-family:'Barlow Condensed',sans-serif;font-size:28px;font-weight:900;letter-spacing:3px;margin-bottom:4px;}
+.live-match-score{font-size:14px;color:var(--muted);letter-spacing:2px;}
+.no-live{text-align:center;padding:60px 20px;font-size:14px;color:var(--muted);letter-spacing:2px;}
+.admin-wrap{max-width:700px;margin:0 auto;padding:20px 16px;}
+.admin-section-title{font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;letter-spacing:5px;color:var(--muted);text-transform:uppercase;margin-bottom:12px;margin-top:24px;}
+.admin-section-title:first-child{margin-top:0;}
+.match-input-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:20px;margin-bottom:12px;}
+.field-label{font-size:11px;letter-spacing:2px;color:var(--muted);text-transform:uppercase;margin-bottom:5px;}
+.field-input{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:9px 12px;color:var(--text);font-family:'Rajdhani',sans-serif;font-size:15px;}
+.field-input:focus{outline:none;border-color:var(--orange);}
+select.field-input{cursor:pointer;}
+.perf-input{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:5px;padding:4px 6px;color:var(--text);font-family:'Barlow Condensed',sans-serif;font-size:14px;text-align:center;}
+.perf-input:focus{outline:none;border-color:var(--orange);}
+.team-roster-row{display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border-bottom:1px solid #0a1828;cursor:pointer;transition:background 0.15s;gap:8px;}
+.team-roster-row:last-child{border-bottom:none;}
+.team-roster-row:hover{background:#0a1828;}
+.roster-player-name{font-family:Barlow Condensed,sans-serif;font-size:15px;font-weight:700;letter-spacing:1px;flex:1;}
+.roster-pts{font-family:Barlow Condensed,sans-serif;font-size:16px;font-weight:900;min-width:44px;text-align:right;}
+.roster-match-pts{font-family:Barlow Condensed,sans-serif;font-size:13px;color:var(--muted);min-width:36px;text-align:right;}
+.c-badge{font-family:Barlow Condensed,sans-serif;font-size:10px;font-weight:800;letter-spacing:1px;padding:1px 5px;border-radius:3px;background:var(--gold);color:#000;}
+.vc-badge{font-family:Barlow Condensed,sans-serif;font-size:10px;font-weight:800;letter-spacing:1px;padding:1px 5px;border-radius:3px;background:var(--surface2);color:var(--muted);border:1px solid var(--border);}
+.player-modal-overlay{position:fixed;inset:0;background:#00000090;z-index:500;display:none;align-items:flex-end;justify-content:center;}
+.player-modal-overlay.open{display:flex;}
+.player-modal{background:var(--surface);border-radius:16px 16px 0 0;width:100%;max-width:600px;max-height:85dvh;overflow-y:auto;padding:20px;}
+.player-modal-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;}
+.player-modal-name{font-family:Barlow Condensed,sans-serif;font-size:26px;font-weight:900;letter-spacing:2px;}
+.player-modal-close{background:none;border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:4px 10px;cursor:pointer;font-size:16px;}
+.stat-breakdown-row{display:flex;justify-content:space-between;padding:4px 0;font-size:13px;color:var(--muted);border-bottom:1px solid #0a1828;}
+.stat-breakdown-row:last-child{border-bottom:none;}
+.stat-breakdown-row .val{font-family:Barlow Condensed,sans-serif;font-size:14px;font-weight:700;}
+.stat-val-pos{color:var(--green);}.stat-val-neg{color:var(--red);}.stat-val-neu{color:var(--muted);}
+.match-breakdown-card{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:8px;}
+.match-breakdown-title{font-family:Barlow Condensed,sans-serif;font-size:14px;font-weight:700;letter-spacing:1px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;}
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 24px;font-family:'Barlow Condensed',sans-serif;font-size:15px;letter-spacing:2px;color:var(--text);z-index:9999;transition:transform 0.3s;white-space:nowrap;}
+.toast.show{transform:translateX(-50%) translateY(0);}
+.toast.success{border-color:var(--green);color:var(--green);}
+.toast.error{border-color:var(--red);color:var(--red);}
+::-webkit-scrollbar{width:6px;height:6px;}
+::-webkit-scrollbar-track{background:var(--bg);}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
+@media(max-width:600px){.nav-tab{font-size:11px;padding:5px 8px;letter-spacing:1px;}}
+</style>
+</head>
+<body>
+
+<!-- LANDING -->
+<div id="screenLanding" class="screen active">
+  <div class="logo">
+    <h1><span class="logo-word-top">Auction</span><span class="logo-word-bot">Packed</span><span class="logo-live">LIVE</span></h1>
+    <p>IPL 2026 · Fantasy Points Tracker</p>
+  </div>
+  <div class="landing-cards">
+    <div class="landing-card viewer" onclick="showScreen('screenMain');setTimeout(()=>switchTab('leaderboard'),50)">
+      <div class="landing-card-title">View</div>
+      <div class="landing-card-sub">Leaderboard · Scores · Live</div>
+    </div>
+    <div class="landing-card" style="border-color:var(--border);cursor:pointer;" onclick="showScreen('screenPickCV')"
+      onmouseover="this.style.borderColor='#ff2d55';this.style.boxShadow='0 12px 40px #ff2d5525'"
+      onmouseout="this.style.borderColor='var(--border)';this.style.boxShadow=''">
+      <div class="landing-card-title" style="color:#ff2d55;">Pick C / VC</div>
+      <div class="landing-card-sub">Select your Captain &amp; Vice Captain</div>
+    </div>
+    <div class="landing-card admin" onclick="showScreen('screenAdminLogin')">
+      <div class="landing-card-title">Admin</div>
+      <div class="landing-card-sub">Enter match results</div>
+    </div>
+  </div>
+</div>
+
+<!-- PICK C/VC -->
+<div id="screenPickCV" class="screen">
+  <div class="logo" style="padding:32px 20px 20px;">
+    <h1><span class="logo-word-top">Auction</span><span class="logo-word-bot">Packed</span></h1>
+  </div>
+  <div style="padding:0 20px 40px;">
+    <div class="setup-card">
+      <h2 style="color:#ff2d55;">Pick C / VC</h2>
+      <p>Select your team, then pick your Captain and Vice Captain. Your picks are locked permanently once confirmed.</p>
+      <div class="field-label" style="margin-top:8px;">Your Team</div>
+      <select class="field-input" id="cvTeamSelect" onchange="renderCVPicker()" style="margin-bottom:16px;">
+        <option value="">-- Select your team --</option>
+      </select>
+      <div id="cvPickerBody"></div>
+      <button class="btn" style="background:#ff2d55;margin-top:16px;" onclick="confirmCV()" id="cvConfirmBtn" disabled>Lock In Picks</button>
+      <button class="btn secondary" onclick="showScreen('screenLanding')" style="margin-top:8px;">Back</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADMIN LOGIN -->
+<div id="screenAdminLogin" class="screen">
+  <div class="logo"><h1><span class="logo-word-top">Auction</span><span class="logo-word-bot">Packed</span></h1></div>
+  <div style="padding:0 20px;">
+    <div class="setup-card">
+      <h2 style="color:var(--orange)">Admin Access</h2>
+      <p>Enter the admin password to update match scores.</p>
+      <input type="password" id="adminPwInput" placeholder="Password" onkeydown="if(event.key==='Enter')adminLogin()">
+      <div class="error-msg" id="adminPwError"></div>
+      <button class="btn" onclick="adminLogin()">Enter</button>
+      <button class="btn secondary" onclick="showScreen('screenLanding')">Back</button>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN APP -->
+<div id="screenMain" class="screen">
+  <div class="app-header">
+    <div class="app-header-logo" onclick="showScreen('screenLanding')">
+      <span class="ahl-top">Auction</span><span class="ahl-bot">Packed</span><span class="ahl-live">LIVE</span>
+    </div>
+    <div class="nav-tabs">
+      <button class="nav-tab active" onclick="switchTab('leaderboard')" id="tabLeaderboard">Board</button>
+      <button class="nav-tab" onclick="switchTab('matches')" id="tabMatches">Matches</button>
+      <button class="nav-tab" onclick="switchTab('players')" id="tabPlayers">Players</button>
+      <button class="nav-tab" onclick="switchTab('live')" id="tabLive">Live</button>
+      <button class="nav-tab" onclick="switchTab('captains')" id="tabCaptains">C/VC</button>
+      <button class="nav-tab" onclick="switchTab('admin')" id="tabAdmin" style="display:none">Admin</button>
+    </div>
+  </div>
+  <div id="tabContentLeaderboard" class="tab-content active"><div class="leaderboard-wrap"><div class="leaderboard-title">Fantasy Points Leaderboard</div><div id="lbList"></div></div></div>
+  <div id="tabContentMatches" class="tab-content"><div class="mbm-wrap"><div id="matchList"></div></div></div>
+  <div id="tabContentPlayers" class="tab-content">
+    <div class="ps-wrap">
+      <div class="ps-filters" id="psFilters">
+        <button class="ps-filter-btn active" onclick="filterPlayers('ALL')" id="pf-ALL">All</button>
+        <button class="ps-filter-btn" onclick="filterPlayers('BAT')" id="pf-BAT">Bat</button>
+        <button class="ps-filter-btn" onclick="filterPlayers('BOW')" id="pf-BOW">Bowl</button>
+        <button class="ps-filter-btn" onclick="filterPlayers('ALL_ROLE')" id="pf-ALL_ROLE">All-R</button>
+        <button class="ps-filter-btn" onclick="filterPlayers('WIC')" id="pf-WIC">WK</button>
+      </div>
+      <div class="ps-table-wrap">
+        <table class="ps-table">
+          <thead><tr><th>#</th><th>Player</th><th>Role</th><th>Team</th><th class="num">Pts</th></tr></thead>
+          <tbody id="psTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+  <div id="tabContentCaptains" class="tab-content"><div style="max-width:700px;margin:0 auto;padding:20px 16px;" id="captainsView"></div></div>
+  <div id="tabContentLive" class="tab-content"><div class="live-wrap" id="liveWrap"><div class="no-live">No match in progress</div></div></div>
+  <div id="tabContentAdmin" class="tab-content"><div class="admin-wrap" id="adminWrap"></div></div>
+</div>
+
+<!-- PLAYER MODAL -->
+<div class="player-modal-overlay" id="playerModal" onclick="closePlayerModal(event)">
+  <div class="player-modal" id="playerModalBody"></div>
+</div>
+
+<!-- ESPN VERIFICATION MODAL -->
+<div class="player-modal-overlay" id="espnVerificationModal" onclick="closeESPNVerificationModal(event)">
+  <div class="player-modal" id="espnVerificationModalBody"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ── Fix: AbortSignal.timeout() can't be cloned via postMessage in Chrome ──
+AbortSignal.timeout = function(ms) {
+  const ctrl = new AbortController();
+  setTimeout(() => ctrl.abort(new DOMException('TimeoutError','TimeoutError')), ms);
+  return ctrl.signal;
+};
+
+// ═══════════════════════════════════════════════════════
+// SCHEDULE
+// ═══════════════════════════════════════════════════════
+const IPL_2026_SCHEDULE = [
+  {match:1,match_id:1527674,date:'2026-03-28',home:'SRH',away:'RCB',venue:'Bengaluru',time:'19:30',slug:'royal-challengers-bengaluru-vs-sunrisers-hyderabad-1st-match-1527674'},
+  {match:2,match_id:1527675,date:'2026-03-29',home:'KKR',away:'MI',venue:'Mumbai',time:'19:30',slug:'kolkata-knight-riders-vs-mumbai-indians-2nd-match-1527675'},
+  {match:3,match_id:1527676,date:'2026-03-30',home:'CSK',away:'RR',venue:'Guwahati',time:'19:30',slug:'chennai-super-kings-vs-rajasthan-royals-3rd-match-1527676'},
+  {match:4,match_id:1527677,date:'2026-03-31',home:'GT',away:'PBKS',venue:'New Chandigarh',time:'19:30',slug:'gujarat-titans-vs-punjab-kings-4th-match-1527677'},
+  {match:5,match_id:1527678,date:'2026-04-01',home:'DC',away:'LSG',venue:'Lucknow',time:'19:30',slug:'delhi-capitals-vs-lucknow-super-giants-5th-match-1527678'},
+  {match:6,match_id:1527679,date:'2026-04-02',home:'SRH',away:'KKR',venue:'Kolkata',time:'19:30',slug:'kolkata-knight-riders-vs-sunrisers-hyderabad-6th-match-1527679'},
+  {match:7,match_id:1527680,date:'2026-04-03',home:'PBKS',away:'CSK',venue:'Chennai',time:'19:30',slug:'chennai-super-kings-vs-punjab-kings-7th-match-1527680'},
+  {match:8,match_id:1527681,date:'2026-04-04',home:'MI',away:'DC',venue:'Delhi',time:'15:30',slug:'delhi-capitals-vs-mumbai-indians-8th-match-1527681'},
+  {match:9,match_id:1527682,date:'2026-04-04',home:'RR',away:'GT',venue:'Ahmedabad',time:'19:30',slug:'gujarat-titans-vs-rajasthan-royals-9th-match-1527682'},
+  {match:10,match_id:1527683,date:'2026-04-05',home:'LSG',away:'SRH',venue:'Hyderabad',time:'15:30',slug:'lucknow-super-giants-vs-sunrisers-hyderabad-10th-match-1527683'},
+  {match:11,match_id:1527684,date:'2026-04-05',home:'CSK',away:'RCB',venue:'Bengaluru',time:'19:30',slug:'chennai-super-kings-vs-royal-challengers-bengaluru-11th-match-1527684'},
+  {match:12,match_id:1527685,date:'2026-04-06',home:'PBKS',away:'KKR',venue:'Kolkata',time:'19:30',slug:'kolkata-knight-riders-vs-punjab-kings-12th-match-1527685'},
+  {match:13,match_id:1527686,date:'2026-04-07',home:'MI',away:'RR',venue:'Guwahati',time:'19:30',slug:'mumbai-indians-vs-rajasthan-royals-13th-match-1527686'},
+  {match:14,match_id:1527687,date:'2026-04-08',home:'GT',away:'DC',venue:'Delhi',time:'19:30',slug:'delhi-capitals-vs-gujarat-titans-14th-match-1527687'},
+  {match:15,match_id:1527688,date:'2026-04-09',home:'LSG',away:'KKR',venue:'Kolkata',time:'19:30',slug:'kolkata-knight-riders-vs-lucknow-super-giants-15th-match-1527688'},
+  {match:16,match_id:1527689,date:'2026-04-10',home:'RCB',away:'RR',venue:'Guwahati',time:'19:30',slug:'rajasthan-royals-vs-royal-challengers-bengaluru-16th-match-1527689'},
+  {match:17,match_id:1527690,date:'2026-04-11',home:'SRH',away:'PBKS',venue:'New Chandigarh',time:'15:30',slug:'punjab-kings-vs-sunrisers-hyderabad-17th-match-1527690'},
+  {match:18,match_id:1527691,date:'2026-04-11',home:'DC',away:'CSK',venue:'Chennai',time:'19:30',slug:'chennai-super-kings-vs-delhi-capitals-18th-match-1527691'},
+  {match:19,match_id:1527692,date:'2026-04-12',home:'GT',away:'LSG',venue:'Lucknow',time:'15:30',slug:'gujarat-titans-vs-lucknow-super-giants-19th-match-1527692'},
+  {match:20,match_id:1527693,date:'2026-04-12',home:'RCB',away:'MI',venue:'Mumbai',time:'19:30',slug:'mumbai-indians-vs-royal-challengers-bengaluru-20th-match-1527693'},
+  {match:21,match_id:1527694,date:'2026-04-13',home:'RR',away:'SRH',venue:'Hyderabad',time:'19:30',slug:'rajasthan-royals-vs-sunrisers-hyderabad-21st-match-1527694'},
+  {match:22,match_id:1527695,date:'2026-04-14',home:'KKR',away:'CSK',venue:'Chennai',time:'19:30',slug:'chennai-super-kings-vs-kolkata-knight-riders-22nd-match-1527695'},
+  {match:23,match_id:1527696,date:'2026-04-15',home:'LSG',away:'RCB',venue:'Bengaluru',time:'19:30',slug:'lucknow-super-giants-vs-royal-challengers-bengaluru-23rd-match-1527696'},
+  {match:24,match_id:1527697,date:'2026-04-16',home:'PBKS',away:'MI',venue:'Mumbai',time:'19:30',slug:'mumbai-indians-vs-punjab-kings-24th-match-1527697'},
+  {match:25,match_id:1527698,date:'2026-04-17',home:'KKR',away:'GT',venue:'Ahmedabad',time:'19:30',slug:'gujarat-titans-vs-kolkata-knight-riders-25th-match-1527698'},
+  {match:26,match_id:1527699,date:'2026-04-18',home:'DC',away:'RCB',venue:'Bengaluru',time:'15:30',slug:'delhi-capitals-vs-royal-challengers-bengaluru-26th-match-1527699'},
+  {match:27,match_id:1527700,date:'2026-04-18',home:'CSK',away:'SRH',venue:'Hyderabad',time:'19:30',slug:'chennai-super-kings-vs-sunrisers-hyderabad-27th-match-1527700'},
+  {match:28,match_id:1527701,date:'2026-04-19',home:'RR',away:'KKR',venue:'Kolkata',time:'15:30',slug:'kolkata-knight-riders-vs-rajasthan-royals-28th-match-1527701'},
+  {match:29,match_id:1527702,date:'2026-04-19',home:'LSG',away:'PBKS',venue:'New Chandigarh',time:'19:30',slug:'lucknow-super-giants-vs-punjab-kings-29th-match-1527702'},
+  {match:30,match_id:1527703,date:'2026-04-20',home:'MI',away:'GT',venue:'Ahmedabad',time:'19:30',slug:'gujarat-titans-vs-mumbai-indians-30th-match-1527703'},
+  {match:31,match_id:1527704,date:'2026-04-21',home:'DC',away:'SRH',venue:'Hyderabad',time:'19:30',slug:'delhi-capitals-vs-sunrisers-hyderabad-31st-match-1527704'},
+  {match:32,match_id:1527705,date:'2026-04-22',home:'RR',away:'LSG',venue:'Lucknow',time:'19:30',slug:'lucknow-super-giants-vs-rajasthan-royals-32nd-match-1527705'},
+  {match:33,match_id:1527706,date:'2026-04-23',home:'CSK',away:'MI',venue:'Mumbai',time:'19:30',slug:'chennai-super-kings-vs-mumbai-indians-33rd-match-1527706'},
+  {match:34,match_id:1527707,date:'2026-04-24',home:'GT',away:'RCB',venue:'Bengaluru',time:'19:30',slug:'gujarat-titans-vs-royal-challengers-bengaluru-34th-match-1527707'},
+  {match:35,match_id:1527708,date:'2026-04-25',home:'PBKS',away:'DC',venue:'Delhi',time:'15:30',slug:'delhi-capitals-vs-punjab-kings-35th-match-1527708'},
+  {match:36,match_id:1527709,date:'2026-04-25',home:'SRH',away:'RR',venue:'Jaipur',time:'19:30',slug:'rajasthan-royals-vs-sunrisers-hyderabad-36th-match-1527709'},
+  {match:37,match_id:1527710,date:'2026-04-26',home:'CSK',away:'GT',venue:'Ahmedabad',time:'15:30',slug:'chennai-super-kings-vs-gujarat-titans-37th-match-1527710'},
+  {match:38,match_id:1527711,date:'2026-04-26',home:'KKR',away:'LSG',venue:'Lucknow',time:'19:30',slug:'kolkata-knight-riders-vs-lucknow-super-giants-38th-match-1527711'},
+  {match:39,match_id:1527712,date:'2026-04-27',home:'RCB',away:'DC',venue:'Delhi',time:'19:30',slug:'delhi-capitals-vs-royal-challengers-bengaluru-39th-match-1527712'},
+  {match:40,match_id:1527713,date:'2026-04-28',home:'RR',away:'PBKS',venue:'New Chandigarh',time:'19:30',slug:'punjab-kings-vs-rajasthan-royals-40th-match-1527713'},
+  {match:41,match_id:1527714,date:'2026-04-29',home:'SRH',away:'MI',venue:'Mumbai',time:'19:30',slug:'mumbai-indians-vs-sunrisers-hyderabad-41st-match-1527714'},
+  {match:42,match_id:1527715,date:'2026-04-30',home:'RCB',away:'GT',venue:'Ahmedabad',time:'19:30',slug:'gujarat-titans-vs-royal-challengers-bengaluru-42nd-match-1527715'},
+  {match:43,match_id:1527716,date:'2026-05-01',home:'DC',away:'RR',venue:'Jaipur',time:'19:30',slug:'delhi-capitals-vs-rajasthan-royals-43rd-match-1527716'},
+  {match:44,match_id:1527717,date:'2026-05-02',home:'MI',away:'CSK',venue:'Chennai',time:'19:30',slug:'chennai-super-kings-vs-mumbai-indians-44th-match-1527717'},
+  {match:45,match_id:1527718,date:'2026-05-03',home:'KKR',away:'SRH',venue:'Hyderabad',time:'15:30',slug:'kolkata-knight-riders-vs-sunrisers-hyderabad-45th-match-1527718'},
+  {match:46,match_id:1527719,date:'2026-05-03',home:'PBKS',away:'GT',venue:'Ahmedabad',time:'19:30',slug:'gujarat-titans-vs-punjab-kings-46th-match-1527719'},
+  {match:47,match_id:1527720,date:'2026-05-04',home:'LSG',away:'MI',venue:'Mumbai',time:'19:30',slug:'lucknow-super-giants-vs-mumbai-indians-47th-match-1527720'},
+  {match:48,match_id:1527721,date:'2026-05-05',home:'CSK',away:'DC',venue:'Delhi',time:'19:30',slug:'chennai-super-kings-vs-delhi-capitals-48th-match-1527721'},
+  {match:49,match_id:1527722,date:'2026-05-06',home:'PBKS',away:'SRH',venue:'Hyderabad',time:'19:30',slug:'punjab-kings-vs-sunrisers-hyderabad-49th-match-1527722'},
+  {match:50,match_id:1527723,date:'2026-05-07',home:'RCB',away:'LSG',venue:'Lucknow',time:'19:30',slug:'lucknow-super-giants-vs-royal-challengers-bengaluru-50th-match-1527723'},
+  {match:51,match_id:1527724,date:'2026-05-08',home:'KKR',away:'DC',venue:'Delhi',time:'19:30',slug:'delhi-capitals-vs-kolkata-knight-riders-51st-match-1527724'},
+  {match:52,match_id:1527725,date:'2026-05-09',home:'GT',away:'RR',venue:'Jaipur',time:'19:30',slug:'gujarat-titans-vs-rajasthan-royals-52nd-match-1527725'},
+  {match:53,match_id:1527726,date:'2026-05-10',home:'LSG',away:'CSK',venue:'Chennai',time:'15:30',slug:'chennai-super-kings-vs-lucknow-super-giants-53rd-match-1527726'},
+  {match:54,match_id:1527727,date:'2026-05-10',home:'MI',away:'PBKS',venue:'Mumbai',time:'19:30',slug:'mumbai-indians-vs-punjab-kings-54th-match-1527727'},
+  {match:55,match_id:1527728,date:'2026-05-11',home:'SRH',away:'DC',venue:'Hyderabad',time:'19:30',slug:'delhi-capitals-vs-sunrisers-hyderabad-55th-match-1527728'},
+  {match:56,match_id:1527729,date:'2026-05-12',home:'RR',away:'RCB',venue:'Raipur',time:'19:30',slug:'rajasthan-royals-vs-royal-challengers-bengaluru-56th-match-1527729'},
+  {match:57,match_id:1527730,date:'2026-05-13',home:'GT',away:'KKR',venue:'Kolkata',time:'19:30',slug:'gujarat-titans-vs-kolkata-knight-riders-57th-match-1527730'},
+  {match:58,match_id:1527731,date:'2026-05-14',home:'MI',away:'LSG',venue:'Lucknow',time:'19:30',slug:'lucknow-super-giants-vs-mumbai-indians-58th-match-1527731'},
+  {match:59,match_id:1527732,date:'2026-05-15',home:'CSK',away:'LSG',venue:'Lucknow',time:'19:30',slug:'chennai-super-kings-vs-lucknow-super-giants-59th-match-1527732'},
+  {match:60,match_id:1527733,date:'2026-05-16',home:'DC',away:'GT',venue:'Ahmedabad',time:'15:30',slug:'delhi-capitals-vs-gujarat-titans-60th-match-1527733'},
+  {match:61,match_id:1527734,date:'2026-05-16',home:'RR',away:'KKR',venue:'Jaipur',time:'19:30',slug:'kolkata-knight-riders-vs-rajasthan-royals-61st-match-1527734'},
+  {match:62,match_id:1527735,date:'2026-05-17',home:'SRH',away:'RCB',venue:'Raipur',time:'15:30',slug:'royal-challengers-bengaluru-vs-sunrisers-hyderabad-62nd-match-1527735'},
+  {match:63,match_id:1527736,date:'2026-05-17',home:'PBKS',away:'MI',venue:'Dharamsala',time:'19:30',slug:'mumbai-indians-vs-punjab-kings-63rd-match-1527736'},
+  {match:64,match_id:1527737,date:'2026-05-18',home:'CSK',away:'SRH',venue:'Chennai',time:'19:30',slug:'chennai-super-kings-vs-sunrisers-hyderabad-64th-match-1527737'},
+  {match:65,match_id:1527738,date:'2026-05-19',home:'GT',away:'PBKS',venue:'Dharamsala',time:'19:30',slug:'gujarat-titans-vs-punjab-kings-65th-match-1527738'},
+  {match:66,match_id:1527739,date:'2026-05-20',home:'LSG',away:'DC',venue:'Delhi',time:'19:30',slug:'delhi-capitals-vs-lucknow-super-giants-66th-match-1527739'},
+  {match:67,match_id:1527740,date:'2026-05-21',home:'CSK',away:'GT',venue:'Chennai',time:'19:30',slug:'chennai-super-kings-vs-gujarat-titans-67th-match-1527740'},
+  {match:68,match_id:1527741,date:'2026-05-21',home:'RCB',away:'KKR',venue:'Bengaluru',time:'19:30',slug:'kolkata-knight-riders-vs-royal-challengers-bengaluru-68th-match-1527741'},
+  {match:69,match_id:1527742,date:'2026-05-22',home:'MI',away:'RR',venue:'Mumbai',time:'15:30',slug:'mumbai-indians-vs-rajasthan-royals-69th-match-1527742'},
+  {match:70,match_id:1527743,date:'2026-05-22',home:'SRH',away:'RCB',venue:'Bengaluru',time:'19:30',slug:'royal-challengers-bengaluru-vs-sunrisers-hyderabad-70th-match-1527743'},
+  {match:'Q1',match_id:1527744,date:'2026-05-27',home:'TBD',away:'TBD',venue:'TBD',time:'19:30',slug:''},
+  {match:'EL',match_id:1527745,date:'2026-05-28',home:'TBD',away:'TBD',venue:'TBD',time:'19:30',slug:''},
+  {match:'Q2',match_id:1527746,date:'2026-05-29',home:'TBD',away:'TBD',venue:'TBD',time:'19:30',slug:''},
+  {match:'F',match_id:1527747,date:'2026-05-31',home:'TBD',away:'TBD',venue:'Bengaluru',time:'19:30',slug:''}
+];
+
+// ═══════════════════════════════════════════════════════
+// TEAMS
+// ═══════════════════════════════════════════════════════
+const TEAMS = [
+  {name:'ALVA',players:[{name:'Shubman Gill',role:'BAT'},{name:'Varun Chakravarthy',role:'BOW'},{name:'Tilak Varma',role:'BAT'},{name:'Hardik Pandya',role:'ALL'},{name:'Ryan Rickelton',role:'WIC'},{name:'Mohammed Siraj',role:'BOW'},{name:'Axar Patel',role:'ALL'},{name:'David Miller',role:'BAT'},{name:'Devdutt Padikkal',role:'BAT'},{name:'Mitchell Starc',role:'BOW'},{name:'Tim Seifert',role:'WIC'}]},
+  {name:'ANIRUDH',players:[{name:'Ishan Kishan',role:'WIC'},{name:'Ayush Mhatre',role:'BAT'},{name:'Priyansh Arya',role:'ALL'},{name:'Arshdeep Singh',role:'BOW'},{name:'Prasidh Krishna',role:'BOW'},{name:'Digvesh Singh',role:'BOW'},{name:'Naman Dhir',role:'ALL'},{name:'Quinton de Kock',role:'WIC'},{name:'Harshit Rana',role:'BOW'},{name:'Sam Curran',role:'ALL'},{name:'Glenn Phillips',role:'BAT'}]},
+  {name:'ASVIN',players:[{name:'Yashasvi Jaiswal',role:'BAT'},{name:'Jasprit Bumrah',role:'BOW'},{name:'Rishabh Pant',role:'WIC'},{name:'Yuzvendra Chahal',role:'BOW'},{name:'Mitchell Marsh',role:'ALL'},{name:'Nitish Rana',role:'ALL'},{name:'Pat Cummins',role:'BOW'},{name:'Tim David',role:'ALL'},{name:'Pathum Nissanka',role:'BAT'},{name:'Vaibhav Arora',role:'BOW'},{name:'Shashank Singh',role:'BAT'}]},
+  {name:'GAJA',players:[{name:'Sanju Samson',role:'WIC'},{name:'Suryakumar Yadav',role:'BAT'},{name:'Rajat Patidar',role:'BAT'},{name:'Angkrish Raghuvanshi',role:'BAT'},{name:'Jacob Bethell',role:'ALL'},{name:'Cameron Green',role:'ALL'},{name:'Josh Hazlewood',role:'BOW'},{name:'Trent Boult',role:'BOW'},{name:'Jitesh Sharma',role:'WIC'},{name:'Mohammed Shami',role:'BOW'},{name:'Aniket Verma',role:'BAT'}]},
+  {name:'KARTHIK',players:[{name:'Phil Salt',role:'WIC'},{name:'Vaibhav Suryavanshi',role:'BAT'},{name:'Sunil Narine',role:'ALL'},{name:'Shimron Hetmyer',role:'BAT'},{name:'Khaleel Ahmed',role:'BOW'},{name:'MS Dhoni',role:'WIC'},{name:'Will Jacks',role:'ALL'},{name:'Sandeep Sharma',role:'BOW'},{name:'Vipraj Nigam',role:'ALL'},{name:'T Natarajan',role:'BOW'},{name:'Deepak Chahar',role:'BOW'}]},
+  {name:'MUKIL',players:[{name:'Ruturaj Gaikwad',role:'BAT'},{name:'Rohit Sharma',role:'BAT'},{name:'Aiden Markram',role:'ALL'},{name:'Kuldeep Yadav',role:'BOW'},{name:'Ravindra Jadeja',role:'ALL'},{name:'Jos Buttler',role:'WIC'},{name:'Kagiso Rabada',role:'BOW'},{name:'Ravi Bishnoi',role:'BOW'},{name:'Mitchell Santner',role:'ALL'},{name:'Venkatesh Iyer',role:'ALL'},{name:'Abishek Porel',role:'WIC'}]},
+  {name:'SRIPAD',players:[{name:'Abhishek Sharma',role:'ALL'},{name:'Nicholas Pooran',role:'WIC'},{name:'Travis Head',role:'BAT'},{name:'Prabhsimran Singh',role:'WIC'},{name:'Ajinkya Rahane',role:'BAT'},{name:'Jaydev Unadkat',role:'BOW'},{name:'Matt Henry',role:'BOW'},{name:'Sal Kishore',role:'BOW'},{name:'Washington Sundar',role:'ALL'},{name:'Krunal Pandya',role:'ALL'},{name:'Suyash Sharma',role:'BOW'}]},
+  {name:'VATS',players:[{name:'Virat Kohli',role:'BAT'},{name:'Sai Sudharsan',role:'BAT'},{name:'Rashid Khan',role:'BOW'},{name:'Heinrich Klaasen',role:'WIC'},{name:'Shivam Dube',role:'ALL'},{name:'Bhuvneshwar Kumar',role:'BOW'},{name:'Karthik Sharma',role:'WIC'},{name:'Sarfaraz Khan',role:'BAT'},{name:'Tristan Stubbs',role:'WIC'},{name:'Harshal Patel',role:'BOW'},{name:'Jofra Archer',role:'BOW'}]},
+  {name:'VINAY',players:[{name:'KL Rahul',role:'WIC'},{name:'Noor Ahmad',role:'BOW'},{name:'Dewald Brevis',role:'BAT'},{name:'Finn Allen',role:'WIC'},{name:'Riyan Parag',role:'BAT'},{name:'Shreyas Iyer',role:'BAT'},{name:'Avesh Khan',role:'BOW'},{name:'Marco Jansen',role:'ALL'},{name:'Harpreet Brar',role:'ALL'},{name:'Zeeshan Ansari',role:'BOW'},{name:'Dhruv Jurel',role:'WIC'}]},
+];
+
+const ADMIN_PASSWORD = 'auctionpacked2026';
+const CV_LOCK_DEADLINE = new Date('2026-03-29T13:30:00Z');
+const CRICKETDATA_API_KEY = '392801ff-67f0-4f6d-b919-050d49eed9ba';
+const API_BASE = 'https://api.cricapi.com/v1';
+const IPL_2026_SERIES_ID = '87c62aac-bc3c-4738-ab93-19da0690488f';
+
+// ═══════════════════════════════════════════════════════
+// POINTS SYSTEM
+// ═══════════════════════════════════════════════════════
+function calcBasePoints(p) {
+  let pts = 0;
+  if (!p || !p.played) return 0;
+
+  const runs     = p.runs || 0;
+  const balls    = p.balls || 0;
+  const fours    = p.fours || 0;
+  const sixes    = p.sixes || 0;
+  const dismissed = p.dismissed !== false;
+  const role     = p.role || '';
+
+  // Batting
+  pts += runs;
+  pts += fours * 2;
+  pts += sixes * 3;
+
+  if      (runs >= 100) pts += 50;
+  else if (runs >= 75)  pts += 35;
+  else if (runs >= 50)  pts += 25;
+
+  if (dismissed && runs === 0 && balls > 0 && ['BAT','WIC','ALL'].includes(role)) pts -= 10;
+
+  // SR: min 8 balls OR min 15 runs (and must have faced at least 1 ball)
+  if ((balls >= 8 || runs >= 15) && balls > 0) {
+    const sr = (runs / balls) * 100;
+    if      (sr >= 150) pts += 30;
+    else if (sr >= 130) pts += 20;
+    else if (sr >= 100) pts += 15;
+    else if (sr >= 90)  pts += 0;
+    else if (sr >= 70)  pts -= 15;
+    else if (sr >= 50)  pts -= 20;
+    else                pts -= 25;
+  }
+
+  // Bowling
+  const wickets      = p.wickets || 0;
+  const overs        = p.overs || 0;
+  const runsConceded = p.runsConceded || 0;
+  const maidens      = p.maidens || 0;
+  const dots         = p.dots || 0;
+
+  pts += wickets * 25;
+  if      (wickets >= 5) pts += 70;
+  else if (wickets >= 3) pts += 40;
+  else if (wickets >= 2) pts += 25;
+
+  pts += maidens * 20;
+  pts += dots * 2;
+
+  // Economy: overs stored as true decimal, so >= 2 means >= 12 balls bowled
+  if (overs >= 2) {
+    const eco = runsConceded / overs;
+    if      (eco < 4)  pts += 40;
+    else if (eco < 5)  pts += 35;
+    else if (eco < 6)  pts += 25;
+    else if (eco < 9)  pts += 20;
+    else if (eco < 11) pts += 5;
+    else if (eco < 13) pts -= 10;
+    else               pts -= 20;
+  }
+
+  // Fielding
+  pts += (p.catches        || 0) * 10;
+  pts += (p.stumpings      || 0) * 10;
+  pts += (p.runoutDirect   || 0) * 10;
+  pts += (p.runoutIndirect || 0) * 10;
+
+  return pts;
+}
+
+function calcFantasyPoints(p, teamName, matchPotm) {
+  if (!p || !p.played) return 0;
+  const base = calcBasePoints(p);
+  const cv = liveData.captains || {};
+  const teamCV = cv[teamName] || {};
+  const isCap = teamCV.captain === p.playerName;
+  const isVC  = teamCV.viceCaptain === p.playerName;
+
+  let pts;
+  if (isCap)     pts = Math.round(base * 2);
+  else if (isVC) pts = Math.floor(base * 1.5);
+  else           pts = base;
+
+  // POTM added after multiplier
+  if (matchPotm && p.playerName === matchPotm) {
+    if      (isCap) pts += 60;
+    else if (isVC)  pts += 40;
+    else            pts += 30;
+  }
+  return pts;
+}
+
+// ═══════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════
+let liveData = { matches: [] };
+let isAdmin = false;
+let currentTab = 'leaderboard';
+let playerFilter = 'ALL';
+
+const POLL_INTERVAL_NORMAL = 15 * 60 * 1000;
+const POLL_INTERVAL_SLOW   = 30 * 60 * 1000;
+const DAILY_LIMIT          = 2000;
+const DAILY_LIMIT_SLOW_AT  = 1800;
+const LS_API_CALLS_KEY     = 'ap_live_api_calls';
+let _pollTimer = null;
+let _autoPolling = false;
+let _lastSyncTime = null;
+let _countdownTimer = null;
+
+function resetStaleCounter() {
+  try { const s=JSON.parse(localStorage.getItem(LS_API_CALLS_KEY)||'{}'); if(s.count>=100) localStorage.removeItem(LS_API_CALLS_KEY); } catch(e){}
+}
+resetStaleCounter();
+
+function getApiCallsToday() {
+  try { const s=JSON.parse(localStorage.getItem(LS_API_CALLS_KEY)||'{}'); const t=new Date().toISOString().slice(0,10); if(s.date!==t) return 0; return s.count||0; } catch(e){return 0;}
+}
+function incrementApiCalls(n=1) {
+  try { const t=new Date().toISOString().slice(0,10); const c=getApiCallsToday()+n; localStorage.setItem(LS_API_CALLS_KEY,JSON.stringify({date:t,count:c})); return c; } catch(e){return 0;}
+}
+function apiCallsRemaining() { return Math.max(0, DAILY_LIMIT - getApiCallsToday()); }
+
+// ═══════════════════════════════════════════════════════
+// SCREEN / TAB NAV
+// ═══════════════════════════════════════════════════════
+function showScreen(id) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function switchTab(tab) {
+  currentTab = tab;
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+  const ce = document.getElementById('tabContent'+cap(tab));
+  if (ce) ce.classList.add('active');
+  const nb = document.querySelector('.nav-tab[onclick="switchTab(\''+tab+'\')"]');
+  if (nb) nb.classList.add('active');
+  renderTab(tab);
+}
+
+function cap(s) { return s.charAt(0).toUpperCase()+s.slice(1); }
+
+// ═══════════════════════════════════════════════════════
+// ADMIN LOGIN
+// ═══════════════════════════════════════════════════════
+function adminLogin() {
+  if (document.getElementById('adminPwInput').value === ADMIN_PASSWORD) {
+    isAdmin = true;
+    document.getElementById('adminPwInput').value = '';
+    document.getElementById('adminPwError').textContent = '';
+    document.getElementById('tabAdmin').style.display = '';
+    showScreen('screenMain');
+    switchTab('admin');
+  } else {
+    document.getElementById('adminPwError').textContent = 'Incorrect password.';
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// FIREBASE
+// ═══════════════════════════════════════════════════════
+function initFirebaseListener() {
+  if (!window._db) return;
+  window._db.ref('live').on('value', snap => {
+    const d = snap.val();
+    liveData = d || { matches: [] };
+    if (!liveData.matches) liveData.matches = [];
+    renderTab(currentTab);
+  });
+}
+
+function saveLiveData() {
+  if (!window._db) { showToast('Firebase unavailable','error'); return; }
+  window._db.ref('live').set(liveData)
+    .then(() => showToast('Saved!','success'))
+    .catch(() => showToast('Save failed','error'));
+}
+
+// ═══════════════════════════════════════════════════════
+// COMPUTE TOTALS
+// ═══════════════════════════════════════════════════════
+function getPlayerTotals() {
+  const totals = {};
+  TEAMS.forEach(t => t.players.forEach(p => { totals[p.name]={pts:0,teamName:t.name,role:p.role,matchPts:[]}; }));
+  (liveData.matches||[]).forEach(match => {
+    if (match.status!=='done' && match.status!=='live') return;
+    const perfs = match.performances || {};
+    const potm  = match.potm || null;
+    Object.entries(perfs).forEach(([name,perf]) => {
+      if (totals[name]===undefined) return;
+      const pf = {...perf, playerName:name, role:totals[name].role};
+      const mp = calcFantasyPoints(pf, totals[name].teamName, potm);
+      totals[name].pts += mp;
+      totals[name].matchPts.push({matchLabel:match.label, pts:mp});
+    });
+  });
+  return totals;
+}
+
+function getTeamTotals() {
+  const pt = getPlayerTotals();
+  const tt = {};
+  TEAMS.forEach(t => { tt[t.name]=0; t.players.forEach(p => { tt[t.name]+=(pt[p.name]||{}).pts||0; }); });
+  return tt;
+}
+
+// ═══════════════════════════════════════════════════════
+// RENDER
+// ═══════════════════════════════════════════════════════
+function renderTab(tab) {
+  if (tab==='leaderboard') renderLeaderboard();
+  if (tab==='matches')     renderMatches();
+  if (tab==='players')     renderPlayers();
+  if (tab==='live')        renderLive();
+  if (tab==='captains')    renderCaptainsView();
+  if (tab==='admin')       renderAdmin();
+}
+
+// ── LEADERBOARD ──
+function renderLeaderboard() {
+  const totals = getTeamTotals();
+  const sorted = Object.entries(totals).sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0]));
+  const max = sorted[0]&&sorted[0][1]>0?sorted[0][1]:1;
+  const list = document.getElementById('lbList');
+  if (!list) return;
+  const pt = getPlayerTotals();
+  const cv = liveData.captains||{};
+  const liveMatch = (liveData.matches||[]).find(m=>m.status==='live');
+  const doneCount = (liveData.matches||[]).filter(m=>m.status==='done').length;
+  const totalTeams = sorted.length;
+
+  list.innerHTML = sorted.map(([name,pts],i) => {
+    const cls = i===0&&pts>0?'top1':i===1&&pts>0?'top2':i===2&&pts>0?'top3':'';
+    const team = TEAMS.find(t=>t.name===name);
+    const pct = max>0?Math.round((pts/max)*100):0;
+    const picks = cv[name];
+    const capName = picks?picks.captain.split(' ').pop():'—';
+    const vcName  = picks?picks.viceCaptain.split(' ').pop():'—';
+    const isBPL   = i>=totalTeams-3&&totalTeams>=4;
+    const bplStyle = isBPL?'border-color:#ff2d5540;':'';
+
+    const rosterRows = (team?[...team.players]:[])
+      .sort((a,b)=>((pt[b.name]||{pts:0}).pts)-((pt[a.name]||{pts:0}).pts))
+      .map(p => {
+        const tot=pt[p.name]||{pts:0};
+        const isCap=picks&&picks.captain===p.name;
+        const isVC=picks&&picks.viceCaptain===p.name;
+        let matchPts=0;
+        if (liveMatch) {
+          const perf=(liveMatch.performances||{})[p.name];
+          if (perf) matchPts=calcFantasyPoints({...perf,playerName:p.name,role:p.role},name,liveMatch.potm);
+        }
+        const ptsCls=tot.pts>0?'color:var(--green)':tot.pts<0?'color:var(--red)':'color:var(--muted)';
+        return `<div class="team-roster-row" onclick="openPlayerModal('${p.name.replace(/'/g,"\\'")}')">
+          <div style="flex:1;min-width:0;">
+            <div style="display:flex;align-items:center;gap:5px;">
+              <span class="roster-player-name">${p.name}</span>
+              ${isCap?'<span class="c-badge">C</span>':isVC?'<span class="vc-badge">VC</span>':''}
+            </div>
+            <div style="font-size:10px;color:var(--muted);letter-spacing:1px;">${p.role}</div>
+          </div>
+          ${liveMatch?`<div class="roster-match-pts">${matchPts>0?'+'+matchPts:matchPts}</div>`:''}
+          <div class="roster-pts" style="${ptsCls}">${tot.pts}</div>
+        </div>`;
+      }).join('');
+
+    const rowHtml = `<div class="lb-row ${cls}" style="flex-direction:column;align-items:stretch;padding:0;overflow:hidden;${bplStyle}">
+      <div style="display:flex;align-items:center;gap:12px;padding:14px 16px;cursor:pointer;" onclick="toggleRosterLB('lb-roster-${i}',this)">
+        <div class="lb-rank">${i+1}</div>
+        <div class="lb-team" style="flex:1;">
+          <div class="lb-team-name">${name}</div>
+          <div class="lb-team-meta" style="display:flex;gap:10px;flex-wrap:wrap;">
+            <span style="color:var(--gold);">C: ${capName}</span>
+            <span style="color:var(--muted);">VC: ${vcName}</span>
+            <span>${doneCount} match${doneCount!==1?'es':''} played</span>
+          </div>
+          <div class="lb-sparkbar"><div class="lb-sparkfill" style="width:${pct}%;background:${i===0&&pts>0?'var(--gold)':'var(--orange)'}"></div></div>
+        </div>
+        <div style="text-align:right;">
+          <div class="lb-pts">${pts}</div>
+          <div class="lb-pts-label">PTS</div>
+          <div style="font-size:10px;color:var(--muted);margin-top:2px;">▼ SQUAD</div>
+          ${isBPL?'<div style="font-family:Barlow Condensed,sans-serif;font-size:9px;font-weight:700;letter-spacing:2px;color:var(--red);margin-top:1px;">BPL</div>':''}
+        </div>
+      </div>
+      <div id="lb-roster-${i}" style="display:none;border-top:1px solid var(--border);">
+        ${liveMatch?`<div style="display:flex;justify-content:flex-end;padding:4px 16px;gap:16px;background:#050e1d;"><span style="font-size:10px;color:var(--muted);letter-spacing:1px;">THIS MATCH</span><span style="font-size:10px;color:var(--muted);letter-spacing:1px;min-width:44px;text-align:right;">TOTAL</span></div>`:`<div style="display:flex;justify-content:flex-end;padding:4px 16px;background:#050e1d;"><span style="font-size:10px;color:var(--muted);letter-spacing:1px;min-width:44px;text-align:right;">TOTAL PTS</span></div>`}
+        ${rosterRows}
+      </div>
+    </div>`;
+
+    if (i===totalTeams-3&&totalTeams>=4) {
+      return '<div style="display:flex;align-items:center;gap:8px;padding:6px 2px;margin:2px 0;"><div style="flex:1;height:1px;background:#ff2d5530;"></div><div style="font-family:Barlow Condensed,sans-serif;font-size:10px;font-weight:700;letter-spacing:3px;color:#ff2d5570;">BPL</div><div style="flex:1;height:1px;background:#ff2d5530;"></div></div>'+rowHtml;
+    }
+    return rowHtml;
+  }).join('');
+}
+
+function toggleRosterLB(id, headerEl) {
+  const el = document.getElementById(id); if (!el) return;
+  const isOpen = el.style.display!=='none';
+  el.style.display = isOpen?'none':'block';
+  const lbl = headerEl.querySelector('[style*="SQUAD"]');
+  if (lbl) lbl.textContent = isOpen?'▼ SQUAD':'▲ SQUAD';
+}
+
+// ── MATCHES ──
+function renderMatches() {
+  const list = document.getElementById('matchList'); if (!list) return;
+  const today = new Date().toISOString().slice(0,10);
+  const saved = liveData.matches||[];
+  const sched = [...IPL_2026_SCHEDULE].sort((a,b)=>String(a.date).localeCompare(String(b.date)));
+
+  list.innerHTML = sched.map((fix,si) => {
+    const sv = saved.find(m=>(m.label||'').toLowerCase().includes(fix.home.toLowerCase())&&(m.label||'').toLowerCase().includes(fix.away.toLowerCase()));
+    const isToday=fix.date===today, isPast=fix.date<today;
+    const status=sv?.status||(isToday?'today':isPast?'past':'upcoming');
+    const isLive=status==='live', isDone=status==='done'||(isPast&&!isToday&&!isLive);
+    const bc=isLive?'var(--green)':isDone?'var(--muted)':isToday?'var(--gold)':'var(--surface2)';
+    const bl=isLive?'LIVE':isDone?'DONE':isToday?'TODAY':'UPCOMING';
+
+    let scoresHtml='';
+    if (sv&&sv.performances) {
+      const tp={};TEAMS.forEach(t=>{tp[t.name]=0;});
+      Object.entries(sv.performances).forEach(([pn,perf])=>{
+        if (!perf.played) return;
+        const to=TEAMS.find(t=>t.players.some(p=>p.name===pn));if(!to)return;
+        const ro=(to.players.find(p=>p.name===pn)||{}).role||'';
+        tp[to.name]=(tp[to.name]||0)+calcFantasyPoints({...perf,playerName:pn,role:ro},to.name,sv.potm);
+      });
+      const so=Object.entries(tp).sort((a,b)=>b[1]-a[1]);
+      scoresHtml='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:3px;margin-top:8px;">'+
+        so.map(([n,p])=>'<div style="background:var(--bg);border-radius:4px;padding:4px 6px;text-align:center;"><div style="font-family:Barlow Condensed,sans-serif;font-size:10px;color:var(--muted);letter-spacing:1px;">'+n+'</div><div style="font-family:Barlow Condensed,sans-serif;font-size:14px;font-weight:700;color:'+(p>0?'var(--green)':p<0?'var(--red)':'var(--muted)')+';">'+p+'</div></div>').join('')+
+      '</div>';
+    }
+
+    return `<div id="match-anchor-${si}" style="margin-bottom:6px;">
+      <div class="match-card" style="cursor:pointer;" onclick="var d=this.querySelector('.match-detail');d.style.display=d.style.display==='none'?'block':'none';">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
+          <div>
+            <div style="font-family:Barlow Condensed,sans-serif;font-size:16px;font-weight:700;letter-spacing:1px;">${fix.home} vs ${fix.away}</div>
+            <div style="font-size:11px;color:var(--muted);letter-spacing:1px;margin-top:2px;">Match ${fix.match} · ${fix.date} · ${fix.venue}</div>
+          </div>
+          <span style="font-family:Barlow Condensed,sans-serif;font-size:10px;font-weight:700;letter-spacing:1px;color:${bc};border:1px solid ${bc};border-radius:4px;padding:4px 12px;white-space:nowrap;flex-shrink:0;min-width:72px;text-align:center;display:inline-block;">${bl}</span>
+        </div>
+        <div class="match-detail" style="display:${sv?'block':'none'};">${scoresHtml}</div>
+      </div>
+    </div>`;
+  }).join('');
+
+  requestAnimationFrame(()=>{
+    const fi=sched.findIndex(f=>f.date>=today);
+    if (fi>=0){const el=document.getElementById('match-anchor-'+fi);if(el)el.scrollIntoView({behavior:'smooth',block:'start'});}
+  });
+}
+
+// ── PLAYERS ──
+function filterPlayers(f) {
+  playerFilter=f;
+  document.querySelectorAll('.ps-filter-btn').forEach(b=>b.classList.remove('active'));
+  const btn=document.getElementById('pf-'+f); if(btn)btn.classList.add('active');
+  renderPlayers();
+}
+
+function renderPlayers() {
+  const tbody=document.getElementById('psTableBody');
+  const container=document.getElementById('tabContentPlayers');
+  if(container)container.scrollTop=0;
+  if(!tbody)return;
+  const totals=getPlayerTotals();
+  let rows=Object.entries(totals);
+  if(playerFilter!=='ALL'){const rm={BAT:'BAT',BOW:'BOW',ALL_ROLE:'ALL',WIC:'WIC'};rows=rows.filter(([,v])=>v.role===rm[playerFilter]);}
+  rows.sort((a,b)=>b[1].pts-a[1].pts||a[0].localeCompare(b[0]));
+  tbody.innerHTML=rows.map(([name,v],i)=>{
+    const pc=v.pts>0?'pts-positive':v.pts<0?'pts-negative':'pts-zero';
+    return `<tr style="cursor:pointer;" onclick="openPlayerModal('${name.replace(/'/g,"\\'")}')">
+      <td style="color:var(--muted);font-size:13px;">${i+1}</td>
+      <td><div class="ps-player-name">${name}</div><div class="ps-player-team">${v.teamName}</div></td>
+      <td><span class="role-tag">${v.role}</span></td>
+      <td style="font-size:13px;color:var(--muted);">${v.teamName}</td>
+      <td class="num ${pc}">${v.pts}</td>
+    </tr>`;
+  }).join('');
+}
+
+// ── LIVE ──
+function renderLive() {
+  const wrap=document.getElementById('liveWrap'); if(!wrap)return;
+  const live=(liveData.matches||[]).find(m=>m.status==='live');
+  if(!live){wrap.innerHTML='<div class="no-live">No match currently in progress</div>';return;}
+  const tp={};TEAMS.forEach(t=>{tp[t.name]=0;});
+  Object.entries(live.performances||{}).forEach(([name,perf])=>{
+    const team=TEAMS.find(t=>t.players.some(p=>p.name===name));if(!team)return;
+    const role=(team.players.find(p=>p.name===name)||{}).role||'';
+    tp[team.name]=(tp[team.name]||0)+calcFantasyPoints({...perf,playerName:name,role},team.name,live.potm);
+  });
+  const sorted=Object.entries(tp).sort((a,b)=>b[1]-a[1]);
+  wrap.innerHTML=`
+    <div class="live-match-header">
+      <div style="margin-bottom:8px"><span style="font-family:Barlow Condensed,sans-serif;font-size:10px;font-weight:700;letter-spacing:2px;color:var(--green);border:1px solid #00e67640;border-radius:4px;padding:3px 8px;"><span style="display:inline-block;width:8px;height:8px;background:var(--green);border-radius:50%;margin-right:5px;animation:pulse-text 1.5s infinite;"></span>LIVE</span></div>
+      <div class="live-match-teams">${live.label||'Match in Progress'}</div>
+      <div class="live-match-score">${live.date||''}</div>
+    </div>
+    <div class="leaderboard-title" style="margin-top:20px">Fantasy Points This Match</div>
+    ${sorted.map(([name,pts],i)=>{
+      const cls=i===0?'top1':i===1?'top2':i===2?'top3':'';
+      return `<div class="lb-row ${cls}"><div class="lb-rank">${i+1}</div><div class="lb-team"><div class="lb-team-name">${name}</div></div><div><div class="lb-pts" style="${i===0?'color:var(--green)':''}">${pts}</div><div class="lb-pts-label">PTS</div></div></div>`;
+    }).join('')}`;
+}
+
+// ── CAPTAINS VIEW ──
+function renderCaptainsView() {
+  const wrap=document.getElementById('captainsView'); if(!wrap)return;
+  const cv=liveData.captains||{};
+  const locked=Object.values(cv).filter(t=>t.locked).length;
+  wrap.innerHTML=`
+    <div style="font-family:Barlow Condensed,sans-serif;font-size:12px;letter-spacing:5px;color:var(--muted);text-transform:uppercase;margin-bottom:16px;text-align:center;">Captain &amp; Vice Captain · ${locked} / ${TEAMS.length} teams locked</div>
+    ${TEAMS.map(team=>{
+      const picks=cv[team.name], lk=picks&&picks.locked;
+      return `<div style="background:var(--surface);border:1px solid ${lk?'#00e67640':'var(--border)'};border-radius:12px;padding:14px 16px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
+        <div style="font-family:Barlow Condensed,sans-serif;font-size:20px;font-weight:800;letter-spacing:2px;">${team.name}</div>
+        ${lk?`<div style="display:flex;gap:12px;align-items:center;">
+          <div style="text-align:right;"><div style="font-size:10px;color:var(--gold);letter-spacing:2px;">CAPTAIN</div><div style="font-family:Barlow Condensed,sans-serif;font-size:15px;font-weight:700;">${picks.captain}</div></div>
+          <div style="text-align:right;"><div style="font-size:10px;color:var(--muted);letter-spacing:2px;">VICE CAPTAIN</div><div style="font-family:Barlow Condensed,sans-serif;font-size:15px;font-weight:700;">${picks.viceCaptain}</div></div>
+          <span style="font-family:Barlow Condensed,sans-serif;font-size:10px;font-weight:700;letter-spacing:2px;color:var(--green);border:1px solid #00e67640;border-radius:4px;padding:2px 6px;">LOCKED</span>
+        </div>`:`<span style="font-size:12px;color:var(--muted);letter-spacing:1px;">Not selected yet</span>`}
+      </div>`;
+    }).join('')}`;
+}
+
+// ── ADMIN ──
+function renderAdmin() {
+  if (!isAdmin) return;
+  const wrap=document.getElementById('adminWrap'); if(!wrap)return;
+  const matches=liveData.matches||[];
+  const used=getApiCallsToday(), remaining=apiCallsRemaining();
+  const isSlowing=used>=DAILY_LIMIT_SLOW_AT, isStopped=remaining===0;
+  const sc=isStopped?'var(--red)':isSlowing?'var(--gold)':'var(--green)';
+
+  wrap.innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+      <div class="admin-section-title" style="margin-bottom:0;">Fantasy League Admin</div>
+      <button onclick="resetAllCVPicks()" style="background:var(--red);color:#fff;border:none;border-radius:7px;padding:7px 14px;cursor:pointer;font-family:Barlow Condensed,sans-serif;font-size:13px;font-weight:700;letter-spacing:2px;">RESET ALL C/VC PICKS</button>
+    </div>
+
+    <div class="admin-section-title">Auto-Sync Status</div>
+    <div class="match-input-card" style="margin-bottom:16px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:14px;">
+        <div>
+          <div style="font-family:Barlow Condensed,sans-serif;font-size:22px;font-weight:800;letter-spacing:2px;color:${sc};">${_autoPolling?'<span style="animation:pulse-text 1.5s infinite;">● SYNCING</span>':'○ PAUSED'}</div>
+          <div style="font-size:12px;color:var(--muted);letter-spacing:1px;margin-top:3px;">${used} / ${DAILY_LIMIT} calls used · ${remaining} remaining</div>
+          <div style="font-size:13px;color:var(--gold);letter-spacing:1px;margin-top:4px;" id="syncCountdown"></div>
+        </div>
+        <div style="display:flex;gap:8px;">
+          ${_autoPolling
+            ?'<button onclick="stopAutoSync()" style="background:none;border:1px solid var(--border);color:var(--muted);border-radius:7px;padding:8px 16px;cursor:pointer;font-family:Barlow Condensed,sans-serif;font-size:14px;font-weight:700;letter-spacing:2px;">PAUSE</button>'
+            :`<button onclick="startAutoSync()" style="background:var(--orange);color:#fff;border:none;border-radius:7px;padding:8px 16px;cursor:pointer;font-family:Barlow Condensed,sans-serif;font-size:14px;font-weight:700;letter-spacing:2px;"${isStopped?' disabled':''}>START</button>`
+          }
+          <button onclick="runSyncNow()" style="background:var(--surface2);border:1px solid var(--border);color:var(--gold);border-radius:7px;padding:8px 14px;cursor:pointer;font-family:Barlow Condensed,sans-serif;font-size:14px;font-weight:700;letter-spacing:2px;">SYNC NOW</button>
+        </div>
+      </div>
+      <div style="background:var(--bg);border-radius:6px;height:6px;width:100%;overflow:hidden;"><div style="height:100%;border-radius:6px;background:${sc};width:${Math.min(100,Math.round((used/DAILY_LIMIT)*100))}%;transition:width 0.5s;"></div></div>
+      ${isStopped?'<p style="color:var(--red);font-size:12px;letter-spacing:1px;margin-top:8px;">Daily limit reached. Resets at midnight.</p>':''}
+    </div>
+
+    <div class="admin-section-title">IPL 2026 Schedule</div>
+    <div class="match-input-card" style="margin-bottom:16px;">
+      <p style="font-size:13px;color:var(--muted);letter-spacing:1px;margin-bottom:12px;line-height:1.6;">All IPL 2026 matches are fetched automatically. Live and completed matches sync every ${isSlowing?30:15} minutes.</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
+        <button onclick="fetchAndShowSchedule()" id="fetchScheduleBtn" style="background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:12px 8px;cursor:pointer;font-family:Barlow Condensed,sans-serif;font-size:15px;font-weight:700;letter-spacing:2px;text-transform:uppercase;">Refresh Schedule</button>
+        <button onclick="fetchRecentResults()" id="fetchResultsBtn" style="background:var(--surface2);border:1px solid var(--gold);color:var(--gold);border-radius:8px;padding:12px 8px;cursor:pointer;font-family:Barlow Condensed,sans-serif;font-size:15px;font-weight:700;letter-spacing:2px;text-transform:uppercase;">Import Results</button>
+      </div>
+      <div id="scheduleList" style="margin-top:8px;max-height:300px;overflow-y:auto;"></div>
+    </div>
+
+    <div class="admin-section-title">ESPN CricInfo Data</div>
+    <div class="match-input-card" style="margin-bottom:16px;">
+      <p style="font-size:13px;color:var(--muted);letter-spacing:1px;margin-bottom:12px;line-height:1.6;">Manually fetch live dot balls and POTM data from ESPN for all matches since last update. This runs independently of auto-sync.</p>
+      ${liveData.espnLastUpdate ? `<p style="font-size:12px;color:var(--muted);letter-spacing:1px;margin-bottom:8px;">Last updated: ${new Date(liveData.espnLastUpdate).toLocaleString()}</p>` : '<p style="font-size:12px;color:var(--muted);letter-spacing:1px;margin-bottom:8px;">No previous ESPN updates</p>'}
+      <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
+        <button onclick="fetchESPNDataManual()" id="fetchESPNBtn" style="background:var(--surface2);border:1px solid var(--blue);color:var(--blue);border-radius:8px;padding:12px 16px;cursor:pointer;font-family:Barlow Condensed,sans-serif;font-size:15px;font-weight:700;letter-spacing:2px;text-transform:uppercase;">Fetch ESPN Data</button>
+        <button onclick="resetESPNCheckpoint()" style="background:none;border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:12px 16px;cursor:pointer;font-family:Barlow Condensed,sans-serif;font-size:13px;font-weight:700;letter-spacing:2px;">Reset Checkpoint</button>
+      </div>
+      <div id="espnStatus" style="margin-top:8px;font-size:12px;color:var(--muted);letter-spacing:1px;"></div>
+    </div>
+
+    <div class="admin-section-title">Saved Matches (${matches.length})</div>
+    <div class="match-input-card" style="margin:10px 0 16px 0;">
+      <div style="font-family:Barlow Condensed,sans-serif;font-size:14px;font-weight:700;letter-spacing:2px;color:var(--muted);margin-bottom:6px;">MANUAL IMPORT BY MATCH ID</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <input id="manualMatchIdInput" placeholder="e.g. 96d2aa6b-ea40-4da4-b4cf-eb996de24ef7" style="flex:1;min-width:160px;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:7px;padding:8px 12px;font-size:12px;font-family:inherit;" onkeydown="if(event.key==='Enter')importMatchById(document.getElementById('manualMatchIdInput').value)">
+        <button id="manualImportBtn" onclick="importMatchById(document.getElementById('manualMatchIdInput').value)" style="background:var(--surface2);border:1px solid var(--orange);color:var(--orange);border-radius:7px;padding:8px 14px;cursor:pointer;font-family:Barlow Condensed,sans-serif;font-size:13px;font-weight:700;letter-spacing:2px;">IMPORT</button>
+      </div>
+    </div>
+
+    ${matches.length>0?`
+      <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
+        <button onclick="collapseAllMatches(true)" style="background:none;border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:5px 12px;cursor:pointer;font-family:Barlow Condensed,sans-serif;font-size:12px;font-weight:700;letter-spacing:2px;">COLLAPSE ALL</button>
+        <button onclick="collapseAllMatches(false)" style="background:none;border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:5px 12px;cursor:pointer;font-family:Barlow Condensed,sans-serif;font-size:12px;font-weight:700;letter-spacing:2px;">EXPAND ALL</button>
+        <button id="refreshAllBtn" onclick="refreshAllMatches()" style="background:none;border:1px solid var(--gold);color:var(--gold);border-radius:6px;padding:5px 12px;cursor:pointer;font-family:Barlow Condensed,sans-serif;font-size:12px;font-weight:700;letter-spacing:2px;">REFRESH ALL</button>
+      </div>
+      ${[...matches].reverse().map((m,i)=>renderAdminMatch(m,matches.length-1-i)).join('')}
+    `:'<p style="color:var(--muted);font-size:13px;letter-spacing:1px;">No matches imported yet.</p>'}
+  `;
+  setTimeout(startCountdown, 50);
+}
+
+function renderAdminMatch(match, idx) {
+  const allPlayers=TEAMS.flatMap(t=>t.players.map(p=>({...p,teamName:t.name})));
+  const perfs=match.performances||{};
+  const played=allPlayers.filter(p=>perfs[p.name]&&perfs[p.name].played);
+  const expanded=match._expanded!==false;
+
+  const playerRows=played.map(p=>{
+    const perf=perfs[p.name]||{};
+    const pn=p.name.replace(/'/g,"\\'");
+    const pts=calcFantasyPoints({...perf,playerName:p.name,role:p.role},p.teamName,match.potm);
+    const pc=pts>0?'var(--green)':pts<0?'var(--red)':'var(--muted)';
+    return `<div style="background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:10px 12px;margin-bottom:6px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+        <div><div style="font-family:Barlow Condensed,sans-serif;font-size:15px;font-weight:700;letter-spacing:1px;">${p.name}</div><div style="font-size:11px;color:var(--muted);">${p.teamName} · ${p.role}</div></div>
+        <div style="text-align:right;"><div style="font-family:Barlow Condensed,sans-serif;font-size:22px;font-weight:900;color:${pc};" id="pts-${idx}-${p.name.replace(/\s/g,'_')}">${pts}</div><div style="font-size:10px;color:var(--muted);letter-spacing:1px;">PTS</div></div>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:6px;">
+        ${[['runs','Runs'],['balls','Balls'],['fours','4s'],['sixes','6s']].map(([f,l])=>`<div><div style="font-size:10px;color:var(--muted);letter-spacing:1px;margin-bottom:3px;">${l}</div><input class="perf-input" type="number" min="0" value="${perf[f]||0}" onchange="updatePerf(${idx},'${pn}','${f}',+this.value)"></div>`).join('')}
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:6px;">
+        ${[['wickets','Wkts'],['overs','Overs'],['runsConceded','RC'],['maidens','Maidens']].map(([f,l])=>`<div><div style="font-size:10px;color:var(--muted);letter-spacing:1px;margin-bottom:3px;">${l}</div><input class="perf-input" type="number" min="0" step="${f==='overs'?'0.1':'1'}" value="${perf[f]||0}" onchange="updatePerf(${idx},'${pn}','${f}',+this.value)"></div>`).join('')}
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;">
+        ${[['catches','Catches'],['stumpings','Stmpg'],['runoutDirect','RO Dir'],['runoutIndirect','RO Ind']].map(([f,l])=>`<div><div style="font-size:10px;color:var(--muted);letter-spacing:1px;margin-bottom:3px;">${l}</div><input class="perf-input" type="number" min="0" value="${perf[f]||0}" onchange="updatePerf(${idx},'${pn}','${f}',+this.value)"></div>`).join('')}
+      </div>
+    </div>`;
+  }).join('');
+
+  return `<div class="match-input-card" style="margin-bottom:12px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;cursor:pointer;" onclick="toggleAdminMatch(${idx})">
+      <div>
+        <div style="font-family:Barlow Condensed,sans-serif;font-size:17px;font-weight:800;letter-spacing:2px;">${match.label||'Match '+(idx+1)}</div>
+        <div style="font-size:11px;color:var(--muted);letter-spacing:1px;">${match.date||''} · ${played.length} players imported</div>
+      </div>
+      <div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap;">
+        <select class="field-input" style="width:100px;font-size:12px;" onchange="event.stopPropagation();updateMatchStatus(${idx},this.value)">
+          <option value="upcoming" ${match.status==='upcoming'?'selected':''}>Upcoming</option>
+          <option value="live" ${match.status==='live'?'selected':''}>Live</option>
+          <option value="done" ${match.status==='done'?'selected':''}>Done</option>
+        </select>
+        ${match.apiId?`<button onclick="event.stopPropagation();reimportScorecard(${idx},'${match.apiId}')" style="background:var(--surface2);border:1px solid var(--border);color:var(--gold);border-radius:6px;padding:4px 8px;cursor:pointer;font-size:11px;letter-spacing:1px;">↻ Refresh</button>`:''}
+        <button onclick="event.stopPropagation();deleteMatch(${idx})" style="background:none;border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:4px 8px;cursor:pointer;font-size:11px;">✕</button>
+        <span id="admin-match-arrow-${idx}" style="color:var(--muted);font-size:16px;">${expanded?'▲':'▼'}</span>
+      </div>
+    </div>
+    <div id="admin-match-body-${idx}" style="display:${expanded?'block':'none'};margin-top:12px;">
+      ${played.length===0?'<p style="color:var(--muted);font-size:13px;letter-spacing:1px;padding:8px 0;">No player data yet.</p>':playerRows}
+      <div style="margin-top:12px;">
+        <div style="font-size:11px;color:var(--muted);letter-spacing:2px;margin-bottom:6px;">PLAYER OF THE MATCH</div>
+        <select class="field-input" onchange="setPOTM(${idx},this.value)" style="margin-bottom:12px;">
+          <option value="">-- Select POTM --</option>
+          ${allPlayers.filter(p=>perfs[p.name]&&perfs[p.name].played).map(p=>`<option value="${p.name}" ${match.potm===p.name?'selected':''}>${p.name} (${p.teamName})</option>`).join('')}
+        </select>
+      </div>
+      <button class="btn gold" onclick="saveMatch(${idx})">Save Match</button>
+    </div>
+  </div>`;
+}
+
+function collapseAllMatches(collapse) {
+  (liveData.matches||[]).forEach((m,idx)=>{
+    m._expanded=!collapse;
+    const body=document.getElementById('admin-match-body-'+idx);
+    const arrow=document.getElementById('admin-match-arrow-'+idx);
+    if(body)body.style.display=collapse?'none':'block';
+    if(arrow)arrow.textContent=collapse?'▼':'▲';
+  });
+}
+
+function toggleAdminMatch(idx) {
+  const body=document.getElementById('admin-match-body-'+idx);
+  const arrow=document.getElementById('admin-match-arrow-'+idx);
+  if(!body)return;
+  const isOpen=body.style.display!=='none';
+  body.style.display=isOpen?'none':'block';
+  if(arrow)arrow.textContent=isOpen?'▼':'▲';
+  if(liveData.matches[idx])liveData.matches[idx]._expanded=!isOpen;
+}
+
+// ═══════════════════════════════════════════════════════
+// AUTO-SYNC
+// ═══════════════════════════════════════════════════════
+function isIPLMatch(m) {
+  if(!m||!m.name)return false;
+  if(m.series_id===IPL_2026_SERIES_ID)return true;
+  const n=m.name.toLowerCase();
+  if(n.includes('women')||n.includes('wpl')||n.includes('u19')||n.includes('legends')||n.includes('psl')||n.includes('bbl')||n.includes('ranji')||n.includes('vijay')||n.includes('smat'))return false;
+  return n.includes('indian premier league')||n.includes('ipl')||n.includes('royal challengers')||n.includes('sunrisers')||n.includes('mumbai indians')||n.includes('chennai super')||n.includes('kolkata knight')||n.includes('delhi capitals')||n.includes('gujarat titans')||n.includes('punjab kings')||n.includes('rajasthan royals')||n.includes('lucknow super');
+}
+
+function isIPLMatchDay() {
+  const today=new Date().toISOString().slice(0,10);
+  return IPL_2026_SCHEDULE.some(m=>m.date===today);
+}
+
+function getNextMatchDay() {
+  const today=new Date().toISOString().slice(0,10);
+  const future=IPL_2026_SCHEDULE.filter(m=>m.date>=today);
+  return future.length>0?future[0]:null;
+}
+
+function formatDuration(ms) {
+  const s=Math.floor(ms/1000),h=Math.floor(s/3600),m=Math.floor((s%3600)/60),sec=s%60;
+  if(h>0)return h+'h '+m+'m';
+  if(m>0)return m+'m '+sec+'s';
+  return sec+'s';
+}
+
+function getCountdownText() {
+  if(!_autoPolling){const nx=getNextMatchDay();if(!nx)return'Season complete';const ms=new Date(nx.date+'T20:00:00Z')-new Date();if(ms<=0)return'Match day — sync paused';return'Next match ('+nx.home+' vs '+nx.away+') in '+formatDuration(Math.max(0,ms));}
+  const elapsed=Date.now()-(_lastSyncTime||Date.now());
+  const interval=getApiCallsToday()>=DAILY_LIMIT_SLOW_AT?POLL_INTERVAL_SLOW:POLL_INTERVAL_NORMAL;
+  return'Next sync in '+formatDuration(Math.max(0,interval-elapsed));
+}
+
+function startCountdown() {
+  clearInterval(_countdownTimer);
+  _countdownTimer=setInterval(()=>{const el=document.getElementById('syncCountdown');if(!el){clearInterval(_countdownTimer);return;}el.textContent=getCountdownText();},1000);
+}
+
+function startAutoSync() {
+  if(_autoPolling)return;
+  _autoPolling=true; _lastSyncTime=Date.now();
+  runSyncNow(); scheduleNextPoll(); startCountdown(); renderAdmin();
+  showToast('Auto-sync started','success');
+}
+
+function stopAutoSync() {
+  _autoPolling=false; clearTimeout(_pollTimer); clearInterval(_countdownTimer);
+  renderAdmin(); showToast('Auto-sync paused','');
+}
+
+function scheduleNextPoll() {
+  clearTimeout(_pollTimer); if(!_autoPolling)return;
+  const interval=getApiCallsToday()>=DAILY_LIMIT_SLOW_AT?POLL_INTERVAL_SLOW:POLL_INTERVAL_NORMAL;
+  _pollTimer=setTimeout(async()=>{_lastSyncTime=Date.now();await runSyncNow();scheduleNextPoll();},interval);
+}
+
+function initMatchDayWatcher() {
+  if(isIPLMatchDay()&&apiCallsRemaining()>0&&!_autoPolling)startAutoSync();
+  else setInterval(()=>{if(!_autoPolling&&isIPLMatchDay()&&apiCallsRemaining()>0)startAutoSync();},60000);
+  document.addEventListener('visibilitychange',()=>{
+    if(document.visibilityState==='visible'&&isIPLMatchDay()){
+      if(!_autoPolling&&apiCallsRemaining()>0)startAutoSync();
+      else if(_autoPolling)runSyncNow();
+    }
+  });
+}
+
+function getMatchesForToday() {
+  const today = new Date().toISOString().slice(0,10);
+  const todayMatches = IPL_2026_SCHEDULE.filter(m => m.date === today);
+  if (todayMatches.length === 0) return [];
+  if (todayMatches.length === 1) return todayMatches;
+
+  // Two matches today, check time
+  const now = new Date();
+  const etOffset = -4; // Eastern Time offset (assuming EDT, adjust if needed)
+  const etTime = new Date(now.getTime() + (etOffset * 60 * 60 * 1000));
+  const hour = etTime.getHours();
+
+  if (hour >= 6 && hour < 10) {
+    // Between 6:00 AM and 10:00 AM ET, return first match
+    return [todayMatches[0]];
+  } else {
+    // After 10:00 AM ET, return both matches
+    return todayMatches;
+  }
+}
+
+async function fetchESPNMatchDetails(matchId, slug) {
+  const url = `https://espncricinfo-api.p.rapidapi.com/api/v1/cricketinfo/match-details?series_slug=ipl-2026-1510719&match_id=${matchId}&match_slug=${slug}`;
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-rapidapi-host': 'espncricinfo-api.p.rapidapi.com',
+        'x-rapidapi-key': 'ab1d0f5e94mshbb65ad32bc5b28ep12a94fjsn11d3ec803de9'
+      },
+      signal: AbortSignal.timeout(12000)
+    });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const data = await response.json();
+    incrementApiCalls(1);
+    return data;
+  } catch (error) {
+    console.warn('[ESPN] Failed to fetch match details:', matchId, error.message);
+    return null;
+  }
+}
+
+function getESPNInt(obj, ...keys) {
+  if (!obj) return null;
+  for (const key of keys) {
+    if (obj[key] != null) {
+      const val = parseInt(obj[key]);
+      if (!isNaN(val) && val >= 0) return val;
+    }
+  }
+  return null;
+}
+
+function normalizePlayerKey(name) {
+  return (normalizePlayerName(name) || '').toString().toLowerCase().replace(/[^a-z]/g, '');
+}
+
+function findESPNBowlerPerformanceKey(match, bowlerName) {
+  if (!match || !match.performances) return null;
+  const target = normalizePlayerKey(bowlerName);
+  if (!target) return null;
+
+  const keys = Object.keys(match.performances);
+  const exact = keys.find(k => normalizePlayerKey(k) === target);
+  if (exact) return exact;
+
+  const endsWith = keys.find(k => normalizePlayerKey(k).endsWith(target));
+  if (endsWith) return endsWith;
+
+  return keys.find(k => target.endsWith(normalizePlayerKey(k)));
+}
+
+function getESPNBowlerDots(bowler) {
+  return getESPNInt(bowler, 'dots', 'dotBalls', 'dot_balls', 'dot_ball', 'dots_count', 'dotBallCount');
+}
+
+function getESPNPayload(matchData) {
+  if (!matchData) return null;
+  if (matchData.data?.result) return matchData.data.result;
+  if (matchData.result) return matchData.result;
+  if (matchData.data) return matchData.data;
+  return matchData;
+}
+
+function getESPNInnings(matchData) {
+  const payload = getESPNPayload(matchData);
+  if (!payload) return [];
+  return payload.innings || [];
+}
+
+function parseESPNData(matchData, matchIndex) {
+  if (!matchData) return;
+  const payload = getESPNPayload(matchData);
+  if (!payload) return;
+
+  const match = liveData.matches[matchIndex];
+  if (!match || !match.performances) return;
+
+  // Parse dot balls for bowlers from each innings
+  const innings = getESPNInnings(matchData);
+  innings.forEach(inning => {
+    if (!inning || !inning.bowling) return;
+    inning.bowling.forEach(bowler => {
+      const name = bowler.name;
+      const dots = getESPNBowlerDots(bowler);
+      if (name && dots !== null) {
+        const perfKey = findESPNBowlerPerformanceKey(match, name);
+        if (perfKey) {
+          match.performances[perfKey].dots = dots;
+        }
+      }
+    });
+  });
+
+  // Parse POTM if match is RESULT
+  if (payload.status === 'RESULT' && payload.player_of_match) {
+    const potmValue = Array.isArray(payload.player_of_match)
+      ? payload.player_of_match[0]
+      : payload.player_of_match;
+    const potmName = potmValue && potmValue.name ? potmValue.name : null;
+    if (potmName) {
+      match.potm = normalizePlayerName(potmName);
+    }
+  }
+}
+
+function normalizePlayerName(name) {
+  if (!name) return '';
+
+  // Apply known aliases from the existing code
+  const aliases = {
+    'williamgeorgejacks': 'Will Jacks'
+    // Add more aliases as needed
+  };
+
+  let normalized = name.toLowerCase().trim();
+
+  // Check aliases
+  for (const [alias, realName] of Object.entries(aliases)) {
+    if (normalized.includes(alias)) {
+      return realName;
+    }
+  }
+
+  // Basic normalization
+  return name;
+}
+
+async function runSyncNow() {
+  showToast('Syncing...','');
+  try {
+    const seen=new Set(),iplMatches=[];
+    for(const offset of [3,4,5]){
+      try{
+        const r=await fetch(API_BASE+'/currentMatches?apikey='+CRICKETDATA_API_KEY+'&offset='+offset,{signal:AbortSignal.timeout(12000)});
+        const d=await r.json(); incrementApiCalls(1);
+        (d.data||[]).filter(m=>isIPLMatch(m)&&!seen.has(m.id)).forEach(m=>{seen.add(m.id);iplMatches.push(m);});
+      }catch(e){console.warn('[AP] offset='+offset,e.message);}
+    }
+    if(iplMatches.length===0){showToast('No live IPL matches found','');renderAdmin();return;}
+    let synced=0;
+    for(const m of iplMatches){
+      if(!m.matchStarted&&!m.matchEnded)continue;
+      try{
+        const r=await fetch(API_BASE+'/match_scorecard?apikey='+CRICKETDATA_API_KEY+'&id='+m.id,{signal:AbortSignal.timeout(12000)});
+        const sc=await r.json(); incrementApiCalls(1);
+        if(!sc.data)continue;
+        upsertMatch(m.id,m.name||'',m.date||'',sc.data); synced++;
+      }catch(e){console.warn('[AP] scorecard failed:',m.id,e.message);}
+    }
+
+    // New ESPN API calls for matches needing updates
+    const matchesToUpdate = getMatchesForESPNUpdate();
+    let espnSynced = 0;
+    for (const scheduleMatch of matchesToUpdate) {
+      if (!scheduleMatch.match_id || !scheduleMatch.slug) continue;
+      const matchIndex = findLiveMatchIndexForScheduleMatch(scheduleMatch);
+      if (matchIndex === -1) continue;
+
+      const espnData = await fetchESPNMatchDetails(scheduleMatch.match_id, scheduleMatch.slug);
+      if (espnData) {
+        parseESPNData(espnData, matchIndex);
+        espnSynced++;
+      }
+    }
+
+    // Update checkpoint if ESPN data was fetched
+    if (espnSynced > 0) {
+      liveData.espnLastUpdate = new Date().toISOString();
+    }
+
+    showToast('Synced '+synced+' match'+(synced!==1?'es':'')+(espnSynced>0?', ESPN updated '+espnSynced:'') ,synced>0||espnSynced>0?'success':'');
+    saveLiveData();
+    renderAdmin(); renderTab(currentTab);
+  }catch(e){showToast('Sync error: '+e.message,'error');renderAdmin();}
+}
+
+async function fetchAndShowSchedule() {
+  const btn=document.getElementById('fetchScheduleBtn'),listEl=document.getElementById('scheduleList');
+  if(!listEl)return;
+  if(btn){btn.textContent='Loading...';btn.disabled=true;}
+  listEl.innerHTML='<p style="color:var(--muted);font-size:13px;letter-spacing:1px;">Fetching...</p>';
+  try{
+    const r=await fetch(API_BASE+'/currentMatches?apikey='+CRICKETDATA_API_KEY+'&offset=0',{signal:AbortSignal.timeout(12000)});
+    const d=await r.json(); incrementApiCalls(1);
+    const items=(d.data||[]).filter(m=>m.name&&(m.name.toLowerCase().includes('ipl')||m.series_id));
+    const display=items.length>0?items:(d.data||[]);
+    listEl.innerHTML=display.map(m=>{
+      const live=m.matchStarted&&!m.matchEnded,done=m.matchEnded;
+      const bc=live?'var(--green)':done?'var(--muted)':'var(--gold)';
+      const bl=live?'LIVE':done?'DONE':'UPCOMING';
+      return `<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #0e1e35;gap:8px;flex-wrap:wrap;">
+        <div><div style="font-family:Barlow Condensed,sans-serif;font-size:14px;font-weight:700;letter-spacing:1px;">${m.name||'Match'}</div><div style="font-size:11px;color:var(--muted);letter-spacing:1px;">${m.date||''}</div></div>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <span style="font-family:Barlow Condensed,sans-serif;font-size:10px;font-weight:700;letter-spacing:2px;color:${bc};border:1px solid ${bc};border-radius:4px;padding:2px 6px;">${bl}</span>
+          ${(live||done)?`<button onclick="importMatch('${m.id}','${(m.name||'').replace(/'/g,"\\'")}','${m.date||''}')" style="background:var(--surface2);border:1px solid var(--border);color:var(--gold);border-radius:5px;padding:4px 10px;cursor:pointer;font-family:Barlow Condensed,sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;">IMPORT</button>`:''}
+        </div>
+      </div>`;
+    }).join('');
+  }catch(e){listEl.innerHTML='<p style="color:var(--red);font-size:13px;">Failed to load.</p>';}
+  if(btn){btn.textContent='Refresh Schedule';btn.disabled=false;}
+}
+
+async function fetchRecentResults() {
+  const btn=document.getElementById('fetchResultsBtn');
+  if(btn){btn.textContent='Fetching...';btn.disabled=true;}
+  showToast('Searching for IPL matches...','');
+  try{
+    const seen=new Set(),iplMatches=[];
+    for(const offset of [3,4,5]){
+      try{
+        const r=await fetch(API_BASE+'/currentMatches?apikey='+CRICKETDATA_API_KEY+'&offset='+offset,{signal:AbortSignal.timeout(12000)});
+        const d=await r.json(); incrementApiCalls(1);
+        (d.data||[]).filter(m=>isIPLMatch(m)&&!seen.has(m.id)).forEach(m=>{seen.add(m.id);iplMatches.push(m);});
+      }catch(e){console.warn('[AP] offset='+offset,e.message);}
+    }
+    const toProcess=iplMatches.filter(m=>m.matchStarted||m.matchEnded);
+    if(toProcess.length===0){showToast('No IPL matches to import right now','');if(btn){btn.textContent='Import Results';btn.disabled=false;}return;}
+    let imported=0,refreshed=0;
+    for(const m of toProcess){
+      try{
+        const r=await fetch(API_BASE+'/match_scorecard?apikey='+CRICKETDATA_API_KEY+'&id='+m.id,{signal:AbortSignal.timeout(12000)});
+        const sc=await r.json(); incrementApiCalls(1);
+        if(!sc.data)continue;
+        const existed=(liveData.matches||[]).some(x=>x.apiId===m.id);
+        upsertMatch(m.id,m.name||'',m.date||'',sc.data);
+        existed?refreshed++:imported++;
+      }catch(e){console.warn('[AP] scorecard failed:',m.id,e.message);}
+    }
+    const msg=imported>0&&refreshed>0?imported+' new, '+refreshed+' refreshed':imported>0?imported+' imported':refreshed>0?refreshed+' refreshed':'No new data';
+    showToast(msg,imported+refreshed>0?'success':'');
+    renderAdmin(); renderTab(currentTab);
+  }catch(e){showToast('Failed: '+e.message,'error');}
+  if(btn){btn.textContent='Import Results';btn.disabled=false;}
+}
+
+async function importMatchById(matchId) {
+  matchId=(matchId||'').trim();
+  if(!matchId){showToast('Enter a match ID','error');return;}
+  const btn=document.getElementById('manualImportBtn');
+  if(btn){btn.textContent='Importing...';btn.disabled=true;}
+  showToast('Fetching scorecard...','');
+  try{
+    const r=await fetch(API_BASE+'/match_scorecard?apikey='+CRICKETDATA_API_KEY+'&id='+matchId,{signal:AbortSignal.timeout(12000)});
+    const d=await r.json(); incrementApiCalls(1);
+    if(!d||!d.data){showToast('No scorecard data','error');}
+    else{upsertMatch(matchId,d.data.name||matchId,d.data.date||'',d.data);showToast('Imported: '+(d.data.name||matchId).split(',')[0],'success');renderAdmin();renderTab(currentTab);}
+  }catch(e){showToast('Import failed: '+e.message,'error');}
+  if(btn){btn.textContent='IMPORT';btn.disabled=false;}
+}
+
+async function importMatch(matchId,matchName,matchDate) {
+  showToast('Importing...','');
+  try{
+    const r=await fetch(API_BASE+'/match_scorecard?apikey='+CRICKETDATA_API_KEY+'&id='+matchId,{signal:AbortSignal.timeout(12000)});
+    const d=await r.json(); incrementApiCalls(1);
+    if(d&&d.data){upsertMatch(matchId,matchName,matchDate,d.data);showToast('Imported','success');renderAdmin();renderTab(currentTab);}
+  }catch(e){showToast('Failed','error');}
+}
+
+async function refreshAllMatches() {
+  const btn=document.getElementById('refreshAllBtn');
+  if(btn){btn.textContent='Refreshing...';btn.disabled=true;}
+  let done=0;
+  for(const m of (liveData.matches||[])){
+    if(!m.apiId||m.apiId.startsWith('manual-'))continue;
+    try{
+      const r=await fetch(API_BASE+'/match_scorecard?apikey='+CRICKETDATA_API_KEY+'&id='+m.apiId,{signal:AbortSignal.timeout(12000)});
+      const d=await r.json(); incrementApiCalls(1);
+      if(d&&d.data){m.performances=parseScorecard(d.data);m.status=d.data.matchEnded?'done':d.data.matchStarted?'live':'upcoming';done++;}
+    }catch(e){console.warn('[AP] refresh failed:',m.apiId,e.message);}
+  }
+  saveLiveData();
+  showToast('Refreshed '+done+' match'+(done!==1?'es':''),'success');
+  renderAdmin(); renderTab(currentTab);
+  if(btn){btn.textContent='REFRESH ALL';btn.disabled=false;}
+}
+
+async function reimportScorecard(idx,matchId) {
+  showToast('Refreshing...','');
+  try{
+    const r=await fetch(API_BASE+'/match_scorecard?apikey='+CRICKETDATA_API_KEY+'&id='+matchId,{signal:AbortSignal.timeout(12000)});
+    const d=await r.json();
+    if(!d.data){showToast('No scorecard yet','error');return;}
+    liveData.matches[idx].performances=parseScorecard(d.data);
+    liveData.matches[idx].status=d.data.matchEnded?'done':d.data.matchStarted?'live':'upcoming';
+    saveLiveData();
+  }catch(e){showToast('Refresh failed','error');}
+}
+
+function getMatchesForESPNUpdate() {
+  const today = new Date().toISOString().slice(0, 10);
+  const lastUpdate = liveData.espnLastUpdate;
+
+  // If no checkpoint exists, get all matches up to today
+  if (!lastUpdate) {
+    return IPL_2026_SCHEDULE.filter(m => m.date <= today && m.match_id && m.slug);
+  }
+
+  // Get matches from the day after last update up to today
+  const lastUpdateDate = new Date(lastUpdate.slice(0, 10));
+  const nextDay = new Date(lastUpdateDate);
+  nextDay.setDate(nextDay.getDate() + 1);
+  const nextDayStr = nextDay.toISOString().slice(0, 10);
+
+  return IPL_2026_SCHEDULE.filter(m => m.date >= nextDayStr && m.date <= today && m.match_id && m.slug);
+}
+
+const ESPN_TEAM_MAP = {
+  SRH: 'Sunrisers Hyderabad',
+  RCB: 'Royal Challengers Bengaluru',
+  KKR: 'Kolkata Knight Riders',
+  MI: 'Mumbai Indians',
+  CSK: 'Chennai Super Kings',
+  RR: 'Rajasthan Royals',
+  GT: 'Gujarat Titans',
+  PBKS: 'Punjab Kings',
+  DC: 'Delhi Capitals',
+  LSG: 'Lucknow Super Giants'
+};
+
+function normalizeMatchString(value) {
+  return (value || '').toString().toLowerCase().replace(/[^a-z]/g, '');
+}
+
+function matchScheduleTeams(scheduleMatch, label) {
+  const normalizedLabel = normalizeMatchString(label);
+  const homeCode = scheduleMatch.home;
+  const awayCode = scheduleMatch.away;
+  const homeName = ESPN_TEAM_MAP[homeCode] || '';
+  const awayName = ESPN_TEAM_MAP[awayCode] || '';
+
+  return (
+    normalizedLabel.includes(normalizeMatchString(homeCode)) || normalizedLabel.includes(normalizeMatchString(homeName))
+  ) && (
+    normalizedLabel.includes(normalizeMatchString(awayCode)) || normalizedLabel.includes(normalizeMatchString(awayName))
+  );
+}
+
+function findLiveMatchIndexForScheduleMatch(scheduleMatch) {
+  const date = scheduleMatch.date;
+  return liveData.matches.findIndex(m => {
+    if (!m) return false;
+    if (m.apiId === scheduleMatch.match_id.toString()) return true;
+    if (m.date !== date) return false;
+    const label = (m.label || m.teams || '').toString();
+    return matchScheduleTeams(scheduleMatch, label);
+  });
+}
+
+async function fetchESPNDataManual() {
+  const btn = document.getElementById('fetchESPNBtn');
+  const statusEl = document.getElementById('espnStatus');
+  if (!btn || !statusEl) return;
+
+  if (btn) { btn.textContent = 'Fetching...'; btn.disabled = true; }
+  statusEl.textContent = 'Checking matches to update...';
+
+  try {
+    // Get all matches up to today that need ESPN data updates
+    const matchesToUpdate = getMatchesForESPNUpdate();
+    if (matchesToUpdate.length === 0) {
+      statusEl.textContent = 'All matches are up to date with ESPN data.';
+      if (btn) { btn.textContent = 'Fetch ESPN Data'; btn.disabled = false; }
+      return;
+    }
+
+    const verificationEntries = matchesToUpdate.map(scheduleMatch => ({
+      matchLabel: `${scheduleMatch.home} vs ${scheduleMatch.away}`,
+      matchDate: scheduleMatch.date,
+      statusText: 'Pending',
+      statusColor: 'var(--gold)',
+      dotUpdates: [],
+      potm: '',
+      note: ''
+    }));
+
+    openESPNVerificationModal();
+    renderESPNVerificationBody(verificationEntries, `Found ${matchesToUpdate.length} match${matchesToUpdate.length !== 1 ? 'es' : ''} to verify. Fetching ESPN data...`);
+
+    statusEl.textContent = `Found ${matchesToUpdate.length} match${matchesToUpdate.length !== 1 ? 'es' : ''} to update. Fetching ESPN data...`;
+    let synced = 0;
+
+    for (let i = 0; i < matchesToUpdate.length; i++) {
+      const scheduleMatch = matchesToUpdate[i];
+      if (!scheduleMatch.match_id || !scheduleMatch.slug) continue;
+      const entry = verificationEntries[i];
+
+      const matchIndex = findLiveMatchIndexForScheduleMatch(scheduleMatch);
+      if (matchIndex === -1) {
+        entry.statusText = 'Skipped';
+        entry.statusColor = 'var(--muted)';
+        entry.note = 'No imported scorecard match available.';
+        renderESPNVerificationBody(verificationEntries, `Verifying ${matchesToUpdate.length} match${matchesToUpdate.length !== 1 ? 'es' : ''}...`);
+        statusEl.textContent += `\nSkipping ${scheduleMatch.home} vs ${scheduleMatch.away} (no imported scorecard match)`;
+        continue;
+      }
+
+      entry.statusText = 'Fetching';
+      entry.statusColor = 'var(--gold)';
+      renderESPNVerificationBody(verificationEntries, `Verifying ${matchesToUpdate.length} match${matchesToUpdate.length !== 1 ? 'es' : ''}...`);
+      statusEl.textContent += `\nFetching data for ${scheduleMatch.home} vs ${scheduleMatch.away}...`;
+
+      const espnData = await fetchESPNMatchDetails(scheduleMatch.match_id, scheduleMatch.slug);
+      if (espnData) {
+        parseESPNData(espnData, matchIndex);
+
+        const match = liveData.matches[matchIndex];
+        const innings = getESPNInnings(espnData);
+        innings.forEach(inning => {
+          if (!inning || !inning.bowling) return;
+          inning.bowling.forEach(bowler => {
+            const name = bowler.name;
+            const dots = getESPNBowlerDots(bowler);
+            if (name && dots !== null) {
+              const perfKey = findESPNBowlerPerformanceKey(match, name);
+              const displayName = perfKey || normalizePlayerName(name);
+              entry.dotUpdates.push({ name: displayName, dots });
+            }
+          });
+        });
+
+          const payload = getESPNPayload(espnData);
+          if (payload && payload.status === 'RESULT' && payload.player_of_match) {
+            const potmValue = Array.isArray(payload.player_of_match)
+              ? payload.player_of_match[0]
+              : payload.player_of_match;
+            const potmName = potmValue && potmValue.name ? potmValue.name : null;
+            if (potmName) {
+              entry.potm = normalizePlayerName(potmName);
+            }
+          }
+          entry.statusText = 'Updated';
+          entry.statusColor = 'var(--green)';
+          entry.note = entry.dotUpdates.length > 0 ? 'Dot balls loaded from ESPN.' : 'No bowler dot data in response.';
+          renderESPNVerificationBody(verificationEntries, `Verifying ${matchesToUpdate.length} match${matchesToUpdate.length !== 1 ? 'es' : ''}...`);
+          synced++;
+          statusEl.textContent += ' ✓';
+      } else {
+        entry.statusText = 'Failed';
+        entry.statusColor = 'var(--red)';
+        entry.note = 'ESPN response unavailable.';
+        renderESPNVerificationBody(verificationEntries, `Verifying ${matchesToUpdate.length} match${matchesToUpdate.length !== 1 ? 'es' : ''}...`);
+        statusEl.textContent += ' ✗ (no data)';
+      }
+    }
+
+    if (synced > 0) {
+      // Update the checkpoint to now
+      liveData.espnLastUpdate = new Date().toISOString();
+      saveLiveData();
+      renderAdmin();
+      renderTab(currentTab);
+      statusEl.textContent += `\n\n✅ Updated ${synced} match${synced !== 1 ? 'es' : ''} with ESPN data.`;
+      showToast(`ESPN data fetched for ${synced} match${synced !== 1 ? 'es' : ''}`, 'success');
+    } else {
+      statusEl.textContent += '\n\n⚠️ No ESPN data was available to update.';
+    }
+
+  } catch (e) {
+    statusEl.textContent = '❌ Error: ' + e.message;
+    showToast('ESPN fetch failed: ' + e.message, 'error');
+  }
+
+  if (btn) { btn.textContent = 'Fetch ESPN Data'; btn.disabled = false; }
+}
+
+function resetESPNCheckpoint() {
+  if (!confirm('Reset ESPN checkpoint? This will cause the next fetch to update all historical matches.')) return;
+  delete liveData.espnLastUpdate;
+  saveLiveData();
+  renderAdmin();
+  showToast('ESPN checkpoint reset', 'success');
+}
+
+function upsertMatch(apiId,name,date,scorecardData) {
+  if(!liveData.matches)liveData.matches=[];
+  const performances=parseScorecard(scorecardData);
+  const status=scorecardData.matchEnded?'done':scorecardData.matchStarted?'live':'upcoming';
+  const obj={apiId,label:name,date,teams:name,status,performances};
+  const ei=liveData.matches.findIndex(m=>m.apiId===apiId);
+  if(ei>=0)liveData.matches[ei]=obj; else liveData.matches.push(obj);
+  saveLiveData();
+}
+
+// ═══════════════════════════════════════════════════════
+// SCORECARD PARSER
+// ═══════════════════════════════════════════════════════
+function parseScorecard(matchData) {
+  const allPlayers=TEAMS.flatMap(t=>t.players.map(p=>({...p,teamName:t.name})));
+  const performances={};
+
+  function cleanApiName(n){return(n||'').replace(/\s*\([^)]*\)/g,'').replace(/\s*†/g,'').replace(/\s*\*/g,'').replace(/\s*(c&wk|c\s*&\s*wk|c\/wk)/gi,'').replace(/\s*\b(capt|captain|wk|sub)\b/gi,'').replace(/\s+/g,' ').trim();}
+  function normName(n){return cleanApiName(n||'').toLowerCase().replace(/[^a-z]/g,'');}
+
+  const playerMap={},aliasMap={};
+
+  const IPL_TEAM_MAP={'Shubman Gill':'Gujarat Titans','Varun Chakravarthy':'Kolkata Knight Riders','Tilak Varma':'Mumbai Indians','Hardik Pandya':'Mumbai Indians','Ryan Rickelton':'Mumbai Indians','Mohammed Siraj':'Gujarat Titans','Axar Patel':'Delhi Capitals','David Miller':'Delhi Capitals','Devdutt Padikkal':'Royal Challengers Bengaluru','Mitchell Starc':'Delhi Capitals','Tim Seifert':'Kolkata Knight Riders','Ishan Kishan':'Sunrisers Hyderabad','Ayush Mhatre':'Chennai Super Kings','Priyansh Arya':'Punjab Kings','Arshdeep Singh':'Punjab Kings','Prasidh Krishna':'Gujarat Titans','Digvesh Singh':'Lucknow Super Giants','Naman Dhir':'Mumbai Indians','Quinton de Kock':'Mumbai Indians','Harshit Rana':'Kolkata Knight Riders','Sam Curran':'Rajasthan Royals','Glenn Phillips':'Gujarat Titans','Yashasvi Jaiswal':'Rajasthan Royals','Jasprit Bumrah':'Mumbai Indians','Rishabh Pant':'Lucknow Super Giants','Yuzvendra Chahal':'Punjab Kings','Mitchell Marsh':'Lucknow Super Giants','Nitish Rana':'Delhi Capitals','Pat Cummins':'Sunrisers Hyderabad','Tim David':'Royal Challengers Bengaluru','Pathum Nissanka':'Delhi Capitals','Vaibhav Arora':'Kolkata Knight Riders','Shashank Singh':'Punjab Kings','Sanju Samson':'Chennai Super Kings','Suryakumar Yadav':'Mumbai Indians','Rajat Patidar':'Royal Challengers Bengaluru','Angkrish Raghuvanshi':'Kolkata Knight Riders','Jacob Bethell':'Royal Challengers Bengaluru','Cameron Green':'Kolkata Knight Riders','Josh Hazlewood':'Royal Challengers Bengaluru','Trent Boult':'Mumbai Indians','Jitesh Sharma':'Royal Challengers Bengaluru','Mohammed Shami':'Lucknow Super Giants','Aniket Verma':'Sunrisers Hyderabad','Phil Salt':'Royal Challengers Bengaluru','Vaibhav Suryavanshi':'Rajasthan Royals','Sunil Narine':'Kolkata Knight Riders','Shimron Hetmyer':'Rajasthan Royals','Khaleel Ahmed':'Chennai Super Kings','MS Dhoni':'Chennai Super Kings','Will Jacks':'Mumbai Indians','Sandeep Sharma':'Rajasthan Royals','Vipraj Nigam':'Delhi Capitals','T Natarajan':'Delhi Capitals','Deepak Chahar':'Mumbai Indians','Ruturaj Gaikwad':'Chennai Super Kings','Rohit Sharma':'Mumbai Indians','Aiden Markram':'Lucknow Super Giants','Kuldeep Yadav':'Delhi Capitals','Ravindra Jadeja':'Rajasthan Royals','Jos Buttler':'Gujarat Titans','Kagiso Rabada':'Gujarat Titans','Ravi Bishnoi':'Rajasthan Royals','Mitchell Santner':'Mumbai Indians','Venkatesh Iyer':'Royal Challengers Bengaluru','Abishek Porel':'Delhi Capitals','Abhishek Sharma':'Sunrisers Hyderabad','Nicholas Pooran':'Lucknow Super Giants','Travis Head':'Sunrisers Hyderabad','Prabhsimran Singh':'Punjab Kings','Ajinkya Rahane':'Kolkata Knight Riders','Jaydev Unadkat':'Sunrisers Hyderabad','Matt Henry':'Chennai Super Kings','Sal Kishore':'Gujarat Titans','Washington Sundar':'Gujarat Titans','Krunal Pandya':'Royal Challengers Bengaluru','Suyash Sharma':'Royal Challengers Bengaluru','Virat Kohli':'Royal Challengers Bengaluru','Sai Sudharsan':'Gujarat Titans','Rashid Khan':'Gujarat Titans','Heinrich Klaasen':'Sunrisers Hyderabad','Shivam Dube':'Chennai Super Kings','Bhuvneshwar Kumar':'Royal Challengers Bengaluru','Karthik Sharma':'Chennai Super Kings','Sarfaraz Khan':'Chennai Super Kings','Tristan Stubbs':'Delhi Capitals','Harshal Patel':'Sunrisers Hyderabad','Jofra Archer':'Rajasthan Royals','KL Rahul':'Delhi Capitals','Noor Ahmad':'Chennai Super Kings','Dewald Brevis':'Chennai Super Kings','Finn Allen':'Kolkata Knight Riders','Riyan Parag':'Rajasthan Royals','Shreyas Iyer':'Punjab Kings','Avesh Khan':'Lucknow Super Giants','Marco Jansen':'Punjab Kings','Harpreet Brar':'Punjab Kings','Zeeshan Ansari':'Sunrisers Hyderabad','Dhruv Jurel':'Rajasthan Royals'};
+
+  const KNOWN_ALIASES={'philipsalt':'Phil Salt','philipdeansalt':'Phil Salt','vaibhavsooryavanshi':'Vaibhav Suryavanshi','sooryavanshi':'Vaibhav Suryavanshi','msdhoni':'MS Dhoni','mahendrasinghdhoni':'MS Dhoni','mohammadshami':'Mohammed Shami','mohammedshami':'Mohammed Shami','samuelcurran':'Sam Curran','josephbuttler':'Jos Buttler','josephcharlesbuttler':'Jos Buttler','williamjacks':'Will Jacks','williamgeorgejacks':'Will Jacks','matthewhenry':'Matt Henry','matthewjameshenry':'Matt Henry','patrickjamescummins':'Pat Cummins','patrickcummins':'Pat Cummins','ravindrasinhajadeja':'Ravindra Jadeja','rashidkhanarman':'Rashid Khan','klrahul':'KL Rahul','kannarurlokeshrahul':'KL Rahul','finnleyhughallen':'Finn Allen','finnleyallen':'Finn Allen','thangarasunatarajan':'T Natarajan'};
+
+  const matchTeams=(matchData.teams||[]).map(t=>(t||'').toLowerCase());
+
+  allPlayers.forEach(p=>{
+    playerMap[normName(p.name)]=p.name;
+    const pts=p.name.trim().split(/\s+/);
+    if(pts.length>=3){const sk=normName(pts[0]+' '+pts[pts.length-1]);if(!playerMap[sk])aliasMap[sk]=p.name;}
+  });
+
+  function similarity(a,b){if(!a||!b)return 0;if(a===b)return 1;const lo=a.length<=b.length?a:b,hi=a.length<=b.length?b:a;let m=0;const used=new Array(hi.length).fill(false);const range=Math.max(0,Math.floor(hi.length/2)-1);for(let i=0;i<lo.length;i++)for(let j=Math.max(0,i-range);j<Math.min(hi.length,i+range+1);j++)if(!used[j]&&lo[i]===hi[j]){m++;used[j]=true;break;}return m===0?0:(m/lo.length+m/hi.length)/2;}
+
+  function isInMatch(name,teams){if(!teams||teams.length<2)return true;const t=IPL_TEAM_MAP[name];if(!t)return true;return teams.some(mt=>t.toLowerCase().includes(mt)||mt.includes(t.toLowerCase()));}
+
+  function findPlayer(apiName){
+    if(!apiName)return null;
+    const norm=normName(apiName);if(!norm)return null;
+    if(playerMap[norm])return playerMap[norm];
+    if(KNOWN_ALIASES[norm])return KNOWN_ALIASES[norm];
+    if(aliasMap[norm])return aliasMap[norm];
+    const pts=cleanApiName(apiName).trim().split(/\s+/).filter(Boolean);
+    const fn=normName(pts[0]||''),ln=normName(pts[pts.length-1]||'');
+    const hf=fn.length>1;
+    if(ln.length>=4){
+      const cands=Object.keys(playerMap).filter(k=>k.endsWith(ln)&&k.length-ln.length<=10);
+      if(cands.length===1){if(!hf)return playerMap[cands[0]];if(cands[0].slice(0,cands[0].length-ln.length).startsWith(fn[0]))return playerMap[cands[0]];}
+      else if(cands.length>1&&hf){let best=null,bs=0;cands.forEach(k=>{const s=similarity(fn,k.slice(0,k.length-ln.length));if(s>bs){bs=s;best=k;}});if(bs>=0.7)return playerMap[best];return null;}
+    }
+    if(fn.length<=2&&ln.length>=4){for(const k of Object.keys(playerMap))if(k.endsWith(ln)&&k.startsWith(fn[0]))return playerMap[k];}
+    if(pts.length>=3){for(let i=1;i<pts.length;i++){const tl=normName(pts[i]);if(tl.length<4)continue;const cands=Object.keys(playerMap).filter(k=>k.endsWith(tl)&&k.length-tl.length<=10);if(cands.length===1){const cf=cands[0].slice(0,cands[0].length-tl.length);if(cf.startsWith(fn[0]))return playerMap[cands[0]];}}}
+    if(norm.length>=6){let best=null,bs=0;for(const k of Object.keys(playerMap)){const s=Math.max(similarity(norm,k),ln.length>=5?similarity(ln,k.slice(-(ln.length+2))):0);if(s>=0.82&&s>bs){if(hf&&similarity(fn,k.slice(0,fn.length))<0.45)continue;bs=s;best=k;}}if(best)return playerMap[best];}
+    return null;
+  }
+
+  function findPlayerTeamAware(apiName,teams){const f=findPlayer(apiName);if(!f)return null;if(!isInMatch(f,teams||matchTeams))return null;return f;}
+
+  function getInt(obj,...keys){for(const k of keys){const v=parseInt(obj[k]);if(!isNaN(v)&&v>=0)return v;}return 0;}
+  function getFloat(obj,...keys){for(const k of keys){const v=parseFloat(obj[k]);if(!isNaN(v)&&v>=0)return v;}return 0;}
+
+  (matchData.scorecard||[]).forEach(innings=>{
+    // Batting
+    (innings.batting||[]).forEach(b=>{
+      const name=findPlayer(b.batsman?.name||b.batsmanName||b.name||'');
+      if(!name)return;
+      if(!performances[name])performances[name]={played:true,_warnings:[]};
+      const p=performances[name];
+      p.played=true;
+      const runs=getInt(b,'r','runs','R');
+      const balls=getInt(b,'b','balls','B','bf');
+      const fours=getInt(b,'4s','fours','s4','four');
+      const sixes=getInt(b,'6s','sixes','s6','six');
+      p.runs=(p.runs||0)+runs;
+      p.balls=(p.balls||0)+balls;
+      p.fours=(p.fours||0)+fours;
+      p.sixes=(p.sixes||0)+sixes;
+      p.dismissed=!(b.dismissal===''||b.dismissal==='not out'||b.dismissal==null);
+      if(runs>=20&&fours===0&&sixes===0)p._warnings.push('Boundaries may be missing');
+    });
+
+    // Bowling
+    (innings.bowling||[]).forEach(b=>{
+      const name=findPlayer(b.bowler?.name||b.bowlerName||b.name||'');
+      if(!name)return;
+      if(!performances[name])performances[name]={played:true,_warnings:[]};
+      const p=performances[name];
+      p.played=true;
+      const overStr=String(b.o||b.overs||b.ov||'0');
+      const op=overStr.split('.');
+      const fo=parseInt(op[0])||0,eb=parseInt(op[1])||0;
+      p.overs=(p.overs||0)+fo+(eb/6);
+      p.wickets=(p.wickets||0)+getInt(b,'w','wickets','wkts','W');
+      p.runsConceded=(p.runsConceded||0)+getInt(b,'r','runs','conceded','R');
+      p.maidens=(p.maidens||0)+getInt(b,'m','maidens','maiden','M');
+      const apiDots=getInt(b,'wd','dots','dot_balls','dotBalls');
+      if (apiDots > 0) {
+        p.dots=(p.dots||0)+apiDots;
+      } else {
+        p.dots=p.dots||0;
+      }
+    });
+
+    // Fielding
+    const mtt=(matchData.teams||[]).map(t=>(t||'').toLowerCase());
+    (innings.batting||[]).forEach(b=>{
+      const dt=(b.dismissal||'').toLowerCase();
+      const dr=b['dismissal-text']||b.dismissalText||b.dismissal_text||'';
+      if(dt==='catch'){
+        let cn=b.catcher?.name||'';
+        if(!cn&&/^c\s*&\s*b|^c&b/i.test(dr))cn=b.bowler?.name||'';
+        const f=findPlayerTeamAware(cn,mtt);
+        if(f){if(!performances[f])performances[f]={played:true,_warnings:[]};performances[f].catches=(performances[f].catches||0)+1;}
+      }
+      if(dt==='stumped'){
+        const f=findPlayerTeamAware(b.catcher?.name||'',mtt);
+        if(f){if(!performances[f])performances[f]={played:true,_warnings:[]};performances[f].stumpings=(performances[f].stumpings||0)+1;}
+      }
+      if(dt==='runout'){
+        let dn='',idn='';
+        const rm=dr.match(/run out \(([^)]+)\)/i);
+        if(rm){const parts=rm[1].split('/').map(s=>s.trim());dn=parts[0]||'';idn=parts[1]||'';}
+        if(!dn)dn=b.bowler?.name||'';
+        if(!idn)idn=b.catcher?.name||'';
+        const direct=findPlayerTeamAware(dn,mtt);
+        if(direct){if(!performances[direct])performances[direct]={played:true,_warnings:[]};performances[direct].runoutDirect=(performances[direct].runoutDirect||0)+1;}
+        const indirect=idn?findPlayerTeamAware(idn,mtt):null;
+        if(indirect&&indirect!==direct){if(!performances[indirect])performances[indirect]={played:true,_warnings:[]};performances[indirect].runoutIndirect=(performances[indirect].runoutIndirect||0)+1;}
+      }
+    });
+  });
+
+  return performances;
+}
+
+// ═══════════════════════════════════════════════════════
+// ADMIN ACTIONS
+// ═══════════════════════════════════════════════════════
+function deleteMatch(idx){if(!confirm('Delete this match?'))return;liveData.matches.splice(idx,1);saveLiveData();}
+function updateMatchStatus(idx,status){liveData.matches[idx].status=status;}
+function saveMatch(idx){saveLiveData();}
+function setPOTM(idx,name){liveData.matches[idx].potm=name;}
+function resetAllCVPicks(){if(!confirm('Reset ALL captain/vice captain picks?'))return;liveData.captains={};saveLiveData();showToast('All C/VC picks reset','success');renderAdmin();}
+
+function updatePerf(matchIdx,playerName,field,value){
+  const m=liveData.matches[matchIdx];
+  if(!m.performances)m.performances={};
+  if(!m.performances[playerName])m.performances[playerName]={};
+  m.performances[playerName][field]=value;
+  const perf=m.performances[playerName];
+  const team=TEAMS.find(t=>t.players.some(p=>p.name===playerName));
+  const role=team?(team.players.find(p=>p.name===playerName)||{}).role||'':'';
+  const pts=calcFantasyPoints({...perf,playerName,role},team?team.name:'',m.potm);
+  const el=document.getElementById('pts-'+matchIdx+'-'+playerName.replace(/\s/g,'_'));
+  if(el){el.textContent=pts;el.style.color=pts>=0?'var(--orange)':'var(--red)';}
+}
+
+// ═══════════════════════════════════════════════════════
+// C/VC PICK
+// ═══════════════════════════════════════════════════════
+function renderCVPicker(){
+  const teamName=document.getElementById('cvTeamSelect').value;
+  const body=document.getElementById('cvPickerBody');
+  const btn=document.getElementById('cvConfirmBtn');
+  if(!teamName){body.innerHTML='';btn.disabled=true;return;}
+  const cv=liveData.captains||{};
+  if(cv[teamName]&&cv[teamName].locked){
+    body.innerHTML=`<div style="background:#00e67615;border:1px solid #00e67640;border-radius:10px;padding:16px;text-align:center;margin-top:8px;"><div style="font-family:Barlow Condensed,sans-serif;font-size:14px;font-weight:700;letter-spacing:3px;color:var(--green);margin-bottom:10px;">PICKS LOCKED ✓</div><div style="font-size:15px;margin-bottom:4px;"><span style="color:var(--gold);font-weight:700;">C:</span> ${cv[teamName].captain}</div><div style="font-size:15px;"><span style="color:var(--muted);font-weight:700;">VC:</span> ${cv[teamName].viceCaptain}</div></div>`;
+    btn.disabled=true;btn.textContent='Already Locked';return;
+  }
+  const team=TEAMS.find(t=>t.name===teamName);if(!team)return;
+  const opts=team.players.map(p=>`<option value="${p.name}">${p.name} (${p.role})</option>`).join('');
+  body.innerHTML=`
+    <div class="field-label" style="margin-bottom:6px;">Captain (2x points)</div>
+    <select class="field-input" id="cv_captain_sel" onchange="updateVCOptions()" style="margin-bottom:16px;"><option value="">-- Select Captain --</option>${opts}</select>
+    <div class="field-label" style="margin-bottom:6px;">Vice Captain (1.5x points)</div>
+    <select class="field-input" id="cv_vc_sel" onchange="highlightCV()" style="margin-bottom:4px;"><option value="">-- Select Vice Captain --</option>${opts}</select>`;
+  btn.disabled=false;btn.textContent='Lock In Picks';
+}
+
+function updateVCOptions(){
+  const capSel=document.getElementById('cv_captain_sel'),vcSel=document.getElementById('cv_vc_sel');
+  if(!capSel||!vcSel)return;
+  const teamName=document.getElementById('cvTeamSelect').value;
+  const team=TEAMS.find(t=>t.name===teamName);if(!team)return;
+  const cur=vcSel.value;
+  vcSel.innerHTML='<option value="">-- Select Vice Captain --</option>'+
+    team.players.filter(p=>p.name!==capSel.value).map(p=>`<option value="${p.name}" ${cur===p.name&&cur!==capSel.value?'selected':''}>${p.name} (${p.role})</option>`).join('');
+  highlightCV();
+}
+
+function highlightCV(){
+  const c=document.getElementById('cv_captain_sel'),v=document.getElementById('cv_vc_sel'),b=document.getElementById('cvConfirmBtn');
+  if(!c||!v||!b)return;
+  b.disabled=!(c.value&&v.value);
+}
+
+function confirmCV(){
+  if(new Date()>CV_LOCK_DEADLINE){showToast('Deadline passed — picks are locked','error');return;}
+  const teamName=document.getElementById('cvTeamSelect').value;
+  const capSel=document.getElementById('cv_captain_sel'),vcSel=document.getElementById('cv_vc_sel');
+  if(!capSel||!vcSel||!capSel.value||!vcSel.value){showToast('Pick both Captain and Vice Captain','error');return;}
+  if(capSel.value===vcSel.value){showToast('C and VC must be different','error');return;}
+  if(!confirm('Lock in '+capSel.value+' as Captain and '+vcSel.value+' as Vice Captain for '+teamName+'? This cannot be changed.'))return;
+  if(!liveData.captains)liveData.captains={};
+  liveData.captains[teamName]={captain:capSel.value,viceCaptain:vcSel.value,locked:true};
+  saveLiveData();
+  showToast('Picks locked!','success');
+  renderCVPicker();
+}
+
+// ═══════════════════════════════════════════════════════
+// PLAYER MODAL
+// ═══════════════════════════════════════════════════════
+function openPlayerModal(playerName){
+  const modal=document.getElementById('playerModal'),body=document.getElementById('playerModalBody');
+  if(!modal||!body)return;
+  const pt=getPlayerTotals(),info=pt[playerName];if(!info)return;
+  const cv=liveData.captains||{},picks=cv[info.teamName]||{};
+  const isCap=picks.captain===playerName,isVC=picks.viceCaptain===playerName;
+  const role=isCap?' · CAPTAIN':isVC?' · VICE CAPTAIN':'';
+  const ptsCls=info.pts>0?'color:var(--green)':info.pts<0?'color:var(--red)':'color:var(--muted)';
+
+  const breakdowns=(liveData.matches||[])
+    .filter(m=>(m.status==='done'||m.status==='live')&&(m.performances||{})[playerName])
+    .map(match=>{
+      const perf=match.performances[playerName];
+      const pf={...perf,playerName,role:info.role};
+      const pts=calcFantasyPoints(pf,info.teamName,match.potm);
+      const lines=getPointsBreakdown(pf,info.teamName,match.potm);
+      return `<div class="match-breakdown-card">
+        <div class="match-breakdown-title"><span>${match.label||'Match'}</span><span style="${pts>0?'color:var(--green)':pts<0?'color:var(--red)':'color:var(--muted)'};font-family:Barlow Condensed,sans-serif;font-size:18px;font-weight:900;">${pts>0?'+'+pts:pts} pts</span></div>
+        ${lines.map(l=>`<div class="stat-breakdown-row"><span>${l.label}</span><span class="val ${l.pts>0?'stat-val-pos':l.pts<0?'stat-val-neg':'stat-val-neu'}">${l.pts>0?'+':''}${l.pts}</span></div>`).join('')}
+      </div>`;
+    }).join('');
+
+  body.innerHTML=`
+    <div class="player-modal-header">
+      <div><div class="player-modal-name">${playerName}</div><div style="font-size:12px;color:var(--muted);letter-spacing:2px;">${info.teamName}${role} · ${info.role}</div></div>
+      <button class="player-modal-close" onclick="closePlayerModal()">✕</button>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:20px;">
+      <div style="text-align:center;padding:12px;background:var(--bg);border-radius:10px;"><div style="font-family:Barlow Condensed,sans-serif;font-size:32px;font-weight:900;${ptsCls}">${info.pts}</div><div style="font-size:10px;color:var(--muted);letter-spacing:2px;">TOTAL PTS</div></div>
+      <div style="text-align:center;padding:12px;background:var(--bg);border-radius:10px;"><div style="font-family:Barlow Condensed,sans-serif;font-size:32px;font-weight:900;color:var(--text)">${info.matchPts.length}</div><div style="font-size:10px;color:var(--muted);letter-spacing:2px;">MATCHES</div></div>
+      <div style="text-align:center;padding:12px;background:var(--bg);border-radius:10px;"><div style="font-family:Barlow Condensed,sans-serif;font-size:32px;font-weight:900;color:var(--text)">${info.matchPts.length>0?Math.round(info.pts/info.matchPts.length):0}</div><div style="font-size:10px;color:var(--muted);letter-spacing:2px;">AVG/MATCH</div></div>
+    </div>
+    ${breakdowns||'<div style="text-align:center;padding:24px;color:var(--muted);font-size:13px;letter-spacing:1px;">No match data yet</div>'}`;
+  modal.classList.add('open');
+}
+
+function closePlayerModal(e){
+  if(e&&e.target!==document.getElementById('playerModal'))return;
+  document.getElementById('playerModal').classList.remove('open');
+}
+
+function openESPNVerificationModal(){
+  const modal=document.getElementById('espnVerificationModal');
+  if(!modal) return;
+  modal.classList.add('open');
+}
+
+function closeESPNVerificationModal(e){
+  if(e&&e.target!==document.getElementById('espnVerificationModal'))return;
+  const modal=document.getElementById('espnVerificationModal');
+  const body=document.getElementById('espnVerificationModalBody');
+  if(!modal||!body)return;
+  body.innerHTML='';
+  modal.classList.remove('open');
+}
+
+function renderESPNVerificationBody(entries, summary) {
+  const body=document.getElementById('espnVerificationModalBody');
+  if(!body)return;
+  const total = entries.length;
+  const updatedCount = entries.filter(e => e.statusText === 'Updated').length;
+  const skippedCount = entries.filter(e => e.statusText === 'Skipped').length;
+  const failedCount = entries.filter(e => e.statusText === 'Failed').length;
+  const summaryLine = `Updated: ${updatedCount}/${total}` +
+    `${skippedCount ? ` · Skipped: ${skippedCount}` : ''}` +
+    `${failedCount ? ` · Failed: ${failedCount}` : ''}`;
+
+  const rows = entries.map(entry => {
+    const dotDetails = entry.dotUpdates && entry.dotUpdates.length > 0
+      ? `<div style="padding:8px 12px;background:var(--surface2);border-radius:10px;margin-top:8px;">` +
+          entry.dotUpdates.map(d => `<div style="font-size:13px;color:var(--text);">${d.name}: <strong>${d.dots}</strong> dot balls</div>`).join('') +
+        `</div>`
+      : '';
+    const potmDetail = entry.potm ? `<div style="font-size:13px;color:var(--gold);margin-top:6px;">POTM: <strong>${entry.potm}</strong></div>` : '';
+    return `<div style="border-bottom:1px solid rgba(255,255,255,0.08);padding:12px 0;">
+      <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap;">
+        <div><strong>${entry.matchLabel}</strong><div style="font-size:12px;color:var(--muted);">${entry.matchDate || ''}</div></div>
+        <span style="font-size:12px;color:${entry.statusColor};font-weight:700;">${entry.statusText}</span>
+      </div>
+      ${dotDetails}${potmDetail}
+      ${entry.note?`<div style="font-size:12px;color:var(--muted);margin-top:6px;">${entry.note}</div>`:''}
+    </div>`;
+  }).join('');
+
+  body.innerHTML = `
+    <div class="player-modal-header">
+      <div><div class="player-modal-name">ESPN Verification</div><div style="font-size:12px;color:var(--muted);letter-spacing:2px;">Matches since last checkpoint</div></div>
+      <button class="player-modal-close" onclick="closeESPNVerificationModal()">✕</button>
+    </div>
+    <div style="font-size:13px;color:var(--text);font-weight:700;margin-bottom:6px;">${summaryLine}</div>
+    <div style="font-size:13px;color:var(--muted);margin-bottom:12px;white-space:pre-wrap;line-height:1.5;">${summary}</div>
+    <div style="max-height:60vh;overflow-y:auto;padding-right:4px;">${rows || '<div style="color:var(--muted);font-size:13px;">No verification data available yet.</div>'}</div>
+  `;
+}
+
+function getPointsBreakdown(p, teamName, matchPotm) {
+  const lines=[];
+  if(!p||!p.played)return lines;
+  const runs=p.runs||0,balls=p.balls||0,fours=p.fours||0,sixes=p.sixes||0;
+  const dismissed=p.dismissed!==false,role=p.role||'';
+  const wickets=p.wickets||0,overs=p.overs||0,runsConceded=p.runsConceded||0;
+  const maidens=p.maidens||0,dots=p.dots||0;
+
+  // Batting
+  if(runs>0)lines.push({label:runs+' runs',pts:runs});
+  if(fours>0)lines.push({label:fours+' fours (×2)',pts:fours*2});
+  if(sixes>0)lines.push({label:sixes+' sixes (×3)',pts:sixes*3});
+  if(runs>=100)lines.push({label:'Century bonus',pts:50});
+  else if(runs>=75)lines.push({label:'75 run bonus',pts:35});
+  else if(runs>=50)lines.push({label:'Half century bonus',pts:25});
+  if(dismissed&&runs===0&&balls>0&&['BAT','WIC','ALL'].includes(role))lines.push({label:'Duck',pts:-10});
+
+  // SR — min 8 balls OR min 15 runs (and balls > 0)
+  if((balls>=8||runs>=15)&&balls>0){
+    const sr=(runs/balls)*100;
+    let srPts=0;
+    if(sr>=150)srPts=30;
+    else if(sr>=130)srPts=20;
+    else if(sr>=100)srPts=15;
+    else if(sr>=90)srPts=0;  // neutral — don't display
+    else if(sr>=70)srPts=-15;
+    else if(sr>=50)srPts=-20;
+    else srPts=-25;
+    if(srPts!==0)lines.push({label:'Strike rate '+Math.round(sr),pts:srPts});
+  }
+
+  // Bowling
+  if(wickets>0)lines.push({label:wickets+' wicket'+(wickets>1?'s':'')+' (×25)',pts:wickets*25});
+  if(wickets>=5)lines.push({label:'5-wicket bonus',pts:70});
+  else if(wickets>=3)lines.push({label:'3–4 wicket bonus',pts:40});
+  else if(wickets>=2)lines.push({label:'2-wicket bonus',pts:25});
+  if(maidens>0)lines.push({label:maidens+' maiden'+(maidens>1?'s':'')+' (×20)',pts:maidens*20});
+  if(dots>0)lines.push({label:dots+' dot balls (×2)',pts:dots*2});
+
+  // Economy — overs stored as true decimal, >= 2 means >= 12 balls
+  if(overs>=2){
+    const eco=runsConceded/overs;
+    let ecoPts=0;
+    if(eco<4)ecoPts=40;
+    else if(eco<5)ecoPts=35;
+    else if(eco<6)ecoPts=25;
+    else if(eco<9)ecoPts=20;
+    else if(eco<11)ecoPts=5;
+    else if(eco<13)ecoPts=-10;
+    else ecoPts=-20;
+    if(ecoPts!==0)lines.push({label:'Economy '+eco.toFixed(2),pts:ecoPts});
+  }
+
+  // Fielding
+  const catches=p.catches||0,stumpings=p.stumpings||0,rod=p.runoutDirect||0,roi=p.runoutIndirect||0;
+  if(catches>0)lines.push({label:catches+' catch'+(catches>1?'es':'')+' ×10',pts:catches*10});
+  if(stumpings>0)lines.push({label:stumpings+' stumping'+(stumpings>1?'s':'')+' ×10',pts:stumpings*10});
+  if(rod>0)lines.push({label:rod+' run out direct ×10',pts:rod*10});
+  if(roi>0)lines.push({label:roi+' run out indirect ×10',pts:roi*10});
+
+  // POTM (added after C/VC multiplier, so exclude from base for multiplier calc)
+  const hasPotm=matchPotm&&p.playerName===matchPotm;
+
+  // C/VC multiplier — computed on pre-POTM base
+  const cv=liveData.captains||{},tcv=cv[teamName]||{};
+  const isCap2=tcv.captain===p.playerName,isVC2=tcv.viceCaptain===p.playerName;
+  const baseForMult=lines.reduce((s,l)=>s+l.pts,0);
+  if(isCap2){lines.push({label:'Captain 2× bonus (+'+baseForMult+' extra)',pts:baseForMult});}
+  else if(isVC2){const bonus=Math.floor(baseForMult*0.5);lines.push({label:'Vice Captain 1.5× bonus (+'+bonus+' extra)',pts:bonus});}
+
+  // Now add POTM (after multiplier)
+  if(hasPotm){
+    const potmPts=isCap2?60:isVC2?40:30;
+    lines.push({label:'Player of the Match',pts:potmPts});
+  }
+
+  return lines;
+}
+
+// ═══════════════════════════════════════════════════════
+// TOAST
+// ═══════════════════════════════════════════════════════
+let toastTimer;
+function showToast(msg,type=''){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.className='toast show '+type;
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>t.classList.remove('show'),2500);
+}
+
+// ═══════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════
+window.addEventListener('DOMContentLoaded',()=>{
+  if(window._db) initFirebaseListener();
+  if(!liveData.matches) liveData.matches=[];
+  renderTab(currentTab);
+
+  const cvSel=document.getElementById('cvTeamSelect');
+  if(cvSel)TEAMS.forEach(t=>{const o=document.createElement('option');o.value=t.name;o.textContent=t.name;cvSel.appendChild(o);});
+
+  initMatchDayWatcher();
+});
+</script>
+</body>
+</html>
