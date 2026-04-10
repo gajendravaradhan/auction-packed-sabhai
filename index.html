@@ -102,12 +102,23 @@ input:focus{outline:none;border-color:var(--orange);}
 .ps-table th.num{text-align:right;}
 .ps-th-wrap{display:flex;align-items:center;justify-content:space-between;gap:6px;}
 .ps-th-controls{display:flex;align-items:center;gap:4px;}
-.ps-th-btn{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border:1px solid var(--border);border-radius:4px;background:transparent;color:var(--muted);cursor:pointer;padding:0;}
+.ps-th-btn{display:inline-flex;align-items:center;justify-content:center;position:relative;width:24px;height:24px;border:1px solid var(--border);border-radius:4px;background:transparent;color:var(--muted);cursor:pointer;padding:0;font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:800;}
 .ps-th-btn:hover{border-color:var(--orange);color:var(--orange);}
 .ps-th-btn.active{border-color:var(--orange);color:var(--orange);background:#1b2942;}
+.ps-th-btn.filter{font-size:0;}
+.ps-th-btn.filter::before{content:'';width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:7px solid currentColor;position:absolute;top:6px;}
+.ps-th-btn.filter::after{content:'';width:3px;height:5px;background:currentColor;position:absolute;top:13px;border-radius:1px;}
 .ps-filter-row th{padding:6px 10px;border-bottom:1px solid var(--border);}
 .ps-filter-input,.ps-filter-select{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:5px 6px;color:var(--text);font-family:'Rajdhani',sans-serif;font-size:12px;}
 .ps-filter-input:focus,.ps-filter-select:focus{outline:none;border-color:var(--orange);}
+.ps-multisort{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:8px 0 14px;}
+.ps-multisort-label{font-size:11px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;}
+.ps-ms-group{display:flex;gap:6px;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:4px 6px;}
+.ps-ms-group select{background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:4px;padding:4px 6px;font-family:'Rajdhani',sans-serif;font-size:12px;}
+.ps-ms-group select:focus{outline:none;border-color:var(--orange);}
+@media (max-width: 640px){
+  .ps-th-btn{width:30px;height:30px;font-size:15px;}
+}
 .ps-table td{padding:9px 10px;border-bottom:1px solid #0e1e35;vertical-align:middle;}
 .ps-table td.num{text-align:right;font-family:'Barlow Condensed',sans-serif;font-size:16px;}
 .ps-table tr:hover td{background:#0a1828;}
@@ -247,6 +258,54 @@ select.field-input{cursor:pointer;}
         <button class="ps-filter-btn" onclick="filterPlayers('ALL_ROLE')" id="pf-ALL_ROLE">All-R</button>
         <button class="ps-filter-btn" onclick="filterPlayers('WIC')" id="pf-WIC">WK</button>
       </div>
+      <div class="ps-multisort">
+        <span class="ps-multisort-label">Multi Sort</span>
+        <div class="ps-ms-group">
+          <span class="ps-multisort-label">1</span>
+          <select id="psSortKey1" onchange="setPlayersSortLevel(0,this.value)">
+            <option value="none">None</option>
+            <option value="rank">Rank</option>
+            <option value="name">Player</option>
+            <option value="role">Role</option>
+            <option value="team">Team</option>
+            <option value="pts">Pts</option>
+          </select>
+          <select id="psSortDir1" onchange="setPlayersSortDirLevel(0,this.value)">
+            <option value="asc">Asc</option>
+            <option value="desc">Desc</option>
+          </select>
+        </div>
+        <div class="ps-ms-group">
+          <span class="ps-multisort-label">2</span>
+          <select id="psSortKey2" onchange="setPlayersSortLevel(1,this.value)">
+            <option value="none">None</option>
+            <option value="rank">Rank</option>
+            <option value="name">Player</option>
+            <option value="role">Role</option>
+            <option value="team">Team</option>
+            <option value="pts">Pts</option>
+          </select>
+          <select id="psSortDir2" onchange="setPlayersSortDirLevel(1,this.value)">
+            <option value="asc">Asc</option>
+            <option value="desc">Desc</option>
+          </select>
+        </div>
+        <div class="ps-ms-group">
+          <span class="ps-multisort-label">3</span>
+          <select id="psSortKey3" onchange="setPlayersSortLevel(2,this.value)">
+            <option value="none">None</option>
+            <option value="rank">Rank</option>
+            <option value="name">Player</option>
+            <option value="role">Role</option>
+            <option value="team">Team</option>
+            <option value="pts">Pts</option>
+          </select>
+          <select id="psSortDir3" onchange="setPlayersSortDirLevel(2,this.value)">
+            <option value="asc">Asc</option>
+            <option value="desc">Desc</option>
+          </select>
+        </div>
+      </div>
       <div class="ps-table-wrap">
         <table class="ps-table">
           <thead>
@@ -255,8 +314,8 @@ select.field-input{cursor:pointer;}
                 <div class="ps-th-wrap">
                   <span>#</span>
                   <span class="ps-th-controls">
-                    <button class="ps-th-btn" type="button" onclick="togglePlayersSort('rank')" id="psSort-rank" title="Sort">S</button>
-                    <button class="ps-th-btn" type="button" onclick="focusPlayersFilter('rank')" id="psFilterIcon-rank" title="Filter">F</button>
+                    <button class="ps-th-btn" type="button" onclick="togglePlayersSort('rank')" id="psSort-rank" title="Sort rank" aria-label="Sort rank">↕</button>
+                    <button class="ps-th-btn filter" type="button" onclick="focusPlayersFilter('rank')" id="psFilterIcon-rank" title="Filter rank" aria-label="Filter rank"></button>
                   </span>
                 </div>
               </th>
@@ -264,8 +323,8 @@ select.field-input{cursor:pointer;}
                 <div class="ps-th-wrap">
                   <span>Player</span>
                   <span class="ps-th-controls">
-                    <button class="ps-th-btn" type="button" onclick="togglePlayersSort('name')" id="psSort-name" title="Sort">S</button>
-                    <button class="ps-th-btn" type="button" onclick="focusPlayersFilter('name')" id="psFilterIcon-name" title="Filter">F</button>
+                    <button class="ps-th-btn" type="button" onclick="togglePlayersSort('name')" id="psSort-name" title="Sort player" aria-label="Sort player">↕</button>
+                    <button class="ps-th-btn filter" type="button" onclick="focusPlayersFilter('name')" id="psFilterIcon-name" title="Filter player" aria-label="Filter player"></button>
                   </span>
                 </div>
               </th>
@@ -273,8 +332,8 @@ select.field-input{cursor:pointer;}
                 <div class="ps-th-wrap">
                   <span>Role</span>
                   <span class="ps-th-controls">
-                    <button class="ps-th-btn" type="button" onclick="togglePlayersSort('role')" id="psSort-role" title="Sort">S</button>
-                    <button class="ps-th-btn" type="button" onclick="focusPlayersFilter('role')" id="psFilterIcon-role" title="Filter">F</button>
+                    <button class="ps-th-btn" type="button" onclick="togglePlayersSort('role')" id="psSort-role" title="Sort role" aria-label="Sort role">↕</button>
+                    <button class="ps-th-btn filter" type="button" onclick="focusPlayersFilter('role')" id="psFilterIcon-role" title="Filter role" aria-label="Filter role"></button>
                   </span>
                 </div>
               </th>
@@ -282,8 +341,8 @@ select.field-input{cursor:pointer;}
                 <div class="ps-th-wrap">
                   <span>Team</span>
                   <span class="ps-th-controls">
-                    <button class="ps-th-btn" type="button" onclick="togglePlayersSort('team')" id="psSort-team" title="Sort">S</button>
-                    <button class="ps-th-btn" type="button" onclick="focusPlayersFilter('team')" id="psFilterIcon-team" title="Filter">F</button>
+                    <button class="ps-th-btn" type="button" onclick="togglePlayersSort('team')" id="psSort-team" title="Sort team" aria-label="Sort team">↕</button>
+                    <button class="ps-th-btn filter" type="button" onclick="focusPlayersFilter('team')" id="psFilterIcon-team" title="Filter team" aria-label="Filter team"></button>
                   </span>
                 </div>
               </th>
@@ -291,8 +350,8 @@ select.field-input{cursor:pointer;}
                 <div class="ps-th-wrap">
                   <span>Pts</span>
                   <span class="ps-th-controls">
-                    <button class="ps-th-btn" type="button" onclick="togglePlayersSort('pts')" id="psSort-pts" title="Sort">S</button>
-                    <button class="ps-th-btn" type="button" onclick="focusPlayersFilter('pts')" id="psFilterIcon-pts" title="Filter">F</button>
+                    <button class="ps-th-btn" type="button" onclick="togglePlayersSort('pts')" id="psSort-pts" title="Sort points" aria-label="Sort points">↕</button>
+                    <button class="ps-th-btn filter" type="button" onclick="focusPlayersFilter('pts')" id="psFilterIcon-pts" title="Filter points" aria-label="Filter points"></button>
                   </span>
                 </div>
               </th>
@@ -552,7 +611,11 @@ let liveData = { matches: [] };
 let isAdmin = false;
 let currentTab = 'leaderboard';
 let playerFilter = 'ALL';
-let playersSort = { key: 'pts', dir: 'desc' };
+let playersSortChain = [
+  { key: 'pts', dir: 'desc' },
+  { key: 'name', dir: 'asc' },
+  { key: 'team', dir: 'asc' }
+];
 let playersColumnFilters = { rank: '', name: '', role: '', team: '', pts: '' };
 
 const POLL_INTERVAL_NORMAL = 30 * 60 * 1000;
@@ -921,12 +984,63 @@ function filterPlayers(f) {
   renderPlayers();
 }
 
-function togglePlayersSort(key) {
-  if (playersSort.key !== key) {
-    playersSort = { key, dir: 'asc' };
-  } else {
-    playersSort.dir = playersSort.dir === 'asc' ? 'desc' : 'asc';
+function normalizePlayersSortChain() {
+  const out = [];
+  const seen = new Set();
+  (playersSortChain || []).forEach(s => {
+    if (!s || !s.key || s.key === 'none' || seen.has(s.key)) return;
+    const dir = s.dir === 'desc' ? 'desc' : 'asc';
+    seen.add(s.key);
+    out.push({ key: s.key, dir });
+  });
+  playersSortChain = out.slice(0, 3);
+}
+
+function syncPlayersSortControls() {
+  normalizePlayersSortChain();
+  for (let i = 0; i < 3; i++) {
+    const keyEl = document.getElementById('psSortKey' + (i + 1));
+    const dirEl = document.getElementById('psSortDir' + (i + 1));
+    const level = playersSortChain[i] || { key: 'none', dir: 'asc' };
+    if (keyEl) keyEl.value = level.key || 'none';
+    if (dirEl) dirEl.value = level.dir || 'asc';
   }
+}
+
+function setPlayersSortLevel(levelIndex, key) {
+  normalizePlayersSortChain();
+  while (playersSortChain.length <= levelIndex) playersSortChain.push({ key: 'none', dir: 'asc' });
+  const curr = playersSortChain[levelIndex] || { key: 'none', dir: 'asc' };
+  playersSortChain[levelIndex] = { key, dir: curr.dir || 'asc' };
+  normalizePlayersSortChain();
+  syncPlayersSortControls();
+  renderPlayers();
+}
+
+function setPlayersSortDirLevel(levelIndex, dir) {
+  normalizePlayersSortChain();
+  while (playersSortChain.length <= levelIndex) playersSortChain.push({ key: 'none', dir: 'asc' });
+  const curr = playersSortChain[levelIndex] || { key: 'none', dir: 'asc' };
+  playersSortChain[levelIndex] = { key: curr.key || 'none', dir: dir === 'desc' ? 'desc' : 'asc' };
+  normalizePlayersSortChain();
+  syncPlayersSortControls();
+  renderPlayers();
+}
+
+function togglePlayersSort(key) {
+  normalizePlayersSortChain();
+  const idx = playersSortChain.findIndex(s => s.key === key);
+  if (idx === 0) {
+    playersSortChain[0].dir = playersSortChain[0].dir === 'asc' ? 'desc' : 'asc';
+  } else if (idx > 0) {
+    const item = playersSortChain[idx];
+    playersSortChain.splice(idx, 1);
+    playersSortChain.unshift(item);
+  } else {
+    playersSortChain.unshift({ key, dir: 'asc' });
+    normalizePlayersSortChain();
+  }
+  syncPlayersSortControls();
   renderPlayers();
 }
 
@@ -942,15 +1056,18 @@ function focusPlayersFilter(key) {
 
 function updatePlayersHeaderControls() {
   const cols = ['rank','name','role','team','pts'];
+  normalizePlayersSortChain();
   cols.forEach(col => {
     const sortBtn = document.getElementById('psSort-' + col);
     if (sortBtn) {
       sortBtn.classList.remove('active');
-      if (playersSort.key === col) {
+      const idx = playersSortChain.findIndex(s => s.key === col);
+      if (idx !== -1) {
+        const dir = playersSortChain[idx].dir;
         sortBtn.classList.add('active');
-        sortBtn.textContent = playersSort.dir === 'asc' ? 'A' : 'D';
+        sortBtn.textContent = (idx + 1) + (dir === 'asc' ? '↑' : '↓');
       } else {
-        sortBtn.textContent = 'S';
+        sortBtn.textContent = '↕';
       }
     }
 
@@ -984,17 +1101,28 @@ function applyPlayersColumnFilters(rows) {
 }
 
 function sortPlayersRows(rows) {
-  const { key, dir } = playersSort;
-  const sign = dir === 'asc' ? 1 : -1;
+  normalizePlayersSortChain();
+  const chain = playersSortChain.length ? playersSortChain : [{ key: 'pts', dir: 'desc' }];
+
+  function valFor(r, key) {
+    if (key === 'team') return r.teamName;
+    if (key === 'name' || key === 'role') return r[key] || '';
+    if (key === 'rank') return r.rank;
+    return r.pts;
+  }
+
   rows.sort((a, b) => {
-    if (key === 'name' || key === 'role' || key === 'team') {
-      const av = key === 'team' ? a.teamName : a[key];
-      const bv = key === 'team' ? b.teamName : b[key];
-      return sign * av.localeCompare(bv);
+    for (const s of chain) {
+      const sign = s.dir === 'asc' ? 1 : -1;
+      const av = valFor(a, s.key);
+      const bv = valFor(b, s.key);
+      if (typeof av === 'string' || typeof bv === 'string') {
+        const cmp = String(av).localeCompare(String(bv));
+        if (cmp !== 0) return sign * cmp;
+      } else if (av !== bv) {
+        return sign * (av - bv);
+      }
     }
-    const av = key === 'rank' ? a.rank : a.pts;
-    const bv = key === 'rank' ? b.rank : b.pts;
-    if (av !== bv) return sign * (av - bv);
     return a.name.localeCompare(b.name);
   });
   return rows;
@@ -1020,6 +1148,7 @@ function renderPlayers() {
 
   rows=applyPlayersColumnFilters(rows);
   rows=sortPlayersRows(rows);
+  syncPlayersSortControls();
   updatePlayersHeaderControls();
 
   tbody.innerHTML=rows.map((v,i)=>{
