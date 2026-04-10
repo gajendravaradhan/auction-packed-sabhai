@@ -797,12 +797,13 @@ function renderCaptainsView() {
     <div style="font-family:Barlow Condensed,sans-serif;font-size:12px;letter-spacing:5px;color:var(--muted);text-transform:uppercase;margin-bottom:16px;text-align:center;">Captain &amp; Vice Captain · ${locked} / ${TEAMS.length} teams locked</div>
     ${TEAMS.map(team=>{
       const picks=cv[team.name], lk=picks&&picks.locked;
+      const adminSet = picks && picks.adminSet;
       return `<div style="background:var(--surface);border:1px solid ${lk?'#00e67640':'var(--border)'};border-radius:12px;padding:14px 16px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
         <div style="font-family:Barlow Condensed,sans-serif;font-size:20px;font-weight:800;letter-spacing:2px;">${team.name}</div>
         ${lk?`<div style="display:flex;gap:12px;align-items:center;">
           <div style="text-align:right;"><div style="font-size:10px;color:var(--gold);letter-spacing:2px;">CAPTAIN</div><div style="font-family:Barlow Condensed,sans-serif;font-size:15px;font-weight:700;">${picks.captain}</div></div>
           <div style="text-align:right;"><div style="font-size:10px;color:var(--muted);letter-spacing:2px;">VICE CAPTAIN</div><div style="font-family:Barlow Condensed,sans-serif;font-size:15px;font-weight:700;">${picks.viceCaptain}</div></div>
-          <span style="font-family:Barlow Condensed,sans-serif;font-size:10px;font-weight:700;letter-spacing:2px;color:var(--green);border:1px solid #00e67640;border-radius:4px;padding:2px 6px;">LOCKED</span>
+          <span style="font-family:Barlow Condensed,sans-serif;font-size:10px;font-weight:700;letter-spacing:2px;color:var(--green);border:1px solid #00e67640;border-radius:4px;padding:2px 6px;">LOCKED${adminSet ? ' (admin)' : ''}</span>
         </div>`:`<span style="font-size:12px;color:var(--muted);letter-spacing:1px;">Not selected yet</span>`}
       </div>`;
     }).join('')}`;
@@ -821,6 +822,12 @@ function renderAdmin() {
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
       <div class="admin-section-title" style="margin-bottom:0;">Fantasy League Admin</div>
       <button onclick="resetAllCVPicks()" style="background:var(--red);color:#fff;border:none;border-radius:7px;padding:7px 14px;cursor:pointer;font-family:Barlow Condensed,sans-serif;font-size:13px;font-weight:700;letter-spacing:2px;">RESET ALL C/VC PICKS</button>
+    </div>
+
+    <div class="admin-section-title">Override Captain/Vice Captain</div>
+    <div class="match-input-card" style="margin-bottom:16px;">
+      <div style="font-size:13px;color:var(--muted);margin-bottom:10px;">Set or change C/VC for any team. This overrides user picks and lock status.</div>
+      <div id="adminCVOverride"></div>
     </div>
 
     <div class="admin-section-title">Auto-Sync Status</div>
@@ -883,6 +890,62 @@ function renderAdmin() {
     `:'<p style="color:var(--muted);font-size:13px;letter-spacing:1px;">No matches imported yet.</p>'}
   `;
   setTimeout(startCountdown, 50);
+  // Render admin C/VC override UI
+  renderAdminCVOverride();
+
+}
+
+// Admin C/VC override UI and logic
+function renderAdminCVOverride() {
+  const el = document.getElementById('adminCVOverride');
+  if (!el) return;
+  const cv = liveData.captains || {};
+  el.innerHTML = TEAMS.map(team => {
+    const picks = cv[team.name] || {};
+    const locked = picks.locked;
+    const cap = picks.captain || '';
+    const vc = picks.viceCaptain || '';
+    const opts = team.players.map(p => `<option value="${p.name}">${p.name} (${p.role})</option>`).join('');
+    return `
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap;">
+        <div style="min-width:80px;font-weight:700;">${team.name}</div>
+        <select class="field-input" style="width:160px;" id="admincv-cap-${team.name}">
+          <option value="">-- Captain --</option>
+          ${opts}
+        </select>
+        <select class="field-input" style="width:160px;" id="admincv-vc-${team.name}">
+          <option value="">-- Vice Captain --</option>
+          ${opts}
+        </select>
+        <button class="btn gold" style="width:100px;padding:8px 0;font-size:13px;" onclick="adminSetCV('${team.name}')">Save</button>
+        <span style="font-size:12px;color:${locked ? 'var(--green)' : 'var(--muted)'};margin-left:8px;">${cap && vc ? `C: <b>${cap}</b> · VC: <b>${vc}</b>${locked ? ' (locked)' : ''}` : 'Not set'}</span>
+      </div>
+    `;
+  }).join('');
+  // Set current values in dropdowns
+  TEAMS.forEach(team => {
+    const picks = cv[team.name] || {};
+    const capSel = document.getElementById('admincv-cap-' + team.name);
+    const vcSel = document.getElementById('admincv-vc-' + team.name);
+    if (capSel && picks.captain) capSel.value = picks.captain;
+    if (vcSel && picks.viceCaptain) vcSel.value = picks.viceCaptain;
+  });
+}
+
+function adminSetCV(teamName) {
+  const capSel = document.getElementById('admincv-cap-' + teamName);
+  const vcSel = document.getElementById('admincv-vc-' + teamName);
+  if (!capSel || !vcSel) return;
+  const cap = capSel.value;
+  const vc = vcSel.value;
+  if (!cap || !vc) { showToast('Pick both Captain and Vice Captain', 'error'); return; }
+  if (cap === vc) { showToast('C and VC must be different', 'error'); return; }
+  if (!liveData.captains) liveData.captains = {};
+  liveData.captains[teamName] = { captain: cap, viceCaptain: vc, locked: true, adminSet: true };
+  saveLiveData();
+  showToast('C/VC set for ' + teamName, 'success');
+  renderAdminCVOverride();
+  renderTab('captains');
 }
 
 function renderAdminMatch(match, idx) {
