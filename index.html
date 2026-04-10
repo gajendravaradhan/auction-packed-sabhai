@@ -459,8 +459,9 @@ function calcFantasyPoints(p, teamName, matchPotm) {
   else if (isVC) pts = Math.floor(base * 1.5);
   else           pts = base;
 
-  // POTM added after multiplier
-  if (matchPotm && p.playerName === matchPotm) {
+  // POTM added after multiplier (name-normalized to handle provider spelling variants)
+  const isPotm = normalizePlayerKey(matchPotm) && normalizePlayerKey(p.playerName) === normalizePlayerKey(matchPotm);
+  if (isPotm) {
     if      (isCap) pts += 60;
     else if (isVC)  pts += 40;
     else            pts += 30;
@@ -1329,23 +1330,23 @@ function parseESPNData(matchData, matchIndex) {
 function normalizePlayerName(name) {
   if (!name) return '';
 
-  // Apply known aliases from the existing code
   const aliases = {
-    'williamgeorgejacks': 'Will Jacks'
-    // Add more aliases as needed
+    williamgeorgejacks: 'Will Jacks',
+    williamjacks: 'Will Jacks',
+    vaibhavsooryavanshi: 'Vaibhav Suryavanshi',
+    sooryavanshi: 'Vaibhav Suryavanshi',
+    yashaswijaiswal: 'Yashasvi Jaiswal',
+    yashasvijaiswal: 'Yashasvi Jaiswal'
   };
 
-  let normalized = name.toLowerCase().trim();
+  const key = String(name).toLowerCase().replace(/[^a-z]/g, '');
+  if (aliases[key]) return aliases[key];
 
-  // Check aliases
-  for (const [alias, realName] of Object.entries(aliases)) {
-    if (normalized.includes(alias)) {
-      return realName;
-    }
-  }
+  const allPlayers = TEAMS.flatMap(t => t.players.map(p => p.name));
+  const exact = allPlayers.find(p => p.toLowerCase().replace(/[^a-z]/g, '') === key);
+  if (exact) return exact;
 
-  // Basic normalization
-  return name;
+  return String(name).trim();
 }
 
 async function runSyncNow() {
@@ -1891,7 +1892,7 @@ function parseScorecard(matchData) {
       p.wickets=(p.wickets||0)+getInt(b,'w','wickets','wkts','W');
       p.runsConceded=(p.runsConceded||0)+getInt(b,'r','runs','conceded','R');
       p.maidens=(p.maidens||0)+getInt(b,'m','maidens','maiden','M');
-      const apiDots=getInt(b,'wd','dots','dot_balls','dotBalls');
+      const apiDots=getInt(b,'dots','dot_balls','dotBalls','dot_ball','dots_count','dotBallCount');
       if (apiDots > 0) {
         p.dots=(p.dots||0)+apiDots;
       } else {
@@ -2166,7 +2167,7 @@ function getPointsBreakdown(p, teamName, matchPotm) {
   if(roi>0)lines.push({label:roi+' run out indirect ×10',pts:roi*10});
 
   // POTM (added after C/VC multiplier, so exclude from base for multiplier calc)
-  const hasPotm=matchPotm&&p.playerName===matchPotm;
+  const hasPotm=normalizePlayerKey(matchPotm)&&normalizePlayerKey(p.playerName)===normalizePlayerKey(matchPotm);
 
   // C/VC multiplier — computed on pre-POTM base
   const cv=liveData.captains||{},tcv=cv[teamName]||{};
