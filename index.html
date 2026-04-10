@@ -654,12 +654,12 @@ function initFirebaseListener() {
   });
 }
 
-function saveLiveData() {
-  if (!window._db) { showToast('Firebase unavailable','error'); return; }
+function saveLiveData(silent = false) {
+  if (!window._db) { if(!silent) showToast('Firebase unavailable','error'); return; }
   ensureCricapiIdMap();
   window._db.ref('live').set(liveData)
-    .then(() => showToast('Saved!','success'))
-    .catch(() => showToast('Save failed','error'));
+    .then(() => { if(!silent) showToast('Saved!','success'); })
+    .catch(() => { if(!silent) showToast('Save failed','error'); });
 }
 
 // ═══════════════════════════════════════════════════════
@@ -1388,6 +1388,7 @@ async function runSyncNow() {
       const espnData = await fetchESPNMatchDetails(scheduleMatch.espn_match_id, scheduleMatch.slug);
       if (espnData) {
         parseESPNData(espnData, matchIndex);
+        saveLiveData(true); // persist ESPN data immediately so Firebase listener can't wipe it
         espnSynced++;
       }
     }
@@ -1728,6 +1729,7 @@ async function fetchESPNDataManual() {
       const espnData = await fetchESPNMatchDetails(scheduleMatch.espn_match_id, scheduleMatch.slug);
       if (espnData) {
         parseESPNData(espnData, matchIndex);
+        saveLiveData(true); // persist ESPN data immediately so Firebase listener can't wipe it
 
         const match = liveData.matches[matchIndex];
         const innings = getESPNInnings(espnData);
