@@ -2162,16 +2162,22 @@ function getPointsBreakdown(p, teamName, matchPotm) {
   if(rod>0)lines.push({label:rod+' run out direct ×10',pts:rod*10});
   if(roi>0)lines.push({label:roi+' run out indirect ×10',pts:roi*10});
 
-  // POTM is included before C/VC multiplier
+  // POTM/C/VC display should reflect final awarded POTM values (C=60, VC=40, others=30)
   const hasPotm=normalizePlayerKey(matchPotm)&&normalizePlayerKey(p.playerName)===normalizePlayerKey(matchPotm);
-  if(hasPotm)lines.push({label:'Player of the Match',pts:30});
-
-  // C/VC multiplier — applied on full total including POTM
   const cv=liveData.captains||{},tcv=cv[teamName]||{};
   const isCap2=tcv.captain===p.playerName,isVC2=tcv.viceCaptain===p.playerName;
-  const baseForMult=lines.reduce((s,l)=>s+l.pts,0);
-  if(isCap2){lines.push({label:'Captain 2× bonus (+'+baseForMult+' extra)',pts:baseForMult});}
-  else if(isVC2){const bonus=Math.floor(baseForMult*0.5);lines.push({label:'Vice Captain 1.5× bonus (+'+bonus+' extra)',pts:bonus});}
+
+  const baseBeforePotm=lines.reduce((s,l)=>s+l.pts,0);
+  const potmDisplayPts=hasPotm?(isCap2?60:isVC2?40:30):0;
+  if(hasPotm)lines.push({label:'Player of the Match',pts:potmDisplayPts});
+
+  // Keep breakdown totals exactly aligned with calcFantasyPoints()
+  const totalBeforeMultiplier=baseBeforePotm+(hasPotm?30:0);
+  const finalTotal=isCap2?Math.round(totalBeforeMultiplier*2):isVC2?Math.floor(totalBeforeMultiplier*1.5):totalBeforeMultiplier;
+  const multiplierAdjustment=finalTotal-(baseBeforePotm+potmDisplayPts);
+
+  if(isCap2){lines.push({label:'Captain 2× adjustment ('+(multiplierAdjustment>=0?'+':'')+multiplierAdjustment+')',pts:multiplierAdjustment});}
+  else if(isVC2){lines.push({label:'Vice Captain 1.5× adjustment ('+(multiplierAdjustment>=0?'+':'')+multiplierAdjustment+')',pts:multiplierAdjustment});}
 
   return lines;
 }
