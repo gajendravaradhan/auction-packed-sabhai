@@ -268,6 +268,7 @@ select.field-input{cursor:pointer;}
             <option value="name">Player</option>
             <option value="role">Role</option>
             <option value="team">Team</option>
+            <option value="iplTeam">IPL Team</option>
             <option value="pts">Pts</option>
           </select>
           <select id="psSortDir1" onchange="setPlayersSortDirLevel(0,this.value)">
@@ -283,6 +284,7 @@ select.field-input{cursor:pointer;}
             <option value="name">Player</option>
             <option value="role">Role</option>
             <option value="team">Team</option>
+            <option value="iplTeam">IPL Team</option>
             <option value="pts">Pts</option>
           </select>
           <select id="psSortDir2" onchange="setPlayersSortDirLevel(1,this.value)">
@@ -298,6 +300,7 @@ select.field-input{cursor:pointer;}
             <option value="name">Player</option>
             <option value="role">Role</option>
             <option value="team">Team</option>
+            <option value="iplTeam">IPL Team</option>
             <option value="pts">Pts</option>
           </select>
           <select id="psSortDir3" onchange="setPlayersSortDirLevel(2,this.value)">
@@ -346,6 +349,15 @@ select.field-input{cursor:pointer;}
                   </span>
                 </div>
               </th>
+              <th>
+                <div class="ps-th-wrap">
+                  <span>IPL Team</span>
+                  <span class="ps-th-controls">
+                    <button class="ps-th-btn" type="button" onclick="togglePlayersSort('iplTeam')" id="psSort-iplTeam" title="Sort IPL team" aria-label="Sort IPL team">⇕</button>
+                    <button class="ps-th-btn filter" type="button" onclick="focusPlayersFilter('iplTeam')" id="psFilterIcon-iplTeam" title="Filter IPL team" aria-label="Filter IPL team"></button>
+                  </span>
+                </div>
+              </th>
               <th class="num">
                 <div class="ps-th-wrap">
                   <span>Pts</span>
@@ -369,6 +381,7 @@ select.field-input{cursor:pointer;}
                 </select>
               </th>
               <th><input id="psFilter-team" class="ps-filter-input" type="text" placeholder="filter" oninput="setPlayersColumnFilter('team',this.value)"></th>
+              <th><input id="psFilter-iplTeam" class="ps-filter-input" type="text" placeholder="filter" oninput="setPlayersColumnFilter('iplTeam',this.value)"></th>
               <th><input id="psFilter-pts" class="ps-filter-input" type="text" placeholder="filter" oninput="setPlayersColumnFilter('pts',this.value)"></th>
             </tr>
           </thead>
@@ -497,6 +510,8 @@ const TEAMS = [
   {name:'VINAY',players:[{name:'KL Rahul',role:'WIC'},{name:'Noor Ahmad',role:'BOW'},{name:'Dewald Brevis',role:'BAT'},{name:'Finn Allen',role:'WIC'},{name:'Riyan Parag',role:'BAT'},{name:'Shreyas Iyer',role:'BAT'},{name:'Avesh Khan',role:'BOW'},{name:'Marco Jansen',role:'ALL'},{name:'Harpreet Brar',role:'ALL'},{name:'Zeeshan Ansari',role:'BOW'},{name:'Dhruv Jurel',role:'WIC'}]},
 ];
 
+const IPL_TEAM_MAP={'Shubman Gill':'Gujarat Titans','Varun Chakravarthy':'Kolkata Knight Riders','Tilak Varma':'Mumbai Indians','Hardik Pandya':'Mumbai Indians','Ryan Rickelton':'Mumbai Indians','Mohammed Siraj':'Gujarat Titans','Axar Patel':'Delhi Capitals','David Miller':'Delhi Capitals','Devdutt Padikkal':'Royal Challengers Bengaluru','Mitchell Starc':'Delhi Capitals','Tim Seifert':'Kolkata Knight Riders','Ishan Kishan':'Sunrisers Hyderabad','Ayush Mhatre':'Chennai Super Kings','Priyansh Arya':'Punjab Kings','Arshdeep Singh':'Punjab Kings','Prasidh Krishna':'Gujarat Titans','Digvesh Singh':'Lucknow Super Giants','Naman Dhir':'Mumbai Indians','Quinton de Kock':'Mumbai Indians','Harshit Rana':'Kolkata Knight Riders','Sam Curran':'Rajasthan Royals','Glenn Phillips':'Gujarat Titans','Yashasvi Jaiswal':'Rajasthan Royals','Jasprit Bumrah':'Mumbai Indians','Rishabh Pant':'Lucknow Super Giants','Yuzvendra Chahal':'Punjab Kings','Mitchell Marsh':'Lucknow Super Giants','Nitish Rana':'Delhi Capitals','Pat Cummins':'Sunrisers Bengaluru','Tim David':'Royal Challengers Bengaluru','Pathum Nissanka':'Delhi Capitals','Vaibhav Arora':'Kolkata Knight Riders','Shashank Singh':'Punjab Kings','Sanju Samson':'Chennai Super Kings','Suryakumar Yadav':'Mumbai Indians','Rajat Patidar':'Royal Challengers Bengaluru','Angkrish Raghuvanshi':'Kolkata Knight Riders','Jacob Bethell':'Royal Challengers Bengaluru','Cameron Green':'Kolkata Knight Riders','Josh Hazlewood':'Royal Challengers Bengaluru','Trent Boult':'Mumbai Indians','Jitesh Sharma':'Royal Challengers Bengaluru','Mohammed Shami':'Lucknow Super Giants','Aniket Verma':'Sunrisers Hyderabad','Phil Salt':'Royal Challengers Bengaluru','Vaibhav Suryavanshi':'Rajasthan Royals','Sunil Narine':'Kolkata Knight Riders','Shimron Hetmyer':'Rajasthan Royals','Khaleel Ahmed':'Chennai Super Kings','MS Dhoni':'Chennai Super Kings','Will Jacks':'Mumbai Indians','Sandeep Sharma':'Rajasthan Royals','Vipraj Nigam':'Delhi Capitals','T Natarajan':'Delhi Capitals','Deepak Chahar':'Mumbai Indians','Ruturaj Gaikwad':'Chennai Super Kings','Rohit Sharma':'Mumbai Indians','Aiden Markram':'Lucknow Super Giants','Kuldeep Yadav':'Delhi Capitals','Ravindra Jadeja':'Rajasthan Royals','Jos Buttler':'Gujarat Titans','Kagiso Rabada':'Gujarat Titans','Ravi Bishnoi':'Rajasthan Royals','Mitchell Santner':'Mumbai Indians','Venkatesh Iyer':'Royal Challengers Bengaluru','Abishek Porel':'Delhi Capitals','Abhishek Sharma':'Sunrisers Hyderabad','Nicholas Pooran':'Lucknow Super Giants','Travis Head':'Sunrisers Hyderabad','Prabhsimran Singh':'Punjab Kings','Ajinkya Rahane':'Kolkata Knight Riders','Jaydev Unadkat':'Sunrisers Hyderabad','Matt Henry':'Chennai Super Kings','Sal Kishore':'Gujarat Titans','Washington Sundar':'Gujarat Titans','Krunal Pandya':'Royal Challengers Bengaluru','Suyash Sharma':'Royal Challengers Bengaluru','Virat Kohli':'Royal Challengers Bengaluru','Sai Sudharsan':'Gujarat Titans','Rashid Khan':'Gujarat Titans','Heinrich Klaasen':'Sunrisers Hyderabad','Shivam Dube':'Chennai Super Kings','Bhuvneshwar Kumar':'Royal Challengers Bengaluru','Karthik Sharma':'Chennai Super Kings','Sarfaraz Khan':'Chennai Super Kings','Tristan Stubbs':'Delhi Capitals','Harshal Patel':'Sunrisers Hyderabad','Jofra Archer':'Rajasthan Royals','KL Rahul':'Delhi Capitals','Noor Ahmad':'Chennai Super Kings','Dewald Brevis':'Chennai Super Kings','Finn Allen':'Kolkata Knight Riders','Riyan Parag':'Rajasthan Royals','Shreyas Iyer':'Punjab Kings','Avesh Khan':'Lucknow Super Giants','Marco Jansen':'Punjab Kings','Harpreet Brar':'Punjab Kings','Zeeshan Ansari':'Sunrisers Hyderabad','Dhruv Jurel':'Rajasthan Royals'};
+
 const ADMIN_PASSWORD = 'auctionpacked2026';
 const CV_LOCK_DEADLINE = new Date('2026-03-29T13:30:00Z');
 const CRICKETDATA_API_KEY = '392801ff-67f0-4f6d-b919-050d49eed9ba';
@@ -616,7 +631,7 @@ let playersSortChain = [
   { key: 'name', dir: 'asc' },
   { key: 'team', dir: 'asc' }
 ];
-let playersColumnFilters = { rank: '', name: '', role: '', team: '', pts: '' };
+let playersColumnFilters = { rank: '', name: '', role: '', team: '', iplTeam: '', pts: '' };
 
 const POLL_INTERVAL_NORMAL = 30 * 60 * 1000;
 const POLL_INTERVAL_SLOW   = 30 * 60 * 1000;
@@ -803,7 +818,7 @@ function saveLiveData(silent = false) {
 // ═══════════════════════════════════════════════════════
 function getPlayerTotals() {
   const totals = {};
-  TEAMS.forEach(t => t.players.forEach(p => { totals[p.name]={pts:0,teamName:t.name,role:p.role,matchPts:[]}; }));
+  TEAMS.forEach(t => t.players.forEach(p => { totals[p.name]={pts:0,teamName:t.name,role:p.role,iplTeam:IPL_TEAM_MAP[p.name]||'',matchPts:[]}; }));
   (liveData.matches||[]).forEach(match => {
     if (match.status!=='done' && match.status!=='live') return;
     const perfs = match.performances || {};
@@ -1055,7 +1070,7 @@ function focusPlayersFilter(key) {
 }
 
 function updatePlayersHeaderControls() {
-  const cols = ['rank','name','role','team','pts'];
+  const cols = ['rank','name','role','team','iplTeam','pts'];
   normalizePlayersSortChain();
   cols.forEach(col => {
     const sortBtn = document.getElementById('psSort-' + col);
@@ -1093,6 +1108,9 @@ function applyPlayersColumnFilters(rows) {
     const teamFilter = playersColumnFilters.team.toLowerCase();
     if (teamFilter && !r.teamName.toLowerCase().includes(teamFilter)) return false;
 
+    const iplTeamFilter = playersColumnFilters.iplTeam.toLowerCase();
+    if (iplTeamFilter && !(r.iplTeam||'').toLowerCase().includes(iplTeamFilter)) return false;
+
     const ptsFilter = playersColumnFilters.pts;
     if (ptsFilter && !String(r.pts).includes(ptsFilter)) return false;
 
@@ -1106,6 +1124,7 @@ function sortPlayersRows(rows) {
 
   function valFor(r, key) {
     if (key === 'team') return r.teamName;
+    if (key === 'iplTeam') return r.iplTeam || '';
     if (key === 'name' || key === 'role') return r[key] || '';
     if (key === 'rank') return r.rank;
     return r.pts;
@@ -1135,7 +1154,7 @@ function renderPlayers() {
   if(!tbody)return;
   const totals=getPlayerTotals();
   let rows=Object.entries(totals).map(([name,v])=>(
-    { name, pts: v.pts, teamName: v.teamName, role: v.role, rank: 0 }
+    { name, pts: v.pts, teamName: v.teamName, role: v.role, iplTeam: v.iplTeam||'', rank: 0 }
   ));
 
   const baseByPts=[...rows].sort((a,b)=>b.pts-a.pts||a.name.localeCompare(b.name));
@@ -1158,6 +1177,7 @@ function renderPlayers() {
       <td><div class="ps-player-name">${v.name}</div><div class="ps-player-team">${v.teamName}</div></td>
       <td><span class="role-tag">${v.role}</span></td>
       <td style="font-size:13px;color:var(--muted);">${v.teamName}</td>
+      <td style="font-size:12px;color:var(--muted);">${v.iplTeam||''}</td>
       <td class="num ${pc}">${v.pts}</td>
     </tr>`;
   }).join('');
@@ -2129,7 +2149,6 @@ function parseScorecard(matchData) {
 
   const playerMap={},aliasMap={};
 
-  const IPL_TEAM_MAP={'Shubman Gill':'Gujarat Titans','Varun Chakravarthy':'Kolkata Knight Riders','Tilak Varma':'Mumbai Indians','Hardik Pandya':'Mumbai Indians','Ryan Rickelton':'Mumbai Indians','Mohammed Siraj':'Gujarat Titans','Axar Patel':'Delhi Capitals','David Miller':'Delhi Capitals','Devdutt Padikkal':'Royal Challengers Bengaluru','Mitchell Starc':'Delhi Capitals','Tim Seifert':'Kolkata Knight Riders','Ishan Kishan':'Sunrisers Hyderabad','Ayush Mhatre':'Chennai Super Kings','Priyansh Arya':'Punjab Kings','Arshdeep Singh':'Punjab Kings','Prasidh Krishna':'Gujarat Titans','Digvesh Singh':'Lucknow Super Giants','Naman Dhir':'Mumbai Indians','Quinton de Kock':'Mumbai Indians','Harshit Rana':'Kolkata Knight Riders','Sam Curran':'Rajasthan Royals','Glenn Phillips':'Gujarat Titans','Yashasvi Jaiswal':'Rajasthan Royals','Jasprit Bumrah':'Mumbai Indians','Rishabh Pant':'Lucknow Super Giants','Yuzvendra Chahal':'Punjab Kings','Mitchell Marsh':'Lucknow Super Giants','Nitish Rana':'Delhi Capitals','Pat Cummins':'Sunrisers Bengaluru','Tim David':'Royal Challengers Bengaluru','Pathum Nissanka':'Delhi Capitals','Vaibhav Arora':'Kolkata Knight Riders','Shashank Singh':'Punjab Kings','Sanju Samson':'Chennai Super Kings','Suryakumar Yadav':'Mumbai Indians','Rajat Patidar':'Royal Challengers Bengaluru','Angkrish Raghuvanshi':'Kolkata Knight Riders','Jacob Bethell':'Royal Challengers Bengaluru','Cameron Green':'Kolkata Knight Riders','Josh Hazlewood':'Royal Challengers Bengaluru','Trent Boult':'Mumbai Indians','Jitesh Sharma':'Royal Challengers Bengaluru','Mohammed Shami':'Lucknow Super Giants','Aniket Verma':'Sunrisers Hyderabad','Phil Salt':'Royal Challengers Bengaluru','Vaibhav Suryavanshi':'Rajasthan Royals','Sunil Narine':'Kolkata Knight Riders','Shimron Hetmyer':'Rajasthan Royals','Khaleel Ahmed':'Chennai Super Kings','MS Dhoni':'Chennai Super Kings','Will Jacks':'Mumbai Indians','Sandeep Sharma':'Rajasthan Royals','Vipraj Nigam':'Delhi Capitals','T Natarajan':'Delhi Capitals','Deepak Chahar':'Mumbai Indians','Ruturaj Gaikwad':'Chennai Super Kings','Rohit Sharma':'Mumbai Indians','Aiden Markram':'Lucknow Super Giants','Kuldeep Yadav':'Delhi Capitals','Ravindra Jadeja':'Rajasthan Royals','Jos Buttler':'Gujarat Titans','Kagiso Rabada':'Gujarat Titans','Ravi Bishnoi':'Rajasthan Royals','Mitchell Santner':'Mumbai Indians','Venkatesh Iyer':'Royal Challengers Bengaluru','Abishek Porel':'Delhi Capitals','Abhishek Sharma':'Sunrisers Hyderabad','Nicholas Pooran':'Lucknow Super Giants','Travis Head':'Sunrisers Hyderabad','Prabhsimran Singh':'Punjab Kings','Ajinkya Rahane':'Kolkata Knight Riders','Jaydev Unadkat':'Sunrisers Hyderabad','Matt Henry':'Chennai Super Kings','Sal Kishore':'Gujarat Titans','Washington Sundar':'Gujarat Titans','Krunal Pandya':'Royal Challengers Bengaluru','Suyash Sharma':'Royal Challengers Bengaluru','Virat Kohli':'Royal Challengers Bengaluru','Sai Sudharsan':'Gujarat Titans','Rashid Khan':'Gujarat Titans','Heinrich Klaasen':'Sunrisers Hyderabad','Shivam Dube':'Chennai Super Kings','Bhuvneshwar Kumar':'Royal Challengers Bengaluru','Karthik Sharma':'Chennai Super Kings','Sarfaraz Khan':'Chennai Super Kings','Tristan Stubbs':'Delhi Capitals','Harshal Patel':'Sunrisers Hyderabad','Jofra Archer':'Rajasthan Royals','KL Rahul':'Delhi Capitals','Noor Ahmad':'Chennai Super Kings','Dewald Brevis':'Chennai Super Kings','Finn Allen':'Kolkata Knight Riders','Riyan Parag':'Rajasthan Royals','Shreyas Iyer':'Punjab Kings','Avesh Khan':'Lucknow Super Giants','Marco Jansen':'Punjab Kings','Harpreet Brar':'Punjab Kings','Zeeshan Ansari':'Sunrisers Hyderabad','Dhruv Jurel':'Rajasthan Royals'};
 
   const KNOWN_ALIASES={'philipsalt':'Phil Salt','philipdeansalt':'Phil Salt','vaibhavsooryavanshi':'Vaibhav Suryavanshi','sooryavanshi':'Vaibhav Suryavanshi','msdhoni':'MS Dhoni','mahendrasinghdhoni':'MS Dhoni','mohammadshami':'Mohammed Shami','mohammedshami':'Mohammed Shami','samuelcurran':'Sam Curran','josephbuttler':'Jos Buttler','josephcharlesbuttler':'Jos Buttler','williamjacks':'Will Jacks','williamgeorgejacks':'Will Jacks','matthewhenry':'Matt Henry','matthewjameshenry':'Matt Henry','patrickjamescummins':'Pat Cummins','patrickcummins':'Pat Cummins','ravindrasinhajadeja':'Ravindra Jadeja','rashidkhanarman':'Rashid Khan','klrahul':'KL Rahul','kannarurlokeshrahul':'KL Rahul','finnleyhughallen':'Finn Allen','finnleyallen':'Finn Allen','thangarasunatarajan':'T Natarajan'};
 
@@ -2341,6 +2360,7 @@ function openPlayerModal(playerName){
 
   const breakdowns=(liveData.matches||[])
     .filter(m=>(m.status==='done'||m.status==='live')&&(m.performances||{})[playerName])
+    .sort((a,b)=>(a.date||'').localeCompare(b.date||''))
     .map(match=>{
       const perf=match.performances[playerName];
       const pf={...perf,playerName,role:info.role};
