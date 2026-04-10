@@ -1557,6 +1557,58 @@ function findLiveMatchIndexForScheduleMatch(scheduleMatch) {
   });
 }
 
+async function fetchSeriesMatchList() {
+  try {
+    const r = await fetch(API_BASE + '/series_info?apikey=' + CRICKETDATA_API_KEY + '&id=' + IPL_2026_SERIES_ID, { signal: AbortSignal.timeout(12000) });
+    const d = await r.json();
+    incrementApiCalls(1);
+    return (d && d.data && Array.isArray(d.data.matchList)) ? d.data.matchList : [];
+  } catch (e) {
+    console.warn('[AP] series_info failed:', e.message);
+    return [];
+  }
+}
+
+function findSeriesMatchForScheduleMatch(scheduleMatch, seriesMatches) {
+  if (!scheduleMatch || !Array.isArray(seriesMatches) || seriesMatches.length === 0) return null;
+  const targetDate = (scheduleMatch.date || '').toString().slice(0, 10);
+
+  return seriesMatches.find(m => {
+    if (!m || !m.id) return false;
+    const matchDate = (m.date || '').toString().slice(0, 10);
+    if (targetDate && matchDate !== targetDate) return false;
+    return matchScheduleTeams(scheduleMatch, m.name || '');
+  }) || null;
+}
+
+async function ensureScorecardImportedForScheduleMatch(scheduleMatch) {
+  if (!scheduleMatch) return -1;
+
+  let matchIndex = findLiveMatchIndexForScheduleMatch(scheduleMatch);
+  if (matchIndex !== -1) return matchIndex;
+
+  if (!scheduleMatch.cricapi_match_id) return -1;
+
+  try {
+    const r = await fetch(API_BASE + '/match_scorecard?apikey=' + CRICKETDATA_API_KEY + '&id=' + scheduleMatch.cricapi_match_id, { signal: AbortSignal.timeout(12000) });
+    const d = await r.json();
+    incrementApiCalls(1);
+    if (!d || !d.data) return -1;
+
+    upsertMatch(
+      scheduleMatch.cricapi_match_id,
+      d.data.name || (scheduleMatch.home + ' vs ' + scheduleMatch.away),
+      d.data.date || scheduleMatch.date || '',
+      d.data
+    );
+
+    return findLiveMatchIndexForScheduleMatch(scheduleMatch);
+  } catch (e) {
+    console.warn('[AP] scorecard import failed for schedule match', scheduleMatch.match, e.message);
+    return -1;
+  }
+}
+
 async function fetchESPNDataManual() {
   const btn = document.getElementById('fetchESPNBtn');
   const statusEl = document.getElementById('espnStatus');
@@ -1589,13 +1641,25 @@ async function fetchESPNDataManual() {
 
     statusEl.textContent = `Found ${matchesToUpdate.length} match${matchesToUpdate.length !== 1 ? 'es' : ''} to update. Fetching ESPN data...`;
     let synced = 0;
+    const seriesMatches = await fetchSeriesMatchList();
 
     for (let i = 0; i < matchesToUpdate.length; i++) {
       const scheduleMatch = matchesToUpdate[i];
       if (!scheduleMatch.espn_match_id || !scheduleMatch.slug) continue;
       const entry = verificationEntries[i];
 
-      const matchIndex = findLiveMatchIndexForScheduleMatch(scheduleMatch);
+      if (!scheduleMatch.cricapi_match_id && seriesMatches.length > 0) {
+        const seriesMatch = findSeriesMatchForScheduleMatch(scheduleMatch, seriesMatches);
+        if (seriesMatch && seriesMatch.id) {
+          setCricapiIdForScheduleMatch(scheduleMatch, seriesMatch.id);
+        }
+      }
+
+      let matchIndex = findLiveMatchIndexForScheduleMatch(scheduleMatch);
+      if (matchIndex === -1) {
+        matchIndex = await ensureScorecardImportedForScheduleMatch(scheduleMatch);
+      }
+
       if (matchIndex === -1) {
         entry.statusText = 'Skipped';
         entry.statusColor = 'var(--muted)';
@@ -2107,6 +2171,7 @@ async function importAllScheduledMatches() {
   if (btn) { btn.textContent = 'Importing...'; btn.disabled = true; }
   let imported = 0, refreshed = 0, failed = 0;
   if (!liveData.matches) liveData.matches = [];
+  ensureCricapiIdMap();
 
   const setMatch = (apiId, name, date, status, performances) => {
     const idx = liveData.matches.findIndex(m => m.apiId === apiId);
@@ -2129,31 +2194,33 @@ async function importAllScheduledMatches() {
   };
 
   try {
-    const seen = new Set();
-    const iplMatches = [];
-    for (let offset = 0; offset <= 10; offset++) {
-      try {
-        const r = await fetch(API_BASE + '/currentMatches?apikey=' + CRICKETDATA_API_KEY + '&offset=' + offset, { signal: AbortSignal.timeout(12000) });
-        const d = await r.json(); incrementApiCalls(1);
-        (d.data || []).filter(m => isIPLMatch(m) && m.id && !seen.has(m.id)).forEach(m => { seen.add(m.id); iplMatches.push(m); });
-      } catch (e) {
-        console.warn('[AP] currentMatches offset failed:', offset, e.message);
+    const today = new Date().toISOString().slice(0, 10);
+    const seriesMatches = await fetchSeriesMatchList();
+
+    for (const scheduleMatch of IPL_2026_SCHEDULE) {
+      if (!scheduleMatch || !scheduleMatch.date || scheduleMatch.date > today) continue;
+
+      if (!scheduleMatch.cricapi_match_id && seriesMatches.length > 0) {
+        const seriesMatch = findSeriesMatchForScheduleMatch(scheduleMatch, seriesMatches);
+        if (seriesMatch && seriesMatch.id) {
+          setCricapiIdForScheduleMatch(scheduleMatch, seriesMatch.id);
+        }
       }
-    }
 
-    for (const m of iplMatches) {
-      const isEligible = !!(m.matchStarted || m.matchEnded);
-      if (!isEligible) continue;
+      if (!scheduleMatch.cricapi_match_id) continue;
 
-      const scheduleMatch = findScheduleMatchForCricapiMatch(m);
-      if (scheduleMatch) setCricapiIdForScheduleMatch(scheduleMatch, m.id);
-
-      const status = m.matchEnded ? 'done' : 'live';
       try {
-        const r = await fetch(API_BASE + '/match_scorecard?apikey=' + CRICKETDATA_API_KEY + '&id=' + m.id, { signal: AbortSignal.timeout(12000) });
+        const r = await fetch(API_BASE + '/match_scorecard?apikey=' + CRICKETDATA_API_KEY + '&id=' + scheduleMatch.cricapi_match_id, { signal: AbortSignal.timeout(12000) });
         const d = await r.json(); incrementApiCalls(1);
         if (d && d.data) {
-          setMatch(m.id, m.name || '', m.date || '', status, parseScorecard(d.data));
+          const status = d.data.matchEnded ? 'done' : d.data.matchStarted ? 'live' : 'upcoming';
+          setMatch(
+            scheduleMatch.cricapi_match_id,
+            d.data.name || (scheduleMatch.home + ' vs ' + scheduleMatch.away),
+            d.data.date || scheduleMatch.date || '',
+            status,
+            parseScorecard(d.data)
+          );
         } else {
           failed++;
         }
