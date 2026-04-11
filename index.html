@@ -3576,28 +3576,30 @@ function upsertMatch(apiId,name,date,scorecardData) {
   ensureCricapiIdMap();
   const scheduleMatch = findScheduleMatchForCricapiMatch({ id: apiId, name, date });
   if (scheduleMatch) setCricapiIdForScheduleMatch(scheduleMatch, apiId);
-  const parsedPerformances=parseScorecard(scorecardData);
+  const safeScorecardData=scorecardData||{};
+  const parsedPerformances=parseScorecard(safeScorecardData);
   const hasParsedPerformances=Object.keys(parsedPerformances).length>0;
-  const status=scorecardData.matchEnded?'done':scorecardData.matchStarted?'live':'upcoming';
+  const incomingStatus=safeScorecardData.matchEnded?'done':safeScorecardData.matchStarted?'live':'upcoming';
   const ei=liveData.matches.findIndex(m=>m.apiId===apiId);
   if(ei>=0){
     const existing=liveData.matches[ei];
-    const performances=hasParsedPerformances?parsedPerformances:(existing.performances||{});
-    // Preserve ESPN-sourced fields: dots per player and potm
+    const status=(incomingStatus==='upcoming'&&(existing.status==='live'||existing.status==='done'))?existing.status:incomingStatus;
+    const performances={...(existing.performances||{})};
     if(hasParsedPerformances){
-      Object.keys(performances).forEach(player=>{
-        const ex=existing.performances&&existing.performances[player];
-        if(ex&&ex.dots!=null)performances[player].dots=ex.dots;
+      Object.keys(parsedPerformances).forEach(player=>{
+        const ex=performances[player]||{};
+        performances[player]={...ex,...parsedPerformances[player]};
+        if(ex.dots!=null)performances[player].dots=ex.dots;
       });
     }
     const potm=existing.potm||null;
-    const teams=(scorecardData&&Array.isArray(scorecardData.teams)&&scorecardData.teams.length)?scorecardData.teams:(existing.teams||name);
+    const teams=(safeScorecardData&&Array.isArray(safeScorecardData.teams)&&safeScorecardData.teams.length)?safeScorecardData.teams:(existing.teams||name);
     liveData.matches[ei]={apiId,label:name,date,teams,status,performances};
     if(potm)liveData.matches[ei].potm=potm;
   } else {
     const performances=parsedPerformances;
-    const teams=(scorecardData&&Array.isArray(scorecardData.teams)&&scorecardData.teams.length)?scorecardData.teams:name;
-    liveData.matches.push({apiId,label:name,date,teams,status,performances});
+    const teams=(safeScorecardData&&Array.isArray(safeScorecardData.teams)&&safeScorecardData.teams.length)?safeScorecardData.teams:name;
+    liveData.matches.push({apiId,label:name,date,teams,status:incomingStatus,performances});
   }
   saveLiveData();
 }
