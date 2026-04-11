@@ -1443,9 +1443,9 @@ function renderPlayers() {
     const pc=v.pts>0?'pts-positive':v.pts<0?'pts-negative':'pts-zero';
     return `<tr style="cursor:pointer;" onclick="openPlayerModal('${v.name.replace(/'/g,"\\'")}')">
       <td class="ps-col-rank ps-sticky-rank" style="color:var(--muted);font-size:11px;">${i+1}</td>
-      <td class="ps-col-player ps-sticky-player"><div class="ps-player-name">${v.name}</div><div class="ps-player-team">${v.teamName}</div></td>
+      <td class="ps-col-player ps-sticky-player"><div class="ps-player-name">${v.name}</div></td>
       <td><span class="role-tag">${v.role}</span></td>
-      <td style="font-size:13px;color:var(--muted);">${v.teamName}</td>
+      <td style="font-size:11px;color:var(--muted);">${v.teamName}</td>
       <td style="font-size:12px;color:var(--muted);">${v.iplTeam||''}</td>
       <td class="num ${pc}">${v.pts}</td>
     </tr>`;
@@ -1496,11 +1496,13 @@ function renderLive() {
   });
   const sorted=Object.entries(tp).sort((a,b)=>b[1]-a[1]);
   const isVerifiedLive = selectedMatch.status === 'live';
-  const liveBadgeColor = isVerifiedLive ? 'var(--green)' : 'var(--gold)';
-  const liveBadgeLabel = isVerifiedLive ? 'LIVE' : 'LIVE UPDATE';
+  const liveBadgeColor = 'var(--green)';
+  const liveBadgeMarkup = isVerifiedLive
+    ? `<div style="margin-bottom:8px"><span style="font-family:Barlow Condensed,sans-serif;font-size:10px;font-weight:700;letter-spacing:2px;color:${liveBadgeColor};border:1px solid #00e67640;border-radius:4px;padding:3px 8px;"><span style="display:inline-block;width:8px;height:8px;background:${liveBadgeColor};border-radius:50%;margin-right:5px;animation:pulse-text 1.5s infinite;"></span>LIVE</span></div>`
+    : '';
   wrap.innerHTML=`
     <div class="live-match-header">
-      <div style="margin-bottom:8px"><span style="font-family:Barlow Condensed,sans-serif;font-size:10px;font-weight:700;letter-spacing:2px;color:${liveBadgeColor};border:1px solid ${isVerifiedLive ? '#00e67640' : '#ffb80040'};border-radius:4px;padding:3px 8px;"><span style="display:inline-block;width:8px;height:8px;background:${liveBadgeColor};border-radius:50%;margin-right:5px;animation:pulse-text 1.5s infinite;"></span>${liveBadgeLabel}</span></div>
+      ${liveBadgeMarkup}
       <div class="live-match-teams">${selectedMatch.label||'Match in Progress'}</div>
       <div class="live-match-score">${selectedMatch.date||''}${isVerifiedLive ? '' : ' · Showing latest scoring contributions'}</div>
     </div>
@@ -2571,7 +2573,7 @@ function renderInsightsRoleEfficiency() {
       ? '<div style="margin-top:10px;"><div class="insight-title" style="margin-bottom:6px;">Unknown Contributors</div><table class="insight-table"><thead><tr><th>Player</th><th>Match</th><th>Points</th></tr></thead><tbody>'
         + unknownRows.slice(0, 40).map(r => '<tr><td>' + r.playerName + '</td><td>' + r.matchLabel + '</td><td>' + r.pts + '</td></tr>').join('')
         + '</tbody></table><div style="font-size:11px;color:var(--muted);margin-top:6px;">Unknown means batting position was not captured from ESPN innings for that player/match (for example no batting row with batted_type=yes, API mismatch, or unresolved name).</div></div>'
-      : '<div style="font-size:11px;color:var(--green);margin-top:8px;">No unknown contributors.</div>';
+      : '';
 
     return '<div class="insight-card"><div class="insight-title">Role Efficiency · Batting Position</div>' + controls
       + (insightsBatPosLoading ? '<div style="font-size:12px;color:var(--muted);margin-bottom:8px;">Loading batting positions from ESPN...</div>' : '')
@@ -2610,7 +2612,7 @@ function renderInsightsRoleEfficiency() {
     ? '<div style="margin-top:10px;"><div class="insight-title" style="margin-bottom:6px;">Unknown Contributors</div><table class="insight-table"><thead><tr><th>Player</th><th>Match</th><th>Points</th></tr></thead><tbody>'
       + unknownRows.slice(0, 50).map(r => '<tr><td>' + r.playerName + '</td><td>' + r.matchLabel + '</td><td>' + r.pts + '</td></tr>').join('')
       + '</tbody></table><div style="font-size:11px;color:var(--muted);margin-top:6px;">Unknown means bowling profile (type/arm) is missing for that player in the app mapping.</div></div>'
-    : '<div style="font-size:11px;color:var(--green);margin-top:8px;">No unknown contributors.</div>';
+    : '';
   return '<div class="insight-card"><div class="insight-title">Role Efficiency · Bowling Type/Arm</div>' + controls
     + rows.map(([k,v]) => '<div style="margin-bottom:8px;"><div style="display:flex;justify-content:space-between;font-size:12px;color:var(--muted);"><span>' + k + '</span><span>' + Math.round(v) + '</span></div><div class="insight-stack"><div class="insight-seg-base" style="width:' + Math.round((v/max)*100) + '%"></div></div></div>').join('')
     + unknownDetails
