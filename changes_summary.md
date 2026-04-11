@@ -105,6 +105,50 @@ Operational intent:
 - Validate parser helper outputs against sampled raw ESPN payloads.
 - Require pre-sync vs post-sync team delta explanation and player-level scoring audits before release.
 
+### Verification Results Template (Standard)
+
+1. Change Scope
+- Release/patch ID, touched areas, and risk level.
+
+2. Baseline Snapshot (Before Run)
+- Team totals timestamp.
+- Sampled matches and captured fields (status, POTM, dot balls for at least 2 bowlers).
+
+3. Execution Path Used
+- Exact production flow executed.
+- Atomic CricAPI -> ESPN sequencing confirmation.
+- Sync counters (matches synced, ESPN updated).
+
+4. Results and Deltas
+- Team delta table attached.
+- Non-zero deltas fully explained.
+- If all zero deltas, expected reason documented.
+
+5. Player-Level Scoring Audit
+- At least 3 players audited.
+- Base points breakdown verified.
+- POTM-before-multiplier order verified.
+- C/VC multiplier and rounding behavior verified.
+
+6. Historical Mistake Prevention Checks
+- C/VC state loss: captains remained present/unchanged.
+- Listener destructive writeback: no listener path writes broad state.
+- Unintended pruning: no automatic performance-key removal.
+- ESPN alias mismatch: sampled aliases mapped to canonical names.
+- ESPN payload shape mismatch: helper fallbacks matched raw payload truth.
+- Partial sync parity gap: all relevant entry paths chain ESPN after CricAPI.
+
+7. Evidence Links
+- Raw payload sample references.
+- Helper output references.
+- Before/after totals references.
+- Commit SHA references.
+
+8. Release Gate Decision
+- Parser truth, sync parity, and C/VC integrity checks all passed.
+- No unexplained deltas.
+- Final decision: ship/hold with required fixes if hold.
+
 ---
 
 ## Overview
