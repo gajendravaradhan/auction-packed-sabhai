@@ -643,6 +643,7 @@ let _autoPolling = false;
 let _lastSyncTime = null;
 let _countdownTimer = null;
 let _adminCVExpanded = false;
+let _lastKnownCaptains = null;
 
 function resetStaleCounter() {
   try { const s=JSON.parse(localStorage.getItem(LS_API_CALLS_KEY)||'{}'); if(s.count>=100) localStorage.removeItem(LS_API_CALLS_KEY); } catch(e){}
@@ -894,6 +895,9 @@ function initFirebaseListener() {
     const d = snap.val();
     liveData = d || { matches: [] };
     if (!liveData.matches) liveData.matches = [];
+    if (liveData.captains && typeof liveData.captains === 'object' && !Array.isArray(liveData.captains)) {
+      _lastKnownCaptains = JSON.parse(JSON.stringify(liveData.captains));
+    }
     const mapChanged = ensureCricapiIdMap();
     if (mapChanged) persistCricapiIdMapSilently();
     renderTab(currentTab);
@@ -902,6 +906,12 @@ function initFirebaseListener() {
 
 function saveLiveData(silent = false) {
   if (!window._db) { if(!silent) showToast('Firebase unavailable','error'); return; }
+  if ((!liveData.captains || typeof liveData.captains !== 'object' || Array.isArray(liveData.captains)) && _lastKnownCaptains) {
+    liveData.captains = JSON.parse(JSON.stringify(_lastKnownCaptains));
+  }
+  if (liveData.captains && typeof liveData.captains === 'object' && !Array.isArray(liveData.captains)) {
+    _lastKnownCaptains = JSON.parse(JSON.stringify(liveData.captains));
+  }
   ensureCricapiIdMap();
   window._db.ref('live').set(liveData)
     .then(() => { if(!silent) showToast('Saved!','success'); })
