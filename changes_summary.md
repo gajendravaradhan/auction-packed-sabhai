@@ -6,6 +6,73 @@
 
 ---
 
+## Post-v1.0 Updates (April 11, 2026)
+
+This section captures everything shipped after the original v1.0 summary.
+
+### Critical Fixes and Enhancements
+
+1. ESPN data preservation during refresh/import flows
+- Commit: `a8b595c`
+- Fixed ESPN-sourced fields (`dots`, `potm`) being lost during scorecard refresh/import.
+- Ensured merge behavior uses safe upsert paths instead of destructive overwrite.
+
+2. Unified admin import action
+- Commit: `12779a0`
+- Consolidated redundant admin actions into single `Fetch CricAPI Results` flow.
+
+3. ET auto-sync window + admin UX improvements
+- Commit: `fa84bc2`
+- Auto-sync now restricted to 6:00 AM to 2:30 PM ET.
+- Added daily final sync behavior after window close.
+- Added collapsible C/VC override section with batch save/cancel.
+- Added saved match stack backfill to keep completed matches current.
+
+4. Saved match section collapse behavior
+- Commit: `5638371`
+- `Collapse Section` now keeps only latest card visible and collapsed by default.
+
+5. Player mis-assignment fix (Singh collision)
+- Commits: `f5a3473`, `ebaf411`
+- Fixed ambiguous player-name mapping where Ramandeep stats could leak to Arshdeep.
+- Added ESPN alias mapping for `Digvesh Rathi` -> `Digvesh Singh` so dots are applied correctly.
+
+6. Regression fix: prevent destructive auto-pruning of performances
+- Commit: `f830d62`
+- Removed listener-side auto-sanitization/write-back path that could mutate stored performance data.
+
+7. Regression guard: preserve C/VC selections
+- Commit: `b8ffafb`
+- Added captain/vice-captain preservation guard in save flow to prevent accidental null overwrite of `liveData.captains`.
+
+### Incident Notes (April 11)
+
+1. Root incident: C/VC multipliers disappeared
+- Symptom: leaderboard points dropped across all teams.
+- Root cause: `captains` became null in Firebase write path during a listener-triggered save cycle.
+- Resolution: restored captain data, removed destructive listener save path, added save guard.
+
+2. Root incident: Digvesh dots missing
+- Symptom: wickets present but dot balls stayed zero in matches where he bowled.
+- Root cause: ESPN name variant mismatch (`Digvesh Rathi`) not mapping to local player key (`Digvesh Singh`).
+- Resolution: alias normalization added and validated via parser check.
+
+### Current Verified Baseline
+
+After restoration and fixes, leaderboard baseline is:
+
+- VATS: 2840
+- ASVIN: 2368
+- KARTHIK: 2217
+- MUKIL: 2204
+- VINAY: 1776
+- ALVA: 1723
+- GAJA: 1673
+- SRIPAD: 1615
+- ANIRUDH: 1566 (includes Digvesh correction)
+
+---
+
 ## Overview
 
 Auction Packed is now a fully functional fantasy cricket platform for IPL 2026 season. This document tracks all major improvements and features implemented from development through v1.0 release.
