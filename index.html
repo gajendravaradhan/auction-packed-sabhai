@@ -787,6 +787,67 @@ function persistCricapiIdMapSilently() {
   });
 }
 
+function normalizeTeamNameForMatchCheck(name) {
+  return String(name || '').toLowerCase().replace(/[^a-z]/g, '');
+}
+
+function getTeamAliases(name) {
+  const n = normalizeTeamNameForMatchCheck(name);
+  const out = new Set([n]);
+  if (!n) return out;
+
+  if (n.includes('mumbaiindians') || n === 'mi' || n === 'mumbai') ['mumbaiindians','mi','mumbai'].forEach(v=>out.add(v));
+  if (n.includes('kolkataknightriders') || n === 'kkr' || n === 'kolkata') ['kolkataknightriders','kkr','kolkata'].forEach(v=>out.add(v));
+  if (n.includes('sunrisershyderabad') || n === 'srh' || n === 'hyderabad' || n === 'sunrisers') ['sunrisershyderabad','srh','hyderabad','sunrisers'].forEach(v=>out.add(v));
+  if (n.includes('lucknowsupergiants') || n === 'lsg' || n === 'lucknow') ['lucknowsupergiants','lsg','lucknow'].forEach(v=>out.add(v));
+  if (n.includes('punjabkings') || n === 'pbks' || n === 'punjab') ['punjabkings','pbks','punjab'].forEach(v=>out.add(v));
+  if (n.includes('rajasthanroyals') || n === 'rr' || n === 'rajasthan') ['rajasthanroyals','rr','rajasthan'].forEach(v=>out.add(v));
+  if (n.includes('royalchallengersbengaluru') || n.includes('royalchallengersbangalore') || n === 'rcb' || n === 'bengaluru' || n === 'bangalore') ['royalchallengersbengaluru','royalchallengersbangalore','rcb','bengaluru','bangalore'].forEach(v=>out.add(v));
+  if (n.includes('gujarattitans') || n === 'gt' || n === 'gujarat') ['gujarattitans','gt','gujarat'].forEach(v=>out.add(v));
+  if (n.includes('delhicapitals') || n === 'dc' || n === 'delhi') ['delhicapitals','dc','delhi'].forEach(v=>out.add(v));
+  if (n.includes('chennaisuperkings') || n === 'csk' || n === 'chennai') ['chennaisuperkings','csk','chennai'].forEach(v=>out.add(v));
+
+  return out;
+}
+
+function getMatchTeamList(match) {
+  if (!match) return [];
+  if (Array.isArray(match.teams)) return match.teams.map(t => String(t || '')).filter(Boolean);
+  const label = String(match.label || match.teams || '');
+  const head = label.split(',')[0] || label;
+  if (head.includes(' vs ')) return head.split(' vs ').map(t => t.trim()).filter(Boolean);
+  return [];
+}
+
+function isPlayerFromMatchTeams(playerName, matchTeams) {
+  if (!matchTeams || matchTeams.length < 2) return true;
+  const playerIplTeam = IPL_TEAM_MAP[playerName];
+  if (!playerIplTeam) return true;
+  const playerAliases = getTeamAliases(playerIplTeam);
+  return matchTeams.some(mt => {
+    const matchAliases = getTeamAliases(mt);
+    for (const pa of playerAliases) {
+      if (matchAliases.has(pa)) return true;
+    }
+    return false;
+  });
+}
+
+function sanitizeStoredMatchPerformances() {
+  let changed = false;
+  (liveData.matches || []).forEach(match => {
+    const teams = getMatchTeamList(match);
+    if (teams.length < 2 || !match || !match.performances) return;
+    Object.keys(match.performances).forEach(playerName => {
+      if (!isPlayerFromMatchTeams(playerName, teams)) {
+        delete match.performances[playerName];
+        changed = true;
+      }
+    });
+  });
+  return changed;
+}
+
 // ═══════════════════════════════════════════════════════
 // SCREEN / TAB NAV
 // ═══════════════════════════════════════════════════════
@@ -835,6 +896,8 @@ function initFirebaseListener() {
     if (!liveData.matches) liveData.matches = [];
     const mapChanged = ensureCricapiIdMap();
     if (mapChanged) persistCricapiIdMapSilently();
+    const perfChanged = sanitizeStoredMatchPerformances();
+    if (perfChanged) saveLiveData(true);
     renderTab(currentTab);
   });
 }
@@ -857,20 +920,8 @@ function getPlayerTotals() {
     if (match.status!=='done' && match.status!=='live') return;
     const perfs = match.performances || {};
     const potm  = match.potm || null;
-    // Extract team names from match label (format: "Team1 vs Team2, match info")
-    const labelTeams = (match.label||'').split(',')[0].split(' vs ').map(t => t.trim().toLowerCase());
-    
     Object.entries(perfs).forEach(([name,perf]) => {
       if (totals[name]===undefined) return;
-      
-      // Check if player's team is actually in this match
-      const playerTeam = totals[name].teamName.toLowerCase();
-      const isInMatch = labelTeams.length > 0 && labelTeams.some(t => 
-        playerTeam.includes(t) || t.includes(playerTeam)
-      );
-      
-      if (!isInMatch) return; // Skip if player's team is not in this match
-      
       const pf = {...perf, playerName:name, role:totals[name].role};
       const mp = calcFantasyPoints(pf, totals[name].teamName, potm);
       totals[name].pts += mp;
@@ -2295,10 +2346,12 @@ function upsertMatch(apiId,name,date,scorecardData) {
       if(ex&&ex.dots!=null)performances[player].dots=ex.dots;
     });
     const potm=existing.potm||null;
-    liveData.matches[ei]={apiId,label:name,date,teams:name,status,performances};
+    const teams=(scorecardData&&Array.isArray(scorecardData.teams)&&scorecardData.teams.length)?scorecardData.teams:name;
+    liveData.matches[ei]={apiId,label:name,date,teams,status,performances};
     if(potm)liveData.matches[ei].potm=potm;
   } else {
-    liveData.matches.push({apiId,label:name,date,teams:name,status,performances});
+    const teams=(scorecardData&&Array.isArray(scorecardData.teams)&&scorecardData.teams.length)?scorecardData.teams:name;
+    liveData.matches.push({apiId,label:name,date,teams,status,performances});
   }
   saveLiveData();
 }
@@ -2328,7 +2381,19 @@ function parseScorecard(matchData) {
 
   function similarity(a,b){if(!a||!b)return 0;if(a===b)return 1;const lo=a.length<=b.length?a:b,hi=a.length<=b.length?b:a;let m=0;const used=new Array(hi.length).fill(false);const range=Math.max(0,Math.floor(hi.length/2)-1);for(let i=0;i<lo.length;i++)for(let j=Math.max(0,i-range);j<Math.min(hi.length,i+range+1);j++)if(!used[j]&&lo[i]===hi[j]){m++;used[j]=true;break;}return m===0?0:(m/lo.length+m/hi.length)/2;}
 
-  function isInMatch(name,teams){if(!teams||teams.length<2)return true;const t=IPL_TEAM_MAP[name];if(!t)return true;return teams.some(mt=>t.toLowerCase().includes(mt)||mt.includes(t.toLowerCase()));}
+  function isInMatch(name,teams){
+    if(!teams||teams.length<2)return true;
+    const t=IPL_TEAM_MAP[name];
+    if(!t)return true;
+    const playerAliases=getTeamAliases(t);
+    return teams.some(mt=>{
+      const matchAliases=getTeamAliases(mt);
+      for(const pa of playerAliases){
+        if(matchAliases.has(pa))return true;
+      }
+      return false;
+    });
+  }
 
   function findPlayer(apiName){
     if(!apiName)return null;
@@ -2358,7 +2423,9 @@ function parseScorecard(matchData) {
   (matchData.scorecard||[]).forEach(innings=>{
     // Batting
     (innings.batting||[]).forEach(b=>{
-      const name=findPlayer(b.batsman?.name||b.batsmanName||b.name||'');
+      const batsmanName=b.batsman?.name||b.batsmanName||b.name||'';
+      const teamAwareBatter=findPlayerTeamAware(batsmanName,matchTeams);
+      const name=teamAwareBatter||((!matchTeams||matchTeams.length<2)?findPlayer(batsmanName):null);
       if(!name)return;
       if(!performances[name])performances[name]={played:true,_warnings:[]};
       const p=performances[name];
@@ -2377,7 +2444,9 @@ function parseScorecard(matchData) {
 
     // Bowling
     (innings.bowling||[]).forEach(b=>{
-      const name=findPlayer(b.bowler?.name||b.bowlerName||b.name||'');
+      const bowlerName=b.bowler?.name||b.bowlerName||b.name||'';
+      const teamAwareBowler=findPlayerTeamAware(bowlerName,matchTeams);
+      const name=teamAwareBowler||((!matchTeams||matchTeams.length<2)?findPlayer(bowlerName):null);
       if(!name)return;
       if(!performances[name])performances[name]={played:true,_warnings:[]};
       const p=performances[name];
@@ -2412,7 +2481,8 @@ function parseScorecard(matchData) {
           const m=dr.match(/(?:c\s*&\s*b|c&b|c\s+and\s+b|caught\s+and\s+bowled)\s+(.+)$/i);
           if(m)cn=m[1].trim();
         }
-        const f=findPlayerTeamAware(cn,mtt)||findPlayer(cn);
+        const teamAwareFielder=findPlayerTeamAware(cn,mtt);
+        const f=teamAwareFielder||((!mtt||mtt.length<2)?findPlayer(cn):null);
         if(f){if(!performances[f])performances[f]={played:true,_warnings:[]};performances[f].catches=(performances[f].catches||0)+1;}
       }
       if(dt==='stumped'){
@@ -2532,14 +2602,7 @@ function openPlayerModal(playerName){
   const ptsCls=info.pts>0?'color:var(--green)':info.pts<0?'color:var(--red)':'color:var(--muted)';
 
   const breakdowns=(liveData.matches||[])
-    .filter(m=>{
-      if(m.status!=='done'&&m.status!=='live')return false;
-      if(!(m.performances||{})[playerName])return false;
-      // Verify player's team is in this match
-      const labelTeams = (m.label||'').split(',')[0].split(' vs ').map(t => t.trim().toLowerCase());
-      const playerTeam = info.teamName.toLowerCase();
-      return labelTeams.length > 0 && labelTeams.some(t => playerTeam.includes(t) || t.includes(playerTeam));
-    })
+    .filter(m=>(m.status==='done'||m.status==='live')&&(m.performances||{})[playerName])
     .sort((a,b)=>(a.date||'').localeCompare(b.date||''))
     .map(match=>{
       const perf=match.performances[playerName];
