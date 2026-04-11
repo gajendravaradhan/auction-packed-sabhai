@@ -2038,6 +2038,7 @@ function renderInsights() {
 }
 
 let insightsMomentumVisibleTeams = null;
+let insightsRankFlowVisibleTeams = null;
 let insightsRoleMode = 'batting';
 let insightsDotOrder = 'total';
 let insightsBatPosByPlayer = {};
@@ -2146,6 +2147,25 @@ function toggleMomentumTeam(teamName) {
 function setAllMomentumTeams(val) {
   ensureInsightsVisibleTeams();
   TEAMS.forEach(t => { insightsMomentumVisibleTeams[t.name] = !!val; });
+  renderInsights();
+}
+
+function ensureInsightsRankFlowVisibleTeams() {
+  if (!insightsRankFlowVisibleTeams) {
+    insightsRankFlowVisibleTeams = {};
+    TEAMS.forEach(t => { insightsRankFlowVisibleTeams[t.name] = true; });
+  }
+}
+
+function toggleRankFlowTeam(teamName) {
+  ensureInsightsRankFlowVisibleTeams();
+  insightsRankFlowVisibleTeams[teamName] = !insightsRankFlowVisibleTeams[teamName];
+  renderInsights();
+}
+
+function setAllRankFlowTeams(val) {
+  ensureInsightsRankFlowVisibleTeams();
+  TEAMS.forEach(t => { insightsRankFlowVisibleTeams[t.name] = !!val; });
   renderInsights();
 }
 
@@ -2327,7 +2347,14 @@ function renderInsightsMomentum(series) {
 }
 
 function renderInsightsRankFlow(series) {
+  ensureInsightsRankFlowVisibleTeams();
   if (!series.matches.length) return '<div class="insight-card">No completed matches yet.</div>';
+  const visible = TEAMS.filter(t => insightsRankFlowVisibleTeams[t.name]);
+  const chips = '<div class="insight-controls">'
+    + '<button class="insight-action-btn" onclick="setAllRankFlowTeams(true)">Select All</button>'
+    + '<button class="insight-action-btn" onclick="setAllRankFlowTeams(false)">Clear All</button>'
+    + visible.length + ' selected</div>'
+    + '<div class="insight-controls">' + TEAMS.map(t => '<label style="font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px;"><input type="checkbox" ' + (insightsRankFlowVisibleTeams[t.name] ? 'checked' : '') + ' onchange="toggleRankFlowTeam(\'' + t.name + '\')">' + t.name + '</label>').join('') + '</div>';
   const w = 980, h = 420, pl = 72, pr = 70, pt = 24, pb = 58;
   const n = series.matches.length;
   const x = i => pl + (insightsRankMode === 'slope' ? (i ? (w - pl - pr) : 0) : (n <= 1 ? 0 : i * (w - pl - pr) / (n - 1)));
@@ -2345,15 +2372,16 @@ function renderInsightsRankFlow(series) {
     return '<line x1="' + pl + '" y1="' + yy.toFixed(1) + '" x2="' + (w-pr) + '" y2="' + yy.toFixed(1) + '" stroke="#163555" />'
       + '<text x="' + (pl - 8) + '" y="' + (yy + 4).toFixed(1) + '" fill="#9fb8d8" font-size="11" text-anchor="end">' + rank + '</text>';
   }).join('');
-  const lines = TEAMS.map((t, idx) => {
+  const lines = visible.map(t => {
+    const color = insightPalette(Math.max(0, TEAMS.findIndex(tt => tt.name === t.name)));
     const arr = series.ranks[t.name] || [];
     if (!arr.length) return '';
     const source = insightsRankMode === 'slope' ? [arr[0], arr[arr.length - 1]] : arr;
     const pts = source.map((r, i) => x(i).toFixed(1) + ',' + y(r).toFixed(1)).join(' ');
-    return '<polyline fill="none" stroke="' + insightPalette(idx) + '" stroke-width="2.2" points="' + pts + '" />';
+    return '<polyline fill="none" stroke="' + color + '" stroke-width="2.2" points="' + pts + '" />';
   }).join('');
   const hoverPoints = [];
-  TEAMS.forEach((t, idx) => {
+  visible.forEach(t => {
     const arr = series.ranks[t.name] || [];
     const source = insightsRankMode === 'slope' ? (arr.length ? [arr[0], arr[arr.length - 1]] : []) : arr;
     source.forEach((r, i) => {
@@ -2366,8 +2394,11 @@ function renderInsightsRankFlow(series) {
     + '<button class="insights-subtab ' + (insightsRankMode === 'slope' ? 'active' : '') + '" onclick="setInsightsRankMode(\'slope\')">Slope</button>'
     + '<button class="insights-subtab ' + (insightsRankMode === 'bump' ? 'active' : '') + '" onclick="setInsightsRankMode(\'bump\')">Bump</button>'
     + '</div>';
-  const legend = TEAMS.map((t, idx) => '<div class="insight-legend-item"><span class="insight-dot" style="background:' + insightPalette(idx) + '"></span>' + t.name + '</div>').join('');
-  return '<div class="insight-card"><div class="insight-title">Rank Flow</div>' + modeBtns
+  const legend = visible.map(t => {
+    const color = insightPalette(Math.max(0, TEAMS.findIndex(tt => tt.name === t.name)));
+    return '<div class="insight-legend-item"><span class="insight-dot" style="background:' + color + '"></span>' + t.name + '</div>';
+  }).join('');
+  return '<div class="insight-card"><div class="insight-title">Rank Flow</div>' + modeBtns + chips
     + '<svg id="insight-svg-rankflow" viewBox="0 0 ' + w + ' ' + h + '" style="width:100%;height:auto;background:#071325;border:1px solid #123050;border-radius:8px;touch-action:manipulation;" onmousemove="handleInsightChartMove(event,\'rankFlow\')" onmouseleave="handleInsightChartLeave()" ontouchstart="handleInsightChartPressStart(event,\'rankFlow\')" ontouchmove="handleInsightChartPressMove(event,\'rankFlow\')" ontouchend="handleInsightChartPressEnd()" ontouchcancel="handleInsightChartPressEnd()">'
     + xGrid + yGrid + lines
     + '<line x1="' + pl + '" y1="' + (h - pb) + '" x2="' + (w-pr) + '" y2="' + (h-pb) + '" stroke="#2a5274" />'
