@@ -1071,6 +1071,32 @@ function renderLeaderboard() {
   const doneCount = (liveData.matches||[]).filter(m=>m.status==='done').length;
   const totalTeams = sorted.length;
 
+  const scheduleOrderByApiId = new Map();
+  IPL_2026_SCHEDULE.forEach((s, idx) => {
+    if (s && s.cricapi_match_id) scheduleOrderByApiId.set(s.cricapi_match_id, idx);
+  });
+  const doneMatches = (liveData.matches || []).filter(m => m && m.status === 'done');
+  const lastCompletedMatch = doneMatches.length
+    ? [...doneMatches].sort((a, b) => {
+        const ai = scheduleOrderByApiId.has(a.apiId) ? scheduleOrderByApiId.get(a.apiId) : Number.MAX_SAFE_INTEGER;
+        const bi = scheduleOrderByApiId.has(b.apiId) ? scheduleOrderByApiId.get(b.apiId) : Number.MAX_SAFE_INTEGER;
+        if (ai !== bi) return ai - bi;
+        return String(a.date || '').localeCompare(String(b.date || ''));
+      })[doneMatches.length - 1]
+    : null;
+  const lastCompletedPointsByTeam = {};
+  TEAMS.forEach(t => {
+    let teamPts = 0;
+    if (lastCompletedMatch && lastCompletedMatch.performances) {
+      t.players.forEach(p => {
+        const perf = lastCompletedMatch.performances[p.name];
+        if (!perf) return;
+        teamPts += calcFantasyPoints({ ...perf, playerName: p.name, role: p.role }, t.name, lastCompletedMatch.potm);
+      });
+    }
+    lastCompletedPointsByTeam[t.name] = teamPts;
+  });
+
   list.innerHTML = sorted.map(([name,pts],i) => {
     const cls = i===0&&pts>0?'top1':i===1&&pts>0?'top2':i===2&&pts>0?'top3':'';
     const team = TEAMS.find(t=>t.name===name);
@@ -1115,6 +1141,7 @@ function renderLeaderboard() {
             <span style="color:var(--gold);">C: ${capName}</span>
             <span style="color:var(--muted);">VC: ${vcName}</span>
             <span>${doneCount} match${doneCount!==1?'es':''} played</span>
+            <span>Last match: ${lastCompletedMatch ? (lastCompletedPointsByTeam[name] || 0) : '—'}</span>
           </div>
           <div class="lb-sparkbar"><div class="lb-sparkfill" style="width:${pct}%;background:${i===0&&pts>0?'var(--gold)':'var(--orange)'}"></div></div>
         </div>
@@ -2829,9 +2856,11 @@ function initMatchDayWatcher() {
 }
 
 async function syncMissingScheduledMatchesUpToToday(startedOrEndedIds = null) {
+  const runEspnAfterImport = arguments[1] && arguments[1].runEspnAfterImport;
   const today = getETDateTimeParts().date;
   const seriesMatches = await fetchSeriesMatchList();
   let added = 0;
+  let espnSynced = 0;
 
   for (const scheduleMatch of IPL_2026_SCHEDULE.filter(m => m && m.date && m.date <= today)) {
     if (!scheduleMatch.cricapi_match_id && seriesMatches.length > 0) {
@@ -2855,12 +2884,16 @@ async function syncMissingScheduledMatchesUpToToday(startedOrEndedIds = null) {
         d.data
       );
       added++;
+      if (runEspnAfterImport) {
+        const espnResult = await syncEspnForScheduleMatchesAtomic([scheduleMatch], { persistEach: true });
+        espnSynced += espnResult.synced;
+      }
     } catch (e) {
       console.warn('[AP] backfill failed:', scheduleMatch.cricapi_match_id, e.message);
     }
   }
 
-  return added;
+  return { added, espnSynced };
 }
 
 async function runDailyFinalStackSyncIfNeeded() {
@@ -2956,6 +2989,33 @@ function getESPNPayload(matchData) {
   return matchData;
 }
 
+function getESPNMatchStatus(matchData) {
+  const payload = getESPNPayload(matchData);
+  if (!payload) return '';
+  return payload.status || payload.data?.status || '';
+}
+
+function getESPNPotmName(matchData) {
+  const payload = getESPNPayload(matchData);
+  if (!payload) return null;
+
+  const candidates = [
+    payload.player_of_match,
+    payload.playerOfTheMatch,
+    payload.data?.player_of_match,
+    payload.data?.playerOfTheMatch
+  ];
+
+  for (const candidate of candidates) {
+    if (!candidate) continue;
+    const potmValue = Array.isArray(candidate) ? candidate[0] : candidate;
+    const potmName = potmValue && potmValue.name ? potmValue.name : null;
+    if (potmName) return normalizePlayerName(potmName);
+  }
+
+  return null;
+}
+
 function getESPNInnings(matchData) {
   const payload = getESPNPayload(matchData);
   if (!payload) return [];
@@ -2986,14 +3046,11 @@ function parseESPNData(matchData, matchIndex) {
     });
   });
 
-  // Parse POTM if match is RESULT
-  if (payload.status === 'RESULT' && payload.player_of_match) {
-    const potmValue = Array.isArray(payload.player_of_match)
-      ? payload.player_of_match[0]
-      : payload.player_of_match;
-    const potmName = potmValue && potmValue.name ? potmValue.name : null;
+  // Parse POTM if match is RESULT (ESPN payload can expose this at multiple nesting levels)
+  if (getESPNMatchStatus(matchData) === 'RESULT') {
+    const potmName = getESPNPotmName(matchData);
     if (potmName) {
-      match.potm = normalizePlayerName(potmName);
+      match.potm = potmName;
     }
   }
 }
@@ -3027,6 +3084,7 @@ async function runSyncNow() {
   showToast('Syncing...','');
   try {
     const seen=new Set(),iplMatches=[];
+    let espnSynced = 0;
     for (let offset = 0; offset <= 10; offset++) {
       try{
         const r=await fetch(API_BASE+'/currentMatches?apikey='+CRICKETDATA_API_KEY+'&offset='+offset,{signal:AbortSignal.timeout(12000)});
@@ -3048,6 +3106,11 @@ async function runSyncNow() {
         scorecardData.matchStarted = !!(scorecardData.matchStarted || m.matchStarted);
         scorecardData.matchEnded = !!(scorecardData.matchEnded || m.matchEnded);
         upsertMatch(m.id,m.name||'',m.date||'',scorecardData); synced++;
+        const scheduleMatch = findScheduleMatchForCricapiMatch({ id: m.id, name: m.name || '', date: m.date || '' });
+        if (scheduleMatch) {
+          const espnResult = await syncEspnForScheduleMatchesAtomic([scheduleMatch], { persistEach: true });
+          espnSynced += espnResult.synced;
+        }
       }catch(e){
         console.warn('[AP] scorecard failed:',m.id,e.message);
         try {
@@ -3057,34 +3120,20 @@ async function runSyncNow() {
             matchEnded: !!m.matchEnded
           });
           synced++;
+          const scheduleMatch = findScheduleMatchForCricapiMatch({ id: m.id, name: m.name || '', date: m.date || '' });
+          if (scheduleMatch) {
+            const espnResult = await syncEspnForScheduleMatchesAtomic([scheduleMatch], { persistEach: true });
+            espnSynced += espnResult.synced;
+          }
         } catch (fallbackErr) {
           console.warn('[AP] fallback upsert failed:', m.id, fallbackErr.message);
         }
       }
     }
 
-    const stackAdded = await syncMissingScheduledMatchesUpToToday(startedOrEndedFilter);
-
-    // New ESPN API calls for matches needing updates
-    const matchesToUpdate = getMatchesForESPNUpdate();
-    let espnSynced = 0;
-    for (const scheduleMatch of matchesToUpdate) {
-      if (!scheduleMatch.espn_match_id || !scheduleMatch.slug) continue;
-      const matchIndex = findLiveMatchIndexForScheduleMatch(scheduleMatch);
-      if (matchIndex === -1) continue;
-
-      const espnData = await fetchESPNMatchDetails(scheduleMatch.espn_match_id, scheduleMatch.slug);
-      if (espnData) {
-        parseESPNData(espnData, matchIndex);
-        saveLiveData(true); // persist ESPN data immediately so Firebase listener can't wipe it
-        espnSynced++;
-      }
-    }
-
-    // Update checkpoint if ESPN data was fetched
-    if (espnSynced > 0) {
-      liveData.espnLastUpdate = new Date().toISOString();
-    }
+    const backfillResult = await syncMissingScheduledMatchesUpToToday(startedOrEndedFilter, { runEspnAfterImport: true });
+    const stackAdded = backfillResult.added || 0;
+    espnSynced += backfillResult.espnSynced || 0;
 
     showToast(
       'Synced '+synced+' match'+(synced!==1?'es':'')+
@@ -3154,7 +3203,17 @@ async function importMatchById(matchId) {
     const r=await fetch(API_BASE+'/match_scorecard?apikey='+CRICKETDATA_API_KEY+'&id='+matchId,{signal:AbortSignal.timeout(12000)});
     const d=await r.json(); incrementApiCalls(1);
     if(!d||!d.data){showToast('No scorecard data','error');}
-    else{upsertMatch(matchId,d.data.name||matchId,d.data.date||'',d.data);showToast('Imported: '+(d.data.name||matchId).split(',')[0],'success');renderAdmin();renderTab(currentTab);}
+    else{
+      upsertMatch(matchId,d.data.name||matchId,d.data.date||'',d.data);
+      const scheduleMatch = findScheduleMatchForCricapiMatch({ id: matchId, name: d.data.name || matchId, date: d.data.date || '' });
+      let espnNote = '';
+      if (scheduleMatch) {
+        const espnResult = await syncEspnForScheduleMatchesAtomic([scheduleMatch], { persistEach: true });
+        if (espnResult.synced > 0) espnNote = ' + ESPN';
+      }
+      showToast('Imported: '+(d.data.name||matchId).split(',')[0] + espnNote,'success');
+      renderAdmin();renderTab(currentTab);
+    }
   }catch(e){showToast('Import failed: '+e.message,'error');}
   if(btn){btn.textContent='IMPORT';btn.disabled=false;}
 }
@@ -3164,7 +3223,17 @@ async function importMatch(matchId,matchName,matchDate) {
   try{
     const r=await fetch(API_BASE+'/match_scorecard?apikey='+CRICKETDATA_API_KEY+'&id='+matchId,{signal:AbortSignal.timeout(12000)});
     const d=await r.json();
-    if(d&&d.data){upsertMatch(matchId,matchName,matchDate,d.data);showToast('Imported','success');renderAdmin();renderTab(currentTab);}
+    if(d&&d.data){
+      upsertMatch(matchId,matchName,matchDate,d.data);
+      const scheduleMatch = findScheduleMatchForCricapiMatch({ id: matchId, name: d.data.name || matchName || '', date: d.data.date || matchDate || '' });
+      let espnNote = '';
+      if (scheduleMatch) {
+        const espnResult = await syncEspnForScheduleMatchesAtomic([scheduleMatch], { persistEach: true });
+        if (espnResult.synced > 0) espnNote = ' + ESPN';
+      }
+      showToast('Imported'+espnNote,'success');
+      renderAdmin();renderTab(currentTab);
+    }
   }catch(e){showToast('Failed','error');}
 }
 
@@ -3172,6 +3241,7 @@ async function refreshAllMatches() {
   const btn=document.getElementById('refreshAllBtn');
   if(btn){btn.textContent='Refreshing...';btn.disabled=true;}
   let done=0;
+  let espnSynced = 0;
   for(const m of (liveData.matches||[])){
     if(!m.apiId||m.apiId.startsWith('manual-'))continue;
     try{
@@ -3180,11 +3250,16 @@ async function refreshAllMatches() {
       if(d&&d.data){
         upsertMatch(m.apiId,d.data.name||m.label||'',d.data.date||m.date||'',d.data);
         done++;
+        const scheduleMatch = findScheduleMatchForCricapiMatch({ id: m.apiId, name: d.data.name || m.label || '', date: d.data.date || m.date || '' });
+        if (scheduleMatch) {
+          const espnResult = await syncEspnForScheduleMatchesAtomic([scheduleMatch], { persistEach: true });
+          espnSynced += espnResult.synced;
+        }
       }
     }catch(e){console.warn('[AP] refresh failed:',m.apiId,e.message);}
   }
   saveLiveData();
-  showToast('Refreshed '+done+' match'+(done!==1?'es':''),'success');
+  showToast('Refreshed '+done+' match'+(done!==1?'es':'')+(espnSynced>0?', ESPN '+espnSynced:''),'success');
   renderAdmin(); renderTab(currentTab);
   if(btn){btn.textContent='REFRESH ALL';btn.disabled=false;}
 }
@@ -3197,7 +3272,14 @@ async function reimportScorecard(idx,matchId) {
     if(!d.data){showToast('No scorecard yet','error');return;}
     const old=liveData.matches[idx]||{};
     upsertMatch(matchId,d.data.name||old.label||'',d.data.date||old.date||'',d.data);
+    const scheduleMatch = findScheduleMatchForCricapiMatch({ id: matchId, name: d.data.name || old.label || '', date: d.data.date || old.date || '' });
+    let espnNote = '';
+    if (scheduleMatch) {
+      const espnResult = await syncEspnForScheduleMatchesAtomic([scheduleMatch], { persistEach: true });
+      if (espnResult.synced > 0) espnNote = ' + ESPN';
+    }
     saveLiveData();
+    showToast('Refreshed'+espnNote,'success');
   }catch(e){showToast('Refresh failed','error');}
 }
 
@@ -3270,6 +3352,35 @@ function findLiveMatchIndexForScheduleMatch(scheduleMatch) {
     const label = (m.label || m.teams || '').toString();
     return matchScheduleTeams(scheduleMatch, label);
   });
+}
+
+async function syncEspnForScheduleMatchesAtomic(scheduleMatches, options = {}) {
+  const persistEach = options.persistEach !== false;
+  const seen = new Set();
+  let synced = 0;
+
+  for (const scheduleMatch of (scheduleMatches || [])) {
+    if (!scheduleMatch || !scheduleMatch.espn_match_id || !scheduleMatch.slug) continue;
+    const key = String(scheduleMatch.espn_match_id);
+    if (seen.has(key)) continue;
+    seen.add(key);
+
+    let matchIndex = findLiveMatchIndexForScheduleMatch(scheduleMatch);
+    if (matchIndex === -1) {
+      matchIndex = await ensureScorecardImportedForScheduleMatch(scheduleMatch);
+    }
+    if (matchIndex === -1) continue;
+
+    const espnData = await fetchESPNMatchDetails(scheduleMatch.espn_match_id, scheduleMatch.slug);
+    if (!espnData) continue;
+
+    parseESPNData(espnData, matchIndex);
+    liveData.espnLastUpdate = new Date().toISOString();
+    if (persistEach) saveLiveData(true);
+    synced++;
+  }
+
+  return { synced };
 }
 
 async function fetchSeriesMatchList() {
@@ -3409,14 +3520,10 @@ async function fetchESPNDataManual() {
           });
         });
 
-          const payload = getESPNPayload(espnData);
-          if (payload && payload.status === 'RESULT' && payload.player_of_match) {
-            const potmValue = Array.isArray(payload.player_of_match)
-              ? payload.player_of_match[0]
-              : payload.player_of_match;
-            const potmName = potmValue && potmValue.name ? potmValue.name : null;
+          if (getESPNMatchStatus(espnData) === 'RESULT') {
+            const potmName = getESPNPotmName(espnData);
             if (potmName) {
-              entry.potm = normalizePlayerName(potmName);
+              entry.potm = potmName;
             }
           }
           entry.statusText = 'Updated';
@@ -3938,6 +4045,7 @@ async function fetchCricapiResults(options = {}) {
   const btn = document.getElementById('importAllScheduledBtn');
   if (!silent && btn) { btn.textContent = 'Fetching...'; btn.disabled = true; }
   let imported = 0, refreshed = 0, failed = 0, skippedNoId = 0, skippedUpcoming = 0, processed = 0;
+  let espnSynced = 0;
   if (!liveData.matches) liveData.matches = [];
   ensureCricapiIdMap();
 
@@ -4016,6 +4124,8 @@ async function fetchCricapiResults(options = {}) {
             d.data.date || scheduleMatch.date || '',
             d.data
           );
+          const espnResult = await syncEspnForScheduleMatchesAtomic([scheduleMatch], { persistEach: true });
+          espnSynced += espnResult.synced;
           if (existed) refreshed++;
           else imported++;
         } else {
@@ -4047,11 +4157,11 @@ async function fetchCricapiResults(options = {}) {
       failed,
       skippedNoId,
       skippedUpcoming,
-      summary: msg + (failed > 0 ? (', ' + failed + ' scorecards unavailable') : '') + (skippedUpcoming > 0 ? (', ' + skippedUpcoming + ' not started yet') : '')
+      summary: msg + (espnSynced > 0 ? (', ESPN ' + espnSynced + ' synced') : '') + (failed > 0 ? (', ' + failed + ' scorecards unavailable') : '') + (skippedUpcoming > 0 ? (', ' + skippedUpcoming + ' not started yet') : '')
     };
     refreshImportAllScheduledStatusUI();
     if (!silent) {
-      showToast(msg + (failed > 0 ? (', ' + failed + ' scorecards unavailable') : '') + (skippedUpcoming > 0 ? (', ' + skippedUpcoming + ' not started yet') : ''), (imported + refreshed > 0) ? 'success' : '');
+      showToast(msg + (espnSynced > 0 ? (', ESPN ' + espnSynced + ' synced') : '') + (failed > 0 ? (', ' + failed + ' scorecards unavailable') : '') + (skippedUpcoming > 0 ? (', ' + skippedUpcoming + ' not started yet') : ''), (imported + refreshed > 0 || espnSynced > 0) ? 'success' : '');
     }
     renderAdmin(); renderTab(currentTab);
   } catch (e) {
