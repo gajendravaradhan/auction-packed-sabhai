@@ -642,6 +642,7 @@ let _pollTimer = null;
 let _autoPolling = false;
 let _lastSyncTime = null;
 let _countdownTimer = null;
+let _adminCVExpanded = false;
 
 function resetStaleCounter() {
   try { const s=JSON.parse(localStorage.getItem(LS_API_CALLS_KEY)||'{}'); if(s.count>=100) localStorage.removeItem(LS_API_CALLS_KEY); } catch(e){}
@@ -655,6 +656,38 @@ function incrementApiCalls(n=1) {
   try { const t=new Date().toISOString().slice(0,10); const c=getApiCallsToday()+n; localStorage.setItem(LS_API_CALLS_KEY,JSON.stringify({date:t,count:c})); return c; } catch(e){return 0;}
 }
 function apiCallsRemaining() { return Math.max(0, DAILY_LIMIT - getApiCallsToday()); }
+
+function getETDateTimeParts(date = new Date()) {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false
+  }).formatToParts(date).reduce((acc, p) => {
+    if (p.type !== 'literal') acc[p.type] = p.value;
+    return acc;
+  }, {});
+
+  return {
+    date: `${parts.year}-${parts.month}-${parts.day}`,
+    hour: parseInt(parts.hour, 10) || 0,
+    minute: parseInt(parts.minute, 10) || 0
+  };
+}
+
+function isWithinAutoSyncWindowET(date = new Date()) {
+  const t = getETDateTimeParts(date);
+  const mins = t.hour * 60 + t.minute;
+  return mins >= 360 && mins <= 870; // 6:00 AM to 2:30 PM ET
+}
+
+function isPastAutoSyncWindowEndET(date = new Date()) {
+  const t = getETDateTimeParts(date);
+  return (t.hour * 60 + t.minute) > 870;
+}
 
 function formatAdminDateTime(iso) {
   if (!iso) return '—';
@@ -1237,6 +1270,7 @@ function renderAdmin() {
   const matches=liveData.matches||[];
   const used=getApiCallsToday(), remaining=apiCallsRemaining();
   const isSlowing=used>=DAILY_LIMIT_SLOW_AT, isStopped=remaining===0;
+  const inSyncWindow = isWithinAutoSyncWindowET();
   const sc=isStopped?'var(--red)':isSlowing?'var(--gold)':'var(--green)';
 
   wrap.innerHTML=`
@@ -1246,23 +1280,21 @@ function renderAdmin() {
     </div>
 
     <div class="admin-section-title">Override Captain/Vice Captain</div>
-    <div class="match-input-card" style="margin-bottom:16px;">
-      <div style="font-size:13px;color:var(--muted);margin-bottom:10px;">Set or change C/VC for any team. This overrides user picks and lock status.</div>
-      <div id="adminCVOverride"></div>
-    </div>
+    <div id="adminCVOverride" style="margin-bottom:16px;"></div>
 
     <div class="admin-section-title">Auto-Sync Status</div>
     <div class="match-input-card" style="margin-bottom:16px;">
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:14px;">
         <div>
-          <div style="font-family:Barlow Condensed,sans-serif;font-size:22px;font-weight:800;letter-spacing:2px;color:${sc};">${_autoPolling?'<span style="animation:pulse-text 1.5s infinite;">● SYNCING</span>':'○ PAUSED'}</div>
+          <div style="font-family:Barlow Condensed,sans-serif;font-size:22px;font-weight:800;letter-spacing:2px;color:${sc};">${_autoPolling?'<span style="animation:pulse-text 1.5s infinite;">● SYNCING</span>':(inSyncWindow?'○ PAUSED':'○ SUSPENDED')}</div>
           <div style="font-size:12px;color:var(--muted);letter-spacing:1px;margin-top:3px;">${used} / ${DAILY_LIMIT} calls used · ${remaining} remaining</div>
+          <div style="font-size:11px;color:var(--muted);letter-spacing:1px;margin-top:2px;">Window: 6:00 AM - 2:30 PM ET</div>
           <div style="font-size:13px;color:var(--gold);letter-spacing:1px;margin-top:4px;" id="syncCountdown"></div>
         </div>
         <div style="display:flex;gap:8px;">
           ${_autoPolling
             ?'<button onclick="stopAutoSync()" style="background:none;border:1px solid var(--border);color:var(--muted);border-radius:7px;padding:8px 16px;cursor:pointer;font-family:Barlow Condensed,sans-serif;font-size:14px;font-weight:700;letter-spacing:2px;">PAUSE</button>'
-            :`<button onclick="startAutoSync()" style="background:var(--orange);color:#fff;border:none;border-radius:7px;padding:8px 16px;cursor:pointer;font-family:Barlow Condensed,sans-serif;font-size:14px;font-weight:700;letter-spacing:2px;"${isStopped?' disabled':''}>START</button>`
+            :`<button onclick="startAutoSync()" style="background:var(--orange);color:#fff;border:none;border-radius:7px;padding:8px 16px;cursor:pointer;font-family:Barlow Condensed,sans-serif;font-size:14px;font-weight:700;letter-spacing:2px;"${(isStopped||!inSyncWindow)?' disabled':''}>START</button>`
           }
           <button onclick="runSyncNow()" style="background:var(--surface2);border:1px solid var(--border);color:var(--gold);border-radius:7px;padding:8px 14px;cursor:pointer;font-family:Barlow Condensed,sans-serif;font-size:14px;font-weight:700;letter-spacing:2px;">SYNC NOW</button>
         </div>
@@ -1305,6 +1337,7 @@ function renderAdmin() {
     ${matches.length>0?`
       <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
         <button onclick="collapseAllMatches(true)" style="background:none;border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:5px 12px;cursor:pointer;font-family:Barlow Condensed,sans-serif;font-size:12px;font-weight:700;letter-spacing:2px;">COLLAPSE ALL</button>
+        <button onclick="collapseSectionToLatestMatch()" style="background:none;border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:5px 12px;cursor:pointer;font-family:Barlow Condensed,sans-serif;font-size:12px;font-weight:700;letter-spacing:2px;">COLLAPSE SECTION</button>
         <button onclick="collapseAllMatches(false)" style="background:none;border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:5px 12px;cursor:pointer;font-family:Barlow Condensed,sans-serif;font-size:12px;font-weight:700;letter-spacing:2px;">EXPAND ALL</button>
         <button id="refreshAllBtn" onclick="refreshAllMatches()" style="background:none;border:1px solid var(--gold);color:var(--gold);border-radius:6px;padding:5px 12px;cursor:pointer;font-family:Barlow Condensed,sans-serif;font-size:12px;font-weight:700;letter-spacing:2px;">REFRESH ALL</button>
       </div>
@@ -1322,7 +1355,12 @@ function renderAdminCVOverride() {
   const el = document.getElementById('adminCVOverride');
   if (!el) return;
   const cv = liveData.captains || {};
-  el.innerHTML = TEAMS.map(team => {
+  const configured = TEAMS.filter(team => {
+    const picks = cv[team.name] || {};
+    return picks.captain && picks.viceCaptain;
+  }).length;
+
+  const rows = TEAMS.map(team => {
     const picks = cv[team.name] || {};
     const locked = picks.locked;
     const cap = picks.captain || '';
@@ -1331,43 +1369,86 @@ function renderAdminCVOverride() {
     return `
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap;">
         <div style="min-width:80px;font-weight:700;">${team.name}</div>
-        <select class="field-input" style="width:160px;" id="admincv-cap-${team.name}">
+        <select class="field-input" style="width:210px;" id="admincv-cap-${team.name}">
           <option value="">-- Captain --</option>
           ${opts}
         </select>
-        <select class="field-input" style="width:160px;" id="admincv-vc-${team.name}">
+        <select class="field-input" style="width:210px;" id="admincv-vc-${team.name}">
           <option value="">-- Vice Captain --</option>
           ${opts}
         </select>
-        <button class="btn gold" style="width:100px;padding:8px 0;font-size:13px;" onclick="adminSetCV('${team.name}')">Save</button>
         <span style="font-size:12px;color:${locked ? 'var(--green)' : 'var(--muted)'};margin-left:8px;">${cap && vc ? `C: <b>${cap}</b> · VC: <b>${vc}</b>${locked ? ' (locked)' : ''}` : 'Not set'}</span>
       </div>
     `;
   }).join('');
-  // Set current values in dropdowns
+
+  el.innerHTML = `
+    <div class="match-input-card">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;cursor:pointer;" onclick="toggleAdminCVSection()">
+        <div>
+          <div style="font-size:13px;color:var(--muted);line-height:1.5;">Set or change C/VC for any team. This overrides user picks and lock status.</div>
+          <div style="font-size:11px;color:var(--muted);letter-spacing:1px;margin-top:4px;">Configured teams: ${configured}/${TEAMS.length}</div>
+        </div>
+        <span style="font-size:16px;color:var(--muted);">${_adminCVExpanded ? '▲' : '▼'}</span>
+      </div>
+      <div id="adminCVBody" style="display:${_adminCVExpanded ? 'block' : 'none'};margin-top:12px;">
+        ${rows}
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px;">
+          <button class="btn secondary" type="button" onclick="adminCancelCVEdit()">Cancel</button>
+          <button class="btn gold" type="button" onclick="adminSaveAllCV()">Save</button>
+        </div>
+      </div>
+    </div>
+  `;
+
   TEAMS.forEach(team => {
     const picks = cv[team.name] || {};
     const capSel = document.getElementById('admincv-cap-' + team.name);
     const vcSel = document.getElementById('admincv-vc-' + team.name);
-    if (capSel && picks.captain) capSel.value = picks.captain;
-    if (vcSel && picks.viceCaptain) vcSel.value = picks.viceCaptain;
+    if (capSel) capSel.value = picks.captain || '';
+    if (vcSel) vcSel.value = picks.viceCaptain || '';
   });
 }
 
-function adminSetCV(teamName) {
-  const capSel = document.getElementById('admincv-cap-' + teamName);
-  const vcSel = document.getElementById('admincv-vc-' + teamName);
-  if (!capSel || !vcSel) return;
-  const cap = capSel.value;
-  const vc = vcSel.value;
-  if (!cap || !vc) { showToast('Pick both Captain and Vice Captain', 'error'); return; }
-  if (cap === vc) { showToast('C and VC must be different', 'error'); return; }
-  if (!liveData.captains) liveData.captains = {};
-  liveData.captains[teamName] = { captain: cap, viceCaptain: vc, locked: true, adminSet: true };
+function toggleAdminCVSection() {
+  _adminCVExpanded = !_adminCVExpanded;
+  renderAdminCVOverride();
+}
+
+function adminSaveAllCV() {
+  const nextCV = { ...(liveData.captains || {}) };
+  for (const team of TEAMS) {
+    const capSel = document.getElementById('admincv-cap-' + team.name);
+    const vcSel = document.getElementById('admincv-vc-' + team.name);
+    if (!capSel || !vcSel) continue;
+
+    const cap = capSel.value;
+    const vc = vcSel.value;
+    if ((cap && !vc) || (!cap && vc)) {
+      showToast('Pick both Captain and Vice Captain for ' + team.name, 'error');
+      return;
+    }
+    if (cap && vc && cap === vc) {
+      showToast('C and VC must be different for ' + team.name, 'error');
+      return;
+    }
+
+    if (cap && vc) {
+      nextCV[team.name] = { captain: cap, viceCaptain: vc, locked: true, adminSet: true };
+    }
+  }
+
+  liveData.captains = nextCV;
   saveLiveData();
-  showToast('C/VC set for ' + teamName, 'success');
+  showToast('C/VC settings saved', 'success');
+  _adminCVExpanded = false;
   renderAdminCVOverride();
   renderTab('captains');
+}
+
+function adminCancelCVEdit() {
+  _adminCVExpanded = false;
+  renderAdminCVOverride();
 }
 
 function renderAdminMatch(match, idx) {
@@ -1433,9 +1514,26 @@ function collapseAllMatches(collapse) {
   (liveData.matches||[]).forEach((m,idx)=>{
     m._expanded=!collapse;
     const body=document.getElementById('admin-match-body-'+idx);
+    const card=body?body.closest('.match-input-card'):null;
     const arrow=document.getElementById('admin-match-arrow-'+idx);
+    if(card)card.style.display='block';
     if(body)body.style.display=collapse?'none':'block';
     if(arrow)arrow.textContent=collapse?'▼':'▲';
+  });
+}
+
+function collapseSectionToLatestMatch() {
+  if (!liveData.matches || liveData.matches.length === 0) return;
+  const latestIdx = liveData.matches.length - 1;
+  (liveData.matches || []).forEach((m, idx) => {
+    const keepOpen = idx === latestIdx;
+    m._expanded = keepOpen;
+    const body = document.getElementById('admin-match-body-' + idx);
+    const card = body ? body.closest('.match-input-card') : null;
+    const arrow = document.getElementById('admin-match-arrow-' + idx);
+    if (card) card.style.display = keepOpen ? 'block' : 'none';
+    if (body) body.style.display = keepOpen ? 'block' : 'none';
+    if (arrow) arrow.textContent = keepOpen ? '▲' : '▼';
   });
 }
 
@@ -1461,12 +1559,12 @@ function isIPLMatch(m) {
 }
 
 function isIPLMatchDay() {
-  const today=new Date().toISOString().slice(0,10);
+  const today=getETDateTimeParts().date;
   return IPL_2026_SCHEDULE.some(m=>m.date===today);
 }
 
 function getNextMatchDay() {
-  const today=new Date().toISOString().slice(0,10);
+  const today=getETDateTimeParts().date;
   const future=IPL_2026_SCHEDULE.filter(m=>m.date>=today);
   return future.length>0?future[0]:null;
 }
@@ -1479,7 +1577,14 @@ function formatDuration(ms) {
 }
 
 function getCountdownText() {
-  if(!_autoPolling){const nx=getNextMatchDay();if(!nx)return'Season complete';const ms=new Date(nx.date+'T20:00:00Z')-new Date();if(ms<=0)return'Match day — sync paused';return'Next match ('+nx.home+' vs '+nx.away+') in '+formatDuration(Math.max(0,ms));}
+  if(!_autoPolling){
+    if(!isWithinAutoSyncWindowET()) return 'Auto-sync suspended (runs 6:00 AM to 2:30 PM ET)';
+    const nx=getNextMatchDay();
+    if(!nx)return'Season complete';
+    const ms=new Date(nx.date+'T20:00:00Z')-new Date();
+    if(ms<=0)return'Match day — sync paused';
+    return'Next match ('+nx.home+' vs '+nx.away+') in '+formatDuration(Math.max(0,ms));
+  }
   const elapsed=Date.now()-(_lastSyncTime||Date.now());
   const interval=getApiCallsToday()>=DAILY_LIMIT_SLOW_AT?POLL_INTERVAL_SLOW:POLL_INTERVAL_NORMAL;
   return'Next sync in '+formatDuration(Math.max(0,interval-elapsed));
@@ -1492,31 +1597,102 @@ function startCountdown() {
 
 function startAutoSync() {
   if(_autoPolling)return;
+  if(!isWithinAutoSyncWindowET()){
+    showToast('Auto-sync only runs between 6:00 AM and 2:30 PM ET','error');
+    renderAdmin();
+    return;
+  }
   _autoPolling=true; _lastSyncTime=Date.now();
   runSyncNow(); scheduleNextPoll(); startCountdown(); renderAdmin();
   showToast('Auto-sync started','success');
 }
 
-function stopAutoSync() {
+function stopAutoSync(silent=false) {
   _autoPolling=false; clearTimeout(_pollTimer); clearInterval(_countdownTimer);
-  renderAdmin(); showToast('Auto-sync paused','');
+  renderAdmin(); if(!silent)showToast('Auto-sync paused','');
 }
 
 function scheduleNextPoll() {
   clearTimeout(_pollTimer); if(!_autoPolling)return;
+  if(!isWithinAutoSyncWindowET()){
+    stopAutoSync(true);
+    return;
+  }
   const interval=getApiCallsToday()>=DAILY_LIMIT_SLOW_AT?POLL_INTERVAL_SLOW:POLL_INTERVAL_NORMAL;
-  _pollTimer=setTimeout(async()=>{_lastSyncTime=Date.now();await runSyncNow();scheduleNextPoll();},interval);
+  _pollTimer=setTimeout(async()=>{
+    if(!_autoPolling)return;
+    if(!isWithinAutoSyncWindowET()){
+      if(isPastAutoSyncWindowEndET())await runDailyFinalStackSyncIfNeeded();
+      stopAutoSync(true);
+      return;
+    }
+    _lastSyncTime=Date.now();
+    await runSyncNow();
+    scheduleNextPoll();
+  },interval);
 }
 
 function initMatchDayWatcher() {
-  if(isIPLMatchDay()&&apiCallsRemaining()>0&&!_autoPolling)startAutoSync();
-  else setInterval(()=>{if(!_autoPolling&&isIPLMatchDay()&&apiCallsRemaining()>0)startAutoSync();},60000);
+  if(isIPLMatchDay()&&isWithinAutoSyncWindowET()&&apiCallsRemaining()>0&&!_autoPolling)startAutoSync();
+  else setInterval(async()=>{
+    if(_autoPolling&&!isWithinAutoSyncWindowET()){
+      if(isPastAutoSyncWindowEndET())await runDailyFinalStackSyncIfNeeded();
+      stopAutoSync(true);
+      return;
+    }
+    if(!_autoPolling&&isIPLMatchDay()&&isWithinAutoSyncWindowET()&&apiCallsRemaining()>0)startAutoSync();
+  },60000);
   document.addEventListener('visibilitychange',()=>{
-    if(document.visibilityState==='visible'&&isIPLMatchDay()){
+    if(document.visibilityState==='visible'&&isIPLMatchDay()&&isWithinAutoSyncWindowET()){
       if(!_autoPolling&&apiCallsRemaining()>0)startAutoSync();
       else if(_autoPolling)runSyncNow();
     }
   });
+}
+
+async function syncMissingScheduledMatchesUpToToday(startedOrEndedIds = null) {
+  const today = getETDateTimeParts().date;
+  const seriesMatches = await fetchSeriesMatchList();
+  let added = 0;
+
+  for (const scheduleMatch of IPL_2026_SCHEDULE.filter(m => m && m.date && m.date <= today)) {
+    if (!scheduleMatch.cricapi_match_id && seriesMatches.length > 0) {
+      const seriesMatch = findSeriesMatchForScheduleMatch(scheduleMatch, seriesMatches);
+      if (seriesMatch && seriesMatch.id) setCricapiIdForScheduleMatch(scheduleMatch, seriesMatch.id);
+    }
+    if (!scheduleMatch.cricapi_match_id) continue;
+    if ((liveData.matches || []).some(m => m.apiId === scheduleMatch.cricapi_match_id)) continue;
+
+    if (scheduleMatch.date === today && startedOrEndedIds && !startedOrEndedIds.has(scheduleMatch.cricapi_match_id)) continue;
+
+    try {
+      const r = await fetch(API_BASE + '/match_scorecard?apikey=' + CRICKETDATA_API_KEY + '&id=' + scheduleMatch.cricapi_match_id, { signal: AbortSignal.timeout(12000) });
+      const d = await r.json(); incrementApiCalls(1);
+      if (!d || !d.data) continue;
+
+      if (scheduleMatch.date === today && !d.data.matchStarted && !d.data.matchEnded) continue;
+
+      upsertMatch(
+        scheduleMatch.cricapi_match_id,
+        d.data.name || (scheduleMatch.home + ' vs ' + scheduleMatch.away),
+        d.data.date || scheduleMatch.date || '',
+        d.data
+      );
+      added++;
+    } catch (e) {
+      console.warn('[AP] backfill failed:', scheduleMatch.cricapi_match_id, e.message);
+    }
+  }
+
+  return added;
+}
+
+async function runDailyFinalStackSyncIfNeeded() {
+  const etDate = getETDateTimeParts().date;
+  if (liveData.lastDailyStackSyncDateEt === etDate) return;
+  await fetchCricapiResults({ silent: true });
+  liveData.lastDailyStackSyncDateEt = etDate;
+  saveLiveData(true);
 }
 
 function getMatchesForToday() {
@@ -1679,7 +1855,8 @@ async function runSyncNow() {
         (d.data||[]).filter(m=>isIPLMatch(m)&&!seen.has(m.id)).forEach(m=>{seen.add(m.id);iplMatches.push(m);});
       }catch(e){console.warn('[AP] offset='+offset,e.message);}
     }
-    if(iplMatches.length===0){showToast('No live IPL matches found','');renderAdmin();return;}
+    if(iplMatches.length===0){console.warn('[AP] No IPL matches found in currentMatches feed for this run');}
+    const startedOrEndedIds = new Set(iplMatches.filter(m=>m.matchStarted||m.matchEnded).map(m=>m.id));
     let synced=0;
     for(const m of iplMatches){
       if(!m.matchStarted&&!m.matchEnded)continue;
@@ -1690,6 +1867,8 @@ async function runSyncNow() {
         upsertMatch(m.id,m.name||'',m.date||'',sc.data); synced++;
       }catch(e){console.warn('[AP] scorecard failed:',m.id,e.message);}
     }
+
+    const stackAdded = await syncMissingScheduledMatchesUpToToday(startedOrEndedIds);
 
     // New ESPN API calls for matches needing updates
     const matchesToUpdate = getMatchesForESPNUpdate();
@@ -1712,7 +1891,12 @@ async function runSyncNow() {
       liveData.espnLastUpdate = new Date().toISOString();
     }
 
-    showToast('Synced '+synced+' match'+(synced!==1?'es':'')+(espnSynced>0?', ESPN updated '+espnSynced:'') ,synced>0||espnSynced>0?'success':'');
+    showToast(
+      'Synced '+synced+' match'+(synced!==1?'es':'')+
+      (stackAdded>0?', stack +'+stackAdded:'')+
+      (espnSynced>0?', ESPN updated '+espnSynced:''),
+      synced>0||espnSynced>0||stackAdded>0?'success':''
+    );
     saveLiveData();
     renderAdmin(); renderTab(currentTab);
   }catch(e){showToast('Sync error: '+e.message,'error');renderAdmin();}
@@ -2534,9 +2718,11 @@ window.addEventListener('DOMContentLoaded',()=>{
 // ═══════════════════════════════════════════════════════
 // FETCH CRICAPI RESULTS (ADMIN)
 // ═══════════════════════════════════════════════════════
-async function fetchCricapiResults() {
+async function fetchCricapiResults(options = {}) {
+  const silent = !!options.silent;
+  const callerStartedOrEndedIds = options.startedOrEndedIds || null;
   const btn = document.getElementById('importAllScheduledBtn');
-  if (btn) { btn.textContent = 'Fetching...'; btn.disabled = true; }
+  if (!silent && btn) { btn.textContent = 'Fetching...'; btn.disabled = true; }
   let imported = 0, refreshed = 0, failed = 0, skippedNoId = 0, skippedUpcoming = 0, processed = 0;
   if (!liveData.matches) liveData.matches = [];
   ensureCricapiIdMap();
@@ -2557,15 +2743,17 @@ async function fetchCricapiResults() {
   refreshImportAllScheduledStatusUI();
 
   try {
-    const today = new Date().toISOString().slice(0, 10);
-    const startedOrEndedIds = new Set();
-    for (let offset = 0; offset <= 10; offset++) {
-      try {
-        const r = await fetch(API_BASE + '/currentMatches?apikey=' + CRICKETDATA_API_KEY + '&offset=' + offset, { signal: AbortSignal.timeout(12000) });
-        const d = await r.json(); incrementApiCalls(1);
-        (d.data || []).filter(m => isIPLMatch(m) && (m.matchStarted || m.matchEnded)).forEach(m => startedOrEndedIds.add(m.id));
-      } catch (e) {
-        console.warn('[AP] currentMatches offset=' + offset, e.message);
+    const today = getETDateTimeParts().date;
+    const startedOrEndedIds = callerStartedOrEndedIds ? new Set(callerStartedOrEndedIds) : new Set();
+    if (!callerStartedOrEndedIds) {
+      for (let offset = 0; offset <= 10; offset++) {
+        try {
+          const r = await fetch(API_BASE + '/currentMatches?apikey=' + CRICKETDATA_API_KEY + '&offset=' + offset, { signal: AbortSignal.timeout(12000) });
+          const d = await r.json(); incrementApiCalls(1);
+          (d.data || []).filter(m => isIPLMatch(m) && (m.matchStarted || m.matchEnded)).forEach(m => startedOrEndedIds.add(m.id));
+        } catch (e) {
+          console.warn('[AP] currentMatches offset=' + offset, e.message);
+        }
       }
     }
 
@@ -2648,7 +2836,9 @@ async function fetchCricapiResults() {
       summary: msg + (failed > 0 ? (', ' + failed + ' scorecards unavailable') : '') + (skippedUpcoming > 0 ? (', ' + skippedUpcoming + ' not started yet') : '')
     };
     refreshImportAllScheduledStatusUI();
-    showToast(msg + (failed > 0 ? (', ' + failed + ' scorecards unavailable') : '') + (skippedUpcoming > 0 ? (', ' + skippedUpcoming + ' not started yet') : ''), (imported + refreshed > 0) ? 'success' : '');
+    if (!silent) {
+      showToast(msg + (failed > 0 ? (', ' + failed + ' scorecards unavailable') : '') + (skippedUpcoming > 0 ? (', ' + skippedUpcoming + ' not started yet') : ''), (imported + refreshed > 0) ? 'success' : '');
+    }
     renderAdmin(); renderTab(currentTab);
   } catch (e) {
     liveData.importAllScheduledStatus = {
@@ -2665,10 +2855,10 @@ async function fetchCricapiResults() {
       summary: 'Import failed: ' + e.message
     };
     refreshImportAllScheduledStatusUI();
-    showToast('Fetch failed: ' + e.message, 'error');
+    if (!silent) showToast('Fetch failed: ' + e.message, 'error');
   }
 
-  if (btn) { btn.textContent = 'Fetch CricAPI Results'; btn.disabled = false; }
+  if (!silent && btn) { btn.textContent = 'Fetch CricAPI Results'; btn.disabled = false; }
 }
 window.fetchCricapiResults = fetchCricapiResults;
 window.importAllScheduledMatches = fetchCricapiResults;
