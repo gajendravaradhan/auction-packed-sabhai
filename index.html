@@ -3114,11 +3114,13 @@ async function runSyncNow() {
       }catch(e){
         console.warn('[AP] scorecard failed:',m.id,e.message);
         try {
-          upsertMatch(m.id,m.name||'',m.date||'',{
-            scorecard: [],
-            matchStarted: !!m.matchStarted,
-            matchEnded: !!m.matchEnded
-          });
+          upsertMatchMetaOnly(
+            m.id,
+            m.name||'',
+            m.date||'',
+            !!m.matchStarted,
+            !!m.matchEnded
+          );
           synced++;
           const scheduleMatch = findScheduleMatchForCricapiMatch({ id: m.id, name: m.name || '', date: m.date || '' });
           if (scheduleMatch) {
@@ -3574,23 +3576,59 @@ function upsertMatch(apiId,name,date,scorecardData) {
   ensureCricapiIdMap();
   const scheduleMatch = findScheduleMatchForCricapiMatch({ id: apiId, name, date });
   if (scheduleMatch) setCricapiIdForScheduleMatch(scheduleMatch, apiId);
-  const performances=parseScorecard(scorecardData);
+  const parsedPerformances=parseScorecard(scorecardData);
+  const hasParsedPerformances=Object.keys(parsedPerformances).length>0;
   const status=scorecardData.matchEnded?'done':scorecardData.matchStarted?'live':'upcoming';
   const ei=liveData.matches.findIndex(m=>m.apiId===apiId);
   if(ei>=0){
     const existing=liveData.matches[ei];
+    const performances=hasParsedPerformances?parsedPerformances:(existing.performances||{});
     // Preserve ESPN-sourced fields: dots per player and potm
-    Object.keys(performances).forEach(player=>{
-      const ex=existing.performances&&existing.performances[player];
-      if(ex&&ex.dots!=null)performances[player].dots=ex.dots;
-    });
+    if(hasParsedPerformances){
+      Object.keys(performances).forEach(player=>{
+        const ex=existing.performances&&existing.performances[player];
+        if(ex&&ex.dots!=null)performances[player].dots=ex.dots;
+      });
+    }
     const potm=existing.potm||null;
-    const teams=(scorecardData&&Array.isArray(scorecardData.teams)&&scorecardData.teams.length)?scorecardData.teams:name;
+    const teams=(scorecardData&&Array.isArray(scorecardData.teams)&&scorecardData.teams.length)?scorecardData.teams:(existing.teams||name);
     liveData.matches[ei]={apiId,label:name,date,teams,status,performances};
     if(potm)liveData.matches[ei].potm=potm;
   } else {
+    const performances=parsedPerformances;
     const teams=(scorecardData&&Array.isArray(scorecardData.teams)&&scorecardData.teams.length)?scorecardData.teams:name;
     liveData.matches.push({apiId,label:name,date,teams,status,performances});
+  }
+  saveLiveData();
+}
+
+function upsertMatchMetaOnly(apiId,name,date,matchStarted,matchEnded) {
+  if(!liveData.matches)liveData.matches=[];
+  ensureCricapiIdMap();
+  const scheduleMatch=findScheduleMatchForCricapiMatch({ id: apiId, name, date });
+  if (scheduleMatch) setCricapiIdForScheduleMatch(scheduleMatch, apiId);
+
+  const status=matchEnded?'done':matchStarted?'live':'upcoming';
+  const ei=liveData.matches.findIndex(m=>m.apiId===apiId);
+  if(ei>=0){
+    const existing=liveData.matches[ei]||{};
+    liveData.matches[ei]={
+      ...existing,
+      apiId,
+      label:name||existing.label||'',
+      date:date||existing.date||'',
+      status,
+      teams:existing.teams||name||existing.label||''
+    };
+  }else{
+    liveData.matches.push({
+      apiId,
+      label:name||'',
+      date:date||'',
+      teams:name||'',
+      status,
+      performances:{}
+    });
   }
   saveLiveData();
 }
