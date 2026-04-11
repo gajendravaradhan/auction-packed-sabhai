@@ -541,6 +541,7 @@ const IPL_TEAM_MAP={'Shubman Gill':'Gujarat Titans','Varun Chakravarthy':'Kolkat
 const ADMIN_PASSWORD = 'auctionpacked2026';
 const CV_LOCK_DEADLINE = new Date('2026-03-29T13:30:00Z');
 const CRICKETDATA_API_KEY = '392801ff-67f0-4f6d-b919-050d49eed9ba';
+const CRICKETDATA_API_KEY_BACKUP = '5cd565cf-ef3b-4ce2-8fe9-0d82ed9c403c';
 const API_BASE = 'https://api.cricapi.com/v1';
 const IPL_2026_SERIES_ID = '87c62aac-bc3c-4738-ab93-19da0690488f';
 
@@ -1422,9 +1423,24 @@ function renderPlayers() {
 // ── LIVE ──
 function renderLive() {
   const wrap=document.getElementById('liveWrap'); if(!wrap)return;
-  const liveMatches=(liveData.matches||[]).filter(m=>m&&m.status==='live');
+  const allMatches=(liveData.matches||[]).filter(Boolean);
+  const liveMatches=allMatches.filter(m=>m.status==='live');
   const live=liveMatches.find(m=>m.performances&&Object.keys(m.performances).length>0)||null;
-  if(!live){
+  const today = new Date().toISOString().slice(0,10);
+  const scoringToday = allMatches.filter(m => {
+    const perfCount = m && m.performances ? Object.keys(m.performances).length : 0;
+    return perfCount > 0 && String(m.date || '').slice(0,10) === today;
+  });
+  const likelyLiveFallback =
+    scoringToday.find(m => m.status !== 'done') ||
+    scoringToday[scoringToday.length - 1] ||
+    allMatches.find(m => {
+      const perfCount = m && m.performances ? Object.keys(m.performances).length : 0;
+      return perfCount > 0 && m.status !== 'done';
+    }) ||
+    null;
+  const selectedMatch = live || likelyLiveFallback;
+  if(!selectedMatch){
     const feedBlocked = _lastCurrentMatchesFeedError && /blocked/i.test(_lastCurrentMatchesFeedError) && (Date.now()-_lastCurrentMatchesFeedErrorAt)<(20*60*1000);
     if(feedBlocked){
       wrap.innerHTML='<div class="no-live">Live status temporarily unavailable: CricAPI feed is blocked for 15 minutes. Last known data is preserved.</div>';
@@ -1439,17 +1455,20 @@ function renderLive() {
     return;
   }
   const tp={};TEAMS.forEach(t=>{tp[t.name]=0;});
-  Object.entries(live.performances||{}).forEach(([name,perf])=>{
+  Object.entries(selectedMatch.performances||{}).forEach(([name,perf])=>{
     const team=TEAMS.find(t=>t.players.some(p=>p.name===name));if(!team)return;
     const role=(team.players.find(p=>p.name===name)||{}).role||'';
-    tp[team.name]=(tp[team.name]||0)+calcFantasyPoints({...perf,playerName:name,role},team.name,live.potm);
+    tp[team.name]=(tp[team.name]||0)+calcFantasyPoints({...perf,playerName:name,role},team.name,selectedMatch.potm);
   });
   const sorted=Object.entries(tp).sort((a,b)=>b[1]-a[1]);
+  const isVerifiedLive = selectedMatch.status === 'live';
+  const liveBadgeColor = isVerifiedLive ? 'var(--green)' : 'var(--gold)';
+  const liveBadgeLabel = isVerifiedLive ? 'LIVE' : 'LIVE UPDATE';
   wrap.innerHTML=`
     <div class="live-match-header">
-      <div style="margin-bottom:8px"><span style="font-family:Barlow Condensed,sans-serif;font-size:10px;font-weight:700;letter-spacing:2px;color:var(--green);border:1px solid #00e67640;border-radius:4px;padding:3px 8px;"><span style="display:inline-block;width:8px;height:8px;background:var(--green);border-radius:50%;margin-right:5px;animation:pulse-text 1.5s infinite;"></span>LIVE</span></div>
-      <div class="live-match-teams">${live.label||'Match in Progress'}</div>
-      <div class="live-match-score">${live.date||''}</div>
+      <div style="margin-bottom:8px"><span style="font-family:Barlow Condensed,sans-serif;font-size:10px;font-weight:700;letter-spacing:2px;color:${liveBadgeColor};border:1px solid ${isVerifiedLive ? '#00e67640' : '#ffb80040'};border-radius:4px;padding:3px 8px;"><span style="display:inline-block;width:8px;height:8px;background:${liveBadgeColor};border-radius:50%;margin-right:5px;animation:pulse-text 1.5s infinite;"></span>${liveBadgeLabel}</span></div>
+      <div class="live-match-teams">${selectedMatch.label||'Match in Progress'}</div>
+      <div class="live-match-score">${selectedMatch.date||''}${isVerifiedLive ? '' : ' · Showing latest scoring contributions'}</div>
     </div>
     <div class="leaderboard-title" style="margin-top:20px">Fantasy Points This Match</div>
     ${sorted.map(([name,pts],i)=>{
@@ -2877,6 +2896,53 @@ function initMatchDayWatcher() {
   });
 }
 
+function isCricapiBlockedReason(reason) {
+  return /blocked/i.test(String(reason || ''));
+}
+
+function getCricapiKeyCandidates() {
+  return [CRICKETDATA_API_KEY, CRICKETDATA_API_KEY_BACKUP].filter(Boolean);
+}
+
+async function fetchCricapiJson(path, params = {}, options = {}) {
+  const keys = getCricapiKeyCandidates();
+  let lastError = null;
+
+  for (let i = 0; i < keys.length; i++) {
+    const apiKey = keys[i];
+    const qp = new URLSearchParams();
+    Object.entries(params || {}).forEach(([k, v]) => {
+      if (v == null) return;
+      qp.append(k, String(v));
+    });
+    qp.set('apikey', apiKey);
+
+    try {
+      const response = await fetch(API_BASE + path + '?' + qp.toString(), {
+        signal: options.signal || AbortSignal.timeout(12000)
+      });
+      const data = await response.json();
+      incrementApiCalls(1);
+
+      const reason = data && data.reason ? data.reason : '';
+      const isBlocked = data && data.status === 'failure' && isCricapiBlockedReason(reason);
+
+      if (isBlocked && i < keys.length - 1) {
+        console.warn('[AP] CricAPI key blocked, retrying with backup key');
+        continue;
+      }
+
+      return data;
+    } catch (error) {
+      lastError = error;
+      if (i >= keys.length - 1) throw error;
+    }
+  }
+
+  if (lastError) throw lastError;
+  return null;
+}
+
 async function syncMissingScheduledMatchesUpToToday(startedOrEndedIds = null) {
   const runEspnAfterImport = arguments[1] && arguments[1].runEspnAfterImport;
   const today = getETDateTimeParts().date;
@@ -2893,8 +2959,7 @@ async function syncMissingScheduledMatchesUpToToday(startedOrEndedIds = null) {
     if ((liveData.matches || []).some(m => m.apiId === scheduleMatch.cricapi_match_id)) continue;
 
     try {
-      const r = await fetch(API_BASE + '/match_scorecard?apikey=' + CRICKETDATA_API_KEY + '&id=' + scheduleMatch.cricapi_match_id, { signal: AbortSignal.timeout(12000) });
-      const d = await r.json(); incrementApiCalls(1);
+      const d = await fetchCricapiJson('/match_scorecard', { id: scheduleMatch.cricapi_match_id });
       if (!d || !d.data) continue;
 
       if (scheduleMatch.date === today && !d.data.matchStarted && !d.data.matchEnded) continue;
@@ -3110,8 +3175,7 @@ async function runSyncNow() {
     let espnSynced = 0;
     for (let offset = 0; offset <= 10; offset++) {
       try{
-        const r=await fetch(API_BASE+'/currentMatches?apikey='+CRICKETDATA_API_KEY+'&offset='+offset,{signal:AbortSignal.timeout(12000)});
-        const d=await r.json(); incrementApiCalls(1);
+        const d=await fetchCricapiJson('/currentMatches',{offset});
         if(d&&d.status==='failure'&&d.reason){
           currentMatchesFailureReason=d.reason;
         }
@@ -3152,8 +3216,7 @@ async function runSyncNow() {
     for(const m of iplMatches){
       if(!m.matchStarted&&!m.matchEnded)continue;
       try{
-        const r=await fetch(API_BASE+'/match_scorecard?apikey='+CRICKETDATA_API_KEY+'&id='+m.id,{signal:AbortSignal.timeout(12000)});
-        const sc=await r.json(); incrementApiCalls(1);
+        const sc=await fetchCricapiJson('/match_scorecard',{id:m.id});
         const scorecardData = sc.data ? { ...sc.data } : { scorecard: [] };
         // Prefer explicit scorecard flags, but fall back to currentMatches flags when needed.
         scorecardData.matchStarted = !!(scorecardData.matchStarted || m.matchStarted);
@@ -3214,8 +3277,7 @@ async function fetchAndShowSchedule() {
   if(btn){btn.textContent='Loading...';btn.disabled=true;}
   listEl.innerHTML='<p style="color:var(--muted);font-size:13px;letter-spacing:1px;">Fetching...</p>';
   try{
-    const r=await fetch(API_BASE+'/currentMatches?apikey='+CRICKETDATA_API_KEY+'&offset=0',{signal:AbortSignal.timeout(12000)});
-    const d=await r.json(); incrementApiCalls(1);
+    const d=await fetchCricapiJson('/currentMatches',{offset:0});
     const items=(d.data||[]).filter(m=>m.name&&(m.name.toLowerCase().includes('ipl')||m.series_id));
     const display=items.length>0?items:(d.data||[]);
     listEl.innerHTML=display.map(m=>{
@@ -3262,8 +3324,7 @@ async function importMatchById(matchId) {
   if(btn){btn.textContent='Importing...';btn.disabled=true;}
   showToast('Fetching scorecard...','');
   try{
-    const r=await fetch(API_BASE+'/match_scorecard?apikey='+CRICKETDATA_API_KEY+'&id='+matchId,{signal:AbortSignal.timeout(12000)});
-    const d=await r.json(); incrementApiCalls(1);
+    const d=await fetchCricapiJson('/match_scorecard',{id:matchId});
     if(!d||!d.data){showToast('No scorecard data','error');}
     else{
       upsertMatch(matchId,d.data.name||matchId,d.data.date||'',d.data);
@@ -3283,8 +3344,7 @@ async function importMatchById(matchId) {
 async function importMatch(matchId,matchName,matchDate) {
   showToast('Importing...','');
   try{
-    const r=await fetch(API_BASE+'/match_scorecard?apikey='+CRICKETDATA_API_KEY+'&id='+matchId,{signal:AbortSignal.timeout(12000)});
-    const d=await r.json();
+    const d=await fetchCricapiJson('/match_scorecard',{id:matchId});
     if(d&&d.data){
       upsertMatch(matchId,matchName,matchDate,d.data);
       const scheduleMatch = findScheduleMatchForCricapiMatch({ id: matchId, name: d.data.name || matchName || '', date: d.data.date || matchDate || '' });
@@ -3307,8 +3367,7 @@ async function refreshAllMatches() {
   for(const m of (liveData.matches||[])){
     if(!m.apiId||m.apiId.startsWith('manual-'))continue;
     try{
-      const r=await fetch(API_BASE+'/match_scorecard?apikey='+CRICKETDATA_API_KEY+'&id='+m.apiId,{signal:AbortSignal.timeout(12000)});
-      const d=await r.json(); incrementApiCalls(1);
+      const d=await fetchCricapiJson('/match_scorecard',{id:m.apiId});
       if(d&&d.data){
         upsertMatch(m.apiId,d.data.name||m.label||'',d.data.date||m.date||'',d.data);
         done++;
@@ -3329,8 +3388,7 @@ async function refreshAllMatches() {
 async function reimportScorecard(idx,matchId) {
   showToast('Refreshing...','');
   try{
-    const r=await fetch(API_BASE+'/match_scorecard?apikey='+CRICKETDATA_API_KEY+'&id='+matchId,{signal:AbortSignal.timeout(12000)});
-    const d=await r.json();
+    const d=await fetchCricapiJson('/match_scorecard',{id:matchId});
     if(!d.data){showToast('No scorecard yet','error');return;}
     const old=liveData.matches[idx]||{};
     upsertMatch(matchId,d.data.name||old.label||'',d.data.date||old.date||'',d.data);
@@ -3447,9 +3505,7 @@ async function syncEspnForScheduleMatchesAtomic(scheduleMatches, options = {}) {
 
 async function fetchSeriesMatchList() {
   try {
-    const r = await fetch(API_BASE + '/series_info?apikey=' + CRICKETDATA_API_KEY + '&id=' + IPL_2026_SERIES_ID, { signal: AbortSignal.timeout(12000) });
-    const d = await r.json();
-    incrementApiCalls(1);
+    const d = await fetchCricapiJson('/series_info', { id: IPL_2026_SERIES_ID });
     return (d && d.data && Array.isArray(d.data.matchList)) ? d.data.matchList : [];
   } catch (e) {
     console.warn('[AP] series_info failed:', e.message);
@@ -3478,9 +3534,7 @@ async function ensureScorecardImportedForScheduleMatch(scheduleMatch) {
   if (!scheduleMatch.cricapi_match_id) return -1;
 
   try {
-    const r = await fetch(API_BASE + '/match_scorecard?apikey=' + CRICKETDATA_API_KEY + '&id=' + scheduleMatch.cricapi_match_id, { signal: AbortSignal.timeout(12000) });
-    const d = await r.json();
-    incrementApiCalls(1);
+    const d = await fetchCricapiJson('/match_scorecard', { id: scheduleMatch.cricapi_match_id });
     if (!d || !d.data) return -1;
 
     upsertMatch(
@@ -4170,8 +4224,7 @@ async function fetchCricapiResults(options = {}) {
     if (!callerStartedOrEndedIds) {
       for (let offset = 0; offset <= 10; offset++) {
         try {
-          const r = await fetch(API_BASE + '/currentMatches?apikey=' + CRICKETDATA_API_KEY + '&offset=' + offset, { signal: AbortSignal.timeout(12000) });
-          const d = await r.json(); incrementApiCalls(1);
+          const d = await fetchCricapiJson('/currentMatches', { offset });
           (d.data || []).filter(m => isIPLMatch(m) && (m.matchStarted || m.matchEnded)).forEach(m => startedOrEndedIds.add(m.id));
         } catch (e) {
           console.warn('[AP] currentMatches offset=' + offset, e.message);
@@ -4214,8 +4267,7 @@ async function fetchCricapiResults(options = {}) {
       }
 
       try {
-        const r = await fetch(API_BASE + '/match_scorecard?apikey=' + CRICKETDATA_API_KEY + '&id=' + scheduleMatch.cricapi_match_id, { signal: AbortSignal.timeout(12000) });
-        const d = await r.json(); incrementApiCalls(1);
+        const d = await fetchCricapiJson('/match_scorecard', { id: scheduleMatch.cricapi_match_id });
         if (d && d.data) {
           const existed = (liveData.matches || []).some(m => m.apiId === scheduleMatch.cricapi_match_id);
           upsertMatch(
