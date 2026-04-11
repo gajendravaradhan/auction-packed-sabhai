@@ -678,6 +678,7 @@ function getImportAllScheduledStatusMarkup() {
   const refreshed = st.refreshed || 0;
   const failed = st.failed || 0;
   const skippedNoId = st.skippedNoId || 0;
+  const skippedUpcoming = st.skippedUpcoming || 0;
   const startedAt = formatAdminDateTime(st.startedAt);
   const finishedAt = formatAdminDateTime(st.finishedAt);
   const summary = st.summary || '';
@@ -688,7 +689,7 @@ function getImportAllScheduledStatusMarkup() {
         <div style="font-family:Barlow Condensed,sans-serif;font-size:12px;font-weight:700;letter-spacing:2px;color:${color};">${title}</div>
         <div style="font-size:11px;color:var(--muted);letter-spacing:1px;">${processed}${total ? ' / ' + total : ''} processed</div>
       </div>
-      <div style="font-size:12px;color:var(--muted);letter-spacing:1px;margin-top:6px;line-height:1.5;">Imported: ${imported} · Refreshed: ${refreshed} · Failed: ${failed} · Missing ID: ${skippedNoId}</div>
+      <div style="font-size:12px;color:var(--muted);letter-spacing:1px;margin-top:6px;line-height:1.5;">Imported: ${imported} · Refreshed: ${refreshed} · Failed: ${failed} · Missing ID: ${skippedNoId} · Not Started: ${skippedUpcoming}</div>
       <div style="font-size:11px;color:var(--muted);letter-spacing:1px;margin-top:4px;line-height:1.5;">Started: ${startedAt}${state === 'running' ? '' : ' · Finished: ' + finishedAt}</div>
       ${summary ? `<div style="font-size:12px;color:${color};letter-spacing:1px;margin-top:6px;line-height:1.5;">${summary}</div>` : ''}
     </div>`;
@@ -1273,10 +1274,9 @@ function renderAdmin() {
     <div class="admin-section-title">IPL 2026 Schedule</div>
     <div class="match-input-card" style="margin-bottom:16px;">
       <p style="font-size:13px;color:var(--muted);letter-spacing:1px;margin-bottom:12px;line-height:1.6;">All IPL 2026 matches are fetched automatically. Live and completed matches sync every 30 minutes.</p>
-      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:8px;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
         <button onclick="fetchAndShowSchedule()" id="fetchScheduleBtn" style="background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:12px 8px;cursor:pointer;font-family:Barlow Condensed,sans-serif;font-size:15px;font-weight:700;letter-spacing:2px;text-transform:uppercase;">Refresh Schedule</button>
-        <button onclick="fetchRecentResults()" id="fetchResultsBtn" style="background:var(--surface2);border:1px solid var(--gold);color:var(--gold);border-radius:8px;padding:12px 8px;cursor:pointer;font-family:Barlow Condensed,sans-serif;font-size:15px;font-weight:700;letter-spacing:2px;text-transform:uppercase;">Import Results</button>
-        <button onclick="importAllScheduledMatches()" id="importAllScheduledBtn" style="background:var(--surface2);border:1px solid var(--blue);color:var(--blue);border-radius:8px;padding:12px 8px;cursor:pointer;font-family:Barlow Condensed,sans-serif;font-size:15px;font-weight:700;letter-spacing:2px;text-transform:uppercase;">Import All Scheduled</button>
+        <button onclick="fetchCricapiResults()" id="importAllScheduledBtn" style="background:var(--surface2);border:1px solid var(--blue);color:var(--blue);border-radius:8px;padding:12px 8px;cursor:pointer;font-family:Barlow Condensed,sans-serif;font-size:15px;font-weight:700;letter-spacing:2px;text-transform:uppercase;">Fetch CricAPI Results</button>
       </div>
       <div id="importAllStatus" style="margin-top:8px;">${getImportAllScheduledStatusMarkup()}</div>
       <div id="scheduleList" style="margin-top:8px;max-height:300px;overflow-y:auto;"></div>
@@ -1763,39 +1763,6 @@ async function fetchAndShowSchedule() {
     }).join('');
   }catch(e){listEl.innerHTML='<p style="color:var(--red);font-size:13px;">Failed to load.</p>';}
   if(btn){btn.textContent='Refresh Schedule';btn.disabled=false;}
-}
-
-async function fetchRecentResults() {
-  const btn=document.getElementById('fetchResultsBtn');
-  if(btn){btn.textContent='Fetching...';btn.disabled=true;}
-  showToast('Searching for IPL matches...','');
-  try{
-    const seen=new Set(),iplMatches=[];
-    for(let offset = 0; offset <= 10; offset++){
-      try{
-        const r=await fetch(API_BASE+'/currentMatches?apikey='+CRICKETDATA_API_KEY+'&offset='+offset,{signal:AbortSignal.timeout(12000)});
-        const d=await r.json(); incrementApiCalls(1);
-        (d.data||[]).filter(m=>isIPLMatch(m)&&!seen.has(m.id)).forEach(m=>{seen.add(m.id);iplMatches.push(m);});
-      }catch(e){console.warn('[AP] offset='+offset,e.message);}
-    }
-    const toProcess=iplMatches.filter(m=>m.matchStarted||m.matchEnded);
-    if(toProcess.length===0){showToast('No IPL matches to import right now','');if(btn){btn.textContent='Import Results';btn.disabled=false;}return;}
-    let imported=0,refreshed=0;
-    for(const m of toProcess){
-      try{
-        const r=await fetch(API_BASE+'/match_scorecard?apikey='+CRICKETDATA_API_KEY+'&id='+m.id,{signal:AbortSignal.timeout(12000)});
-        const sc=await r.json(); incrementApiCalls(1);
-        if(!sc.data)continue;
-        const existed=(liveData.matches||[]).some(x=>x.apiId===m.id);
-        upsertMatch(m.id,m.name||'',m.date||'',sc.data);
-        existed?refreshed++:imported++;
-      }catch(e){console.warn('[AP] scorecard failed:',m.id,e.message);}
-    }
-    const msg=imported>0&&refreshed>0?imported+' new, '+refreshed+' refreshed':imported>0?imported+' imported':refreshed>0?refreshed+' refreshed':'No new data';
-    showToast(msg,imported+refreshed>0?'success':'');
-    renderAdmin(); renderTab(currentTab);
-  }catch(e){showToast('Failed: '+e.message,'error');}
-  if(btn){btn.textContent='Import Results';btn.disabled=false;}
 }
 
 async function importMatchById(matchId) {
@@ -2565,12 +2532,12 @@ window.addEventListener('DOMContentLoaded',()=>{
   initMatchDayWatcher();
 });
 // ═══════════════════════════════════════════════════════
-// IMPORT ALL SCHEDULED MATCHES (ADMIN)
+// FETCH CRICAPI RESULTS (ADMIN)
 // ═══════════════════════════════════════════════════════
-async function importAllScheduledMatches() {
+async function fetchCricapiResults() {
   const btn = document.getElementById('importAllScheduledBtn');
-  if (btn) { btn.textContent = 'Importing...'; btn.disabled = true; }
-  let imported = 0, refreshed = 0, failed = 0, skippedNoId = 0, processed = 0;
+  if (btn) { btn.textContent = 'Fetching...'; btn.disabled = true; }
+  let imported = 0, refreshed = 0, failed = 0, skippedNoId = 0, skippedUpcoming = 0, processed = 0;
   if (!liveData.matches) liveData.matches = [];
   ensureCricapiIdMap();
 
@@ -2584,32 +2551,24 @@ async function importAllScheduledMatches() {
     refreshed: 0,
     failed: 0,
     skippedNoId: 0,
-    summary: 'Import started...'
+    skippedUpcoming: 0,
+    summary: 'Fetch started...'
   };
   refreshImportAllScheduledStatusUI();
 
-  const setMatch = (apiId, name, date, status, performances) => {
-    const idx = liveData.matches.findIndex(m => m.apiId === apiId);
-    const prev = idx >= 0 ? liveData.matches[idx] : null;
-    const obj = {
-      apiId,
-      label: name || (prev && prev.label) || '',
-      date: date || (prev && prev.date) || '',
-      teams: name || (prev && prev.teams) || '',
-      status: status || (prev && prev.status) || 'upcoming',
-      performances: performances || (prev && prev.performances) || {}
-    };
-    if (idx >= 0) {
-      liveData.matches[idx] = obj;
-      refreshed++;
-    } else {
-      liveData.matches.push(obj);
-      imported++;
-    }
-  };
-
   try {
     const today = new Date().toISOString().slice(0, 10);
+    const startedOrEndedIds = new Set();
+    for (let offset = 0; offset <= 10; offset++) {
+      try {
+        const r = await fetch(API_BASE + '/currentMatches?apikey=' + CRICKETDATA_API_KEY + '&offset=' + offset, { signal: AbortSignal.timeout(12000) });
+        const d = await r.json(); incrementApiCalls(1);
+        (d.data || []).filter(m => isIPLMatch(m) && (m.matchStarted || m.matchEnded)).forEach(m => startedOrEndedIds.add(m.id));
+      } catch (e) {
+        console.warn('[AP] currentMatches offset=' + offset, e.message);
+      }
+    }
+
     const seriesMatches = await fetchSeriesMatchList();
     const eligible = IPL_2026_SCHEDULE.filter(scheduleMatch => scheduleMatch && scheduleMatch.date && scheduleMatch.date <= today);
     liveData.importAllScheduledStatus.total = eligible.length;
@@ -2629,6 +2588,17 @@ async function importAllScheduledMatches() {
         skippedNoId++;
         liveData.importAllScheduledStatus.processed = processed;
         liveData.importAllScheduledStatus.skippedNoId = skippedNoId;
+        liveData.importAllScheduledStatus.skippedUpcoming = skippedUpcoming;
+        if (processed % 5 === 0) refreshImportAllScheduledStatusUI();
+        continue;
+      }
+
+      // For matches scheduled today, only fetch if CricAPI reports started or ended.
+      if (scheduleMatch.date === today && !startedOrEndedIds.has(scheduleMatch.cricapi_match_id)) {
+        skippedUpcoming++;
+        liveData.importAllScheduledStatus.processed = processed;
+        liveData.importAllScheduledStatus.skippedNoId = skippedNoId;
+        liveData.importAllScheduledStatus.skippedUpcoming = skippedUpcoming;
         if (processed % 5 === 0) refreshImportAllScheduledStatusUI();
         continue;
       }
@@ -2637,14 +2607,15 @@ async function importAllScheduledMatches() {
         const r = await fetch(API_BASE + '/match_scorecard?apikey=' + CRICKETDATA_API_KEY + '&id=' + scheduleMatch.cricapi_match_id, { signal: AbortSignal.timeout(12000) });
         const d = await r.json(); incrementApiCalls(1);
         if (d && d.data) {
-          const status = d.data.matchEnded ? 'done' : d.data.matchStarted ? 'live' : 'upcoming';
-          setMatch(
+          const existed = (liveData.matches || []).some(m => m.apiId === scheduleMatch.cricapi_match_id);
+          upsertMatch(
             scheduleMatch.cricapi_match_id,
             d.data.name || (scheduleMatch.home + ' vs ' + scheduleMatch.away),
             d.data.date || scheduleMatch.date || '',
-            status,
-            parseScorecard(d.data)
+            d.data
           );
+          if (existed) refreshed++;
+          else imported++;
         } else {
           failed++;
         }
@@ -2657,6 +2628,7 @@ async function importAllScheduledMatches() {
       liveData.importAllScheduledStatus.refreshed = refreshed;
       liveData.importAllScheduledStatus.failed = failed;
       liveData.importAllScheduledStatus.skippedNoId = skippedNoId;
+      liveData.importAllScheduledStatus.skippedUpcoming = skippedUpcoming;
       if (processed % 3 === 0) refreshImportAllScheduledStatusUI();
     }
 
@@ -2672,10 +2644,11 @@ async function importAllScheduledMatches() {
       refreshed,
       failed,
       skippedNoId,
-      summary: msg + (failed > 0 ? (', ' + failed + ' scorecards unavailable') : '')
+      skippedUpcoming,
+      summary: msg + (failed > 0 ? (', ' + failed + ' scorecards unavailable') : '') + (skippedUpcoming > 0 ? (', ' + skippedUpcoming + ' not started yet') : '')
     };
     refreshImportAllScheduledStatusUI();
-    showToast(msg + (failed > 0 ? (', ' + failed + ' scorecards unavailable') : ''), (imported + refreshed > 0) ? 'success' : '');
+    showToast(msg + (failed > 0 ? (', ' + failed + ' scorecards unavailable') : '') + (skippedUpcoming > 0 ? (', ' + skippedUpcoming + ' not started yet') : ''), (imported + refreshed > 0) ? 'success' : '');
     renderAdmin(); renderTab(currentTab);
   } catch (e) {
     liveData.importAllScheduledStatus = {
@@ -2688,15 +2661,17 @@ async function importAllScheduledMatches() {
       refreshed,
       failed,
       skippedNoId,
+      skippedUpcoming,
       summary: 'Import failed: ' + e.message
     };
     refreshImportAllScheduledStatusUI();
-    showToast('Import failed: ' + e.message, 'error');
+    showToast('Fetch failed: ' + e.message, 'error');
   }
 
-  if (btn) { btn.textContent = 'Import All Scheduled'; btn.disabled = false; }
+  if (btn) { btn.textContent = 'Fetch CricAPI Results'; btn.disabled = false; }
 }
-window.importAllScheduledMatches = importAllScheduledMatches;
+window.fetchCricapiResults = fetchCricapiResults;
+window.importAllScheduledMatches = fetchCricapiResults;
 </script>
 </body>
 </html>
