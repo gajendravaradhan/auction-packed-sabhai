@@ -380,7 +380,6 @@ select.field-input{cursor:pointer;}
                   <span>Player</span>
                   <span class="ps-th-controls">
                     <button class="ps-th-btn" type="button" onclick="togglePlayersSort('name')" id="psSort-name" title="Sort player" aria-label="Sort player">↕</button>
-                    <button class="ps-th-btn filter" type="button" onclick="focusPlayersFilter('name')" id="psFilterIcon-name" title="Filter player" aria-label="Filter player"></button>
                   </span>
                 </div>
               </th>
@@ -389,7 +388,6 @@ select.field-input{cursor:pointer;}
                   <span>Role</span>
                   <span class="ps-th-controls">
                     <button class="ps-th-btn" type="button" onclick="togglePlayersSort('role')" id="psSort-role" title="Sort role" aria-label="Sort role">↕</button>
-                    <button class="ps-th-btn filter" type="button" onclick="focusPlayersFilter('role')" id="psFilterIcon-role" title="Filter role" aria-label="Filter role"></button>
                   </span>
                 </div>
               </th>
@@ -398,7 +396,6 @@ select.field-input{cursor:pointer;}
                   <span>Team</span>
                   <span class="ps-th-controls">
                     <button class="ps-th-btn" type="button" onclick="togglePlayersSort('team')" id="psSort-team" title="Sort team" aria-label="Sort team">↕</button>
-                    <button class="ps-th-btn filter" type="button" onclick="focusPlayersFilter('team')" id="psFilterIcon-team" title="Filter team" aria-label="Filter team"></button>
                   </span>
                 </div>
               </th>
@@ -407,7 +404,6 @@ select.field-input{cursor:pointer;}
                   <span>IPL Team</span>
                   <span class="ps-th-controls">
                     <button class="ps-th-btn" type="button" onclick="togglePlayersSort('iplTeam')" id="psSort-iplTeam" title="Sort IPL team" aria-label="Sort IPL team">⇕</button>
-                    <button class="ps-th-btn filter" type="button" onclick="focusPlayersFilter('iplTeam')" id="psFilterIcon-iplTeam" title="Filter IPL team" aria-label="Filter IPL team"></button>
                   </span>
                 </div>
               </th>
@@ -416,7 +412,6 @@ select.field-input{cursor:pointer;}
                   <span>Pts</span>
                   <span class="ps-th-controls">
                     <button class="ps-th-btn" type="button" onclick="togglePlayersSort('pts')" id="psSort-pts" title="Sort points" aria-label="Sort points">↕</button>
-                    <button class="ps-th-btn filter" type="button" onclick="focusPlayersFilter('pts')" id="psFilterIcon-pts" title="Filter points" aria-label="Filter points"></button>
                   </span>
                 </div>
               </th>
@@ -1254,10 +1249,35 @@ function renderMatches() {
 }
 
 // ── PLAYERS ──
+function getPlayerFilterFromRoleValue(roleValue) {
+  const role = String(roleValue || '').trim();
+  if (role === 'BAT' || role === 'BOW' || role === 'WIC') return role;
+  if (role === 'ALL') return 'ALL_ROLE';
+  return 'ALL';
+}
+
+function getRoleValueFromPlayerFilter(filterValue) {
+  if (filterValue === 'BAT' || filterValue === 'BOW' || filterValue === 'WIC') return filterValue;
+  if (filterValue === 'ALL_ROLE') return 'ALL';
+  return '';
+}
+
+function updatePlayersTopFilterButtons() {
+  document.querySelectorAll('.ps-filter-btn').forEach(b => b.classList.remove('active'));
+  const btn = document.getElementById('pf-' + playerFilter);
+  if (btn) btn.classList.add('active');
+}
+
 function filterPlayers(f) {
-  playerFilter=f;
-  document.querySelectorAll('.ps-filter-btn').forEach(b=>b.classList.remove('active'));
-  const btn=document.getElementById('pf-'+f); if(btn)btn.classList.add('active');
+  playerFilter = f;
+  updatePlayersTopFilterButtons();
+
+  // Keep the role dropdown aligned with the top role filter buttons.
+  const roleValue = getRoleValueFromPlayerFilter(playerFilter);
+  playersColumnFilters.role = roleValue;
+  const roleSelect = document.getElementById('psFilter-role');
+  if (roleSelect && roleSelect.value !== roleValue) roleSelect.value = roleValue;
+
   renderPlayers();
 }
 
@@ -1323,12 +1343,13 @@ function togglePlayersSort(key) {
 
 function setPlayersColumnFilter(key, value) {
   playersColumnFilters[key] = String(value || '').trim();
-  renderPlayers();
-}
 
-function focusPlayersFilter(key) {
-  const input = document.getElementById('psFilter-' + key);
-  if (input) input.focus();
+  if (key === 'role') {
+    playerFilter = getPlayerFilterFromRoleValue(playersColumnFilters.role);
+    updatePlayersTopFilterButtons();
+  }
+
+  renderPlayers();
 }
 
 function updatePlayersHeaderControls() {
@@ -1346,12 +1367,6 @@ function updatePlayersHeaderControls() {
       } else {
         sortBtn.textContent = '↕';
       }
-    }
-
-    const filterBtn = document.getElementById('psFilterIcon-' + col);
-    if (filterBtn) {
-      const active = !!playersColumnFilters[col];
-      filterBtn.classList.toggle('active', active);
     }
   });
 }
