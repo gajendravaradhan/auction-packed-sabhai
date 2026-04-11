@@ -184,6 +184,11 @@ select.field-input{cursor:pointer;}
 .insight-pill .big{font-family:'Barlow Condensed',sans-serif;font-size:24px;font-weight:900;color:var(--text);}
 .insight-select{background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:7px 10px;font-family:'Rajdhani',sans-serif;font-size:14px;}
 .insight-controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px;}
+.insight-explainer{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:10px;padding-top:8px;border-top:1px solid #112742;}
+.insight-explain-text{font-size:12px;color:var(--muted);line-height:1.45;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1;}
+.insight-explainer.open .insight-explain-text{white-space:normal;overflow:visible;}
+.insight-more-btn{background:none;border:none;color:var(--gold);font-size:12px;letter-spacing:1px;cursor:pointer;white-space:nowrap;padding:0;}
+.insight-tooltip{position:fixed;z-index:12000;pointer-events:none;max-width:min(280px,80vw);background:#071325;border:1px solid #1f4a73;border-radius:8px;padding:6px 8px;color:var(--text);font-size:11px;line-height:1.4;box-shadow:0 8px 30px #0008;display:none;}
 .treemap{display:flex;flex-wrap:wrap;gap:8px;}
 .treemap-tile{min-height:72px;border-radius:10px;padding:8px;border:1px solid #1a3a5c;background:linear-gradient(140deg,#12263f,#0b1c30);display:flex;flex-direction:column;justify-content:space-between;}
 .treemap-name{font-family:'Barlow Condensed',sans-serif;font-size:13px;letter-spacing:1px;color:var(--text);}
@@ -342,10 +347,6 @@ select.field-input{cursor:pointer;}
               <th>
                 <div class="ps-th-wrap">
                   <span>#</span>
-                  <span class="ps-th-controls">
-                    <button class="ps-th-btn" type="button" onclick="togglePlayersSort('rank')" id="psSort-rank" title="Sort rank" aria-label="Sort rank">↕</button>
-                    <button class="ps-th-btn filter" type="button" onclick="focusPlayersFilter('rank')" id="psFilterIcon-rank" title="Filter rank" aria-label="Filter rank"></button>
-                  </span>
                 </div>
               </th>
               <th>
@@ -1548,6 +1549,178 @@ function setInsightsRankMode(mode) {
   renderInsights();
 }
 
+let _insightChartPoints = {};
+let _insightPressTimer = null;
+let _insightPressState = null;
+let _insightExplainExpanded = {};
+
+function ensureInsightTooltipEl() {
+  let el = document.getElementById('insightTooltip');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'insightTooltip';
+    el.className = 'insight-tooltip';
+    document.body.appendChild(el);
+  }
+  return el;
+}
+
+function hideInsightTooltip() {
+  const el = document.getElementById('insightTooltip');
+  if (el) el.style.display = 'none';
+}
+
+function showInsightTooltip(clientX, clientY, text) {
+  const el = ensureInsightTooltipEl();
+  el.textContent = text || '';
+  el.style.display = 'block';
+  const pad = 12;
+  const x = Math.max(pad, Math.min(window.innerWidth - el.offsetWidth - pad, clientX + 14));
+  const y = Math.max(pad, Math.min(window.innerHeight - el.offsetHeight - pad, clientY + 14));
+  el.style.left = x + 'px';
+  el.style.top = y + 'px';
+}
+
+function registerInsightChartPoints(key, points) {
+  _insightChartPoints[key] = Array.isArray(points) ? points : [];
+}
+
+function getInsightEventClientPoint(evt) {
+  const t = evt && evt.touches && evt.touches[0]
+    ? evt.touches[0]
+    : evt && evt.changedTouches && evt.changedTouches[0]
+      ? evt.changedTouches[0]
+      : evt;
+  return {
+    clientX: t && typeof t.clientX === 'number' ? t.clientX : 0,
+    clientY: t && typeof t.clientY === 'number' ? t.clientY : 0
+  };
+}
+
+function getInsightEventSvgPoint(evt, svgEl) {
+  const client = getInsightEventClientPoint(evt);
+  const rect = svgEl.getBoundingClientRect();
+  const vb = svgEl.viewBox && svgEl.viewBox.baseVal
+    ? svgEl.viewBox.baseVal
+    : { x: 0, y: 0, width: rect.width || 1, height: rect.height || 1 };
+  const relX = rect.width ? (client.clientX - rect.left) / rect.width : 0;
+  const relY = rect.height ? (client.clientY - rect.top) / rect.height : 0;
+  return {
+    clientX: client.clientX,
+    clientY: client.clientY,
+    svgX: vb.x + relX * vb.width,
+    svgY: vb.y + relY * vb.height
+  };
+}
+
+function nearestInsightPoint(key, svgX, svgY) {
+  const pts = _insightChartPoints[key] || [];
+  if (!pts.length) return null;
+  let best = null;
+  let bestD2 = Infinity;
+  pts.forEach(p => {
+    const dx = (p.x || 0) - svgX;
+    const dy = (p.y || 0) - svgY;
+    const d2 = dx * dx + dy * dy;
+    if (d2 < bestD2) {
+      bestD2 = d2;
+      best = p;
+    }
+  });
+  return best;
+}
+
+function handleInsightChartMove(evt, key) {
+  const svgEl = evt.currentTarget;
+  if (!svgEl) return;
+  const pos = getInsightEventSvgPoint(evt, svgEl);
+  const pt = nearestInsightPoint(key, pos.svgX, pos.svgY);
+  if (!pt || !pt.label) {
+    hideInsightTooltip();
+    return;
+  }
+  showInsightTooltip(pos.clientX, pos.clientY, pt.label);
+}
+
+function handleInsightChartLeave() {
+  hideInsightTooltip();
+}
+
+function handleInsightChartPressStart(evt, key) {
+  const svgEl = evt.currentTarget;
+  if (!svgEl) return;
+  clearTimeout(_insightPressTimer);
+  _insightPressState = { moved: false, key };
+  _insightPressTimer = setTimeout(() => {
+    const pos = getInsightEventSvgPoint(evt, svgEl);
+    const pt = nearestInsightPoint(key, pos.svgX, pos.svgY);
+    if (pt && pt.label) showInsightTooltip(pos.clientX, pos.clientY, pt.label);
+  }, 420);
+}
+
+function handleInsightChartPressMove(evt, key) {
+  if (_insightPressState) _insightPressState.moved = true;
+  const tip = document.getElementById('insightTooltip');
+  if (tip && tip.style.display === 'block') {
+    handleInsightChartMove(evt, key);
+  } else {
+    clearTimeout(_insightPressTimer);
+  }
+}
+
+function handleInsightChartPressEnd() {
+  clearTimeout(_insightPressTimer);
+}
+
+function toggleInsightExplain(key) {
+  _insightExplainExpanded[key] = !_insightExplainExpanded[key];
+  renderInsights();
+}
+
+function getInsightExplainContent(key) {
+  const map = {
+    momentum: {
+      short: 'Trend of each team\'s cumulative points across matches (X: match number, Y: running total).',
+      full: 'This chart shows how every team\'s total points build up over time. X-axis is match number and Y-axis is cumulative points. A steeper line means faster point gains in recent matches. Flat sections mean low impact matches. Long-press or hover near a line to see the closest team and value at that point.'
+    },
+    cvImpact: {
+      short: 'Breakdown of total points into base scoring plus Captain/VC bonus impact per team.',
+      full: 'Each stack shows how much of a team\'s score comes from base player output vs Captain and Vice-Captain multipliers. Use it to see which teams are relying heavily on C/VC leverage versus stable base production.'
+    },
+    rankFlow: {
+      short: 'How team ranking position changes over time (X: match number, Y: rank where 1 is best).',
+      full: 'Rank Flow tracks leaderboard movement. X-axis is match number and Y-axis is rank, where lower is better (1 at top). In Bump mode, each segment shows match-to-match shifts. In Slope mode, you compare first-vs-current rank quickly. Long-press or hover to inspect nearest team rank at a point.'
+    },
+    roleEfficiency: {
+      short: 'Role drilldowns comparing batting-position and bowling-profile contribution patterns.',
+      full: 'Role Efficiency summarizes where points come from by role context. Batting drilldown groups points by batting-order buckets. Bowling drilldown groups points by bowling type and arm. This helps identify whether points are concentrated in top-order batting, finishers, pace, or spin.'
+    },
+    scatter: {
+      short: 'Consistency vs ceiling for players (X: average points, Y: sigma/volatility; bubble size: total points).',
+      full: 'Each bubble is a player. X-axis is average points per match. Y-axis is sigma (standard deviation), which measures volatility: lower sigma means more consistent output, higher sigma means boom-bust. Bubble size represents total accumulated points. Colors show role. Long-press or hover near a bubble to read player details.'
+    },
+    dotEco: {
+      short: 'Bowling value components by player (wickets, dot balls, economy bonus/penalty).',
+      full: 'Bars decompose bowling-driven points. Positive stacks include wicket points, dot-ball points, and economy bonuses; red segments are economy penalties below zero. X-axis lists players and Y-axis is points. Long-press or hover near a bar to inspect the closest player\'s component totals.'
+    },
+    h2h: {
+      short: 'Radar comparison between two selected teams across total, average, C/VC gain, consistency, and bowl share.',
+      full: 'Head-to-Head compares two teams on five axes. Larger area indicates stronger aggregate profile. Consistency here is scaled inverse-volatility (higher means steadier). Use this as a shape comparison, then verify exact totals in leaderboard and match views.'
+    }
+  };
+  return map[key] || { short: '', full: '' };
+}
+
+function renderInsightExplain(key) {
+  const info = getInsightExplainContent(key);
+  if (!info.short) return '';
+  const expanded = !!_insightExplainExpanded[key];
+  return '<div class="insight-explainer' + (expanded ? ' open' : '') + '">' 
+    + '<div class="insight-explain-text">' + (expanded ? info.full : info.short) + '</div>'
+    + '<button class="insight-more-btn" type="button" onclick="toggleInsightExplain(\'' + key + '\')">' + (expanded ? 'Show less' : 'Show more') + '</button>'
+    + '</div>';
+}
+
 function renderInsightsMomentum(series) {
   if (!series.matches.length) return '<div class="insight-card">No completed matches yet.</div>';
   const w = 980, h = 360, pl = 48, pr = 30, pt = 20, pb = 34;
@@ -1614,7 +1787,7 @@ function renderInsightsCvImpact(series) {
     return '<div style="margin-bottom:10px;"><div style="display:flex;justify-content:space-between;font-size:12px;color:var(--muted);"><span>' + r.team + '</span><span>' + r.total + ' pts</span></div>'
       + '<div class="insight-stack"><div class="insight-seg-base" style="width:' + b + '%"></div><div class="insight-seg-cap" style="width:' + c + '%"></div><div class="insight-seg-vc" style="width:' + v + '%"></div></div>'
       + '<div style="font-size:11px;color:var(--muted);margin-top:4px;">Base ' + Math.round(r.base) + ' · Captain Gain ' + Math.round(r.cap) + ' · VC Gain ' + Math.round(r.vc) + '</div></div>';
-  }).join('') + '</div>';
+  }).join('') + renderInsightExplain('cvImpact') + '</div>';
 }
 
 function renderInsightsRankFlow(series) {
@@ -1781,7 +1954,7 @@ function renderInsightsHeadToHead(series) {
     + '<select class="insight-select" onchange="insightsH2HTeamB=this.value;renderInsights();">' + TEAMS.map(t => '<option value="' + t.name + '"' + (t.name===insightsH2HTeamB?' selected':'') + '>' + t.name + '</option>').join('') + '</select></div>';
   return '<div class="insight-card"><div class="insight-title">Head-to-Head Radar</div>' + controls + '<svg viewBox="0 0 ' + w + ' ' + h + '" style="width:100%;max-width:620px;height:auto;background:#071325;border:1px solid #123050;border-radius:8px;">'
     + axisLines + poly(mA, '#ffb800') + poly(mB, '#00e676')
-    + '</svg><div class="insight-legend"><div class="insight-legend-item"><span class="insight-dot" style="background:#ffb800"></span>' + insightsH2HTeamA + '</div><div class="insight-legend-item"><span class="insight-dot" style="background:#00e676"></span>' + insightsH2HTeamB + '</div></div></div>';
+    + '</svg><div class="insight-legend"><div class="insight-legend-item"><span class="insight-dot" style="background:#ffb800"></span>' + insightsH2HTeamA + '</div><div class="insight-legend-item"><span class="insight-dot" style="background:#00e676"></span>' + insightsH2HTeamB + '</div></div>' + renderInsightExplain('h2h') + '</div>';
 }
 
 function calcFantasyPointsWithPicks(p, captain, viceCaptain, matchPotm) {
@@ -2130,6 +2303,13 @@ function renderInsightsMomentum(series) {
     const pts = (series.cumulative[t.name] || []).map((v, i) => x(i).toFixed(1) + ',' + y(v).toFixed(1)).join(' ');
     return '<polyline fill="none" stroke="' + insightPalette(idx) + '" stroke-width="2.5" points="' + pts + '" />';
   }).join('');
+  const hoverPoints = [];
+  visible.forEach((t, idx) => {
+    (series.cumulative[t.name] || []).forEach((v, i) => {
+      hoverPoints.push({ x: x(i), y: y(v), label: t.name + ' · Match ' + (i + 1) + ': ' + Math.round(v) + ' pts' });
+    });
+  });
+  registerInsightChartPoints('momentum', hoverPoints);
   const legend = visible.map((t, idx) => {
     const arr = series.cumulative[t.name] || [];
     const fin = arr.length ? arr[arr.length - 1] : 0;
@@ -2137,13 +2317,13 @@ function renderInsightsMomentum(series) {
   }).join('');
 
   return '<div class="insight-card"><div class="insight-title">Team Momentum</div>' + chips
-    + '<svg viewBox="0 0 ' + w + ' ' + h + '" style="width:100%;height:auto;background:#071325;border:1px solid #123050;border-radius:8px;">'
+    + '<svg id="insight-svg-momentum" viewBox="0 0 ' + w + ' ' + h + '" style="width:100%;height:auto;background:#071325;border:1px solid #123050;border-radius:8px;touch-action:manipulation;" onmousemove="handleInsightChartMove(event,\'momentum\')" onmouseleave="handleInsightChartLeave()" ontouchstart="handleInsightChartPressStart(event,\'momentum\')" ontouchmove="handleInsightChartPressMove(event,\'momentum\')" ontouchend="handleInsightChartPressEnd()" ontouchcancel="handleInsightChartPressEnd()">'
     + xGrid + yGrid + lines + xTicks
     + '<line x1="' + pl + '" y1="' + (h - pb) + '" x2="' + (w - pr) + '" y2="' + (h - pb) + '" stroke="#2a5274" stroke-width="1.3" />'
     + '<line x1="' + pl + '" y1="' + pt + '" x2="' + pl + '" y2="' + (h - pb) + '" stroke="#2a5274" stroke-width="1.3" />'
     + '<text x="' + ((pl + w - pr) / 2) + '" y="' + (h - 14) + '" fill="#c9d9eb" font-size="12" text-anchor="middle">Match Number</text>'
     + '<text x="18" y="' + ((pt + h - pb) / 2) + '" transform="rotate(-90 18 ' + ((pt + h - pb) / 2) + ')" fill="#c9d9eb" font-size="12" text-anchor="middle">Cumulative Points</text>'
-    + '</svg><div class="insight-legend">' + legend + '</div></div>';
+    + '</svg><div class="insight-legend">' + legend + '</div>' + renderInsightExplain('momentum') + '</div>';
 }
 
 function renderInsightsRankFlow(series) {
@@ -2172,18 +2352,29 @@ function renderInsightsRankFlow(series) {
     const pts = source.map((r, i) => x(i).toFixed(1) + ',' + y(r).toFixed(1)).join(' ');
     return '<polyline fill="none" stroke="' + insightPalette(idx) + '" stroke-width="2.2" points="' + pts + '" />';
   }).join('');
+  const hoverPoints = [];
+  TEAMS.forEach((t, idx) => {
+    const arr = series.ranks[t.name] || [];
+    const source = insightsRankMode === 'slope' ? (arr.length ? [arr[0], arr[arr.length - 1]] : []) : arr;
+    source.forEach((r, i) => {
+      const matchNo = insightsRankMode === 'slope' ? (i === 0 ? 1 : n) : (i + 1);
+      hoverPoints.push({ x: x(i), y: y(r), label: t.name + ' · Match ' + matchNo + ' · Rank ' + r });
+    });
+  });
+  registerInsightChartPoints('rankFlow', hoverPoints);
   const modeBtns = '<div class="insight-controls">'
     + '<button class="insights-subtab ' + (insightsRankMode === 'slope' ? 'active' : '') + '" onclick="setInsightsRankMode(\'slope\')">Slope</button>'
     + '<button class="insights-subtab ' + (insightsRankMode === 'bump' ? 'active' : '') + '" onclick="setInsightsRankMode(\'bump\')">Bump</button>'
     + '</div>';
+  const legend = TEAMS.map((t, idx) => '<div class="insight-legend-item"><span class="insight-dot" style="background:' + insightPalette(idx) + '"></span>' + t.name + '</div>').join('');
   return '<div class="insight-card"><div class="insight-title">Rank Flow</div>' + modeBtns
-    + '<svg viewBox="0 0 ' + w + ' ' + h + '" style="width:100%;height:auto;background:#071325;border:1px solid #123050;border-radius:8px;">'
+    + '<svg id="insight-svg-rankflow" viewBox="0 0 ' + w + ' ' + h + '" style="width:100%;height:auto;background:#071325;border:1px solid #123050;border-radius:8px;touch-action:manipulation;" onmousemove="handleInsightChartMove(event,\'rankFlow\')" onmouseleave="handleInsightChartLeave()" ontouchstart="handleInsightChartPressStart(event,\'rankFlow\')" ontouchmove="handleInsightChartPressMove(event,\'rankFlow\')" ontouchend="handleInsightChartPressEnd()" ontouchcancel="handleInsightChartPressEnd()">'
     + xGrid + yGrid + lines
     + '<line x1="' + pl + '" y1="' + (h - pb) + '" x2="' + (w-pr) + '" y2="' + (h-pb) + '" stroke="#2a5274" />'
     + '<line x1="' + pl + '" y1="' + pt + '" x2="' + pl + '" y2="' + (h-pb) + '" stroke="#2a5274" />'
     + '<text x="' + ((pl + w - pr) / 2) + '" y="' + (h - 14) + '" fill="#c9d9eb" font-size="12" text-anchor="middle">Match Number</text>'
     + '<text x="18" y="' + ((pt + h - pb) / 2) + '" transform="rotate(-90 18 ' + ((pt + h - pb) / 2) + ')" fill="#c9d9eb" font-size="12" text-anchor="middle">Rank</text>'
-    + '</svg></div>';
+    + '</svg><div class="insight-legend">' + legend + '</div>' + renderInsightExplain('rankFlow') + '</div>';
 }
 
 function renderInsightsRoleEfficiency() {
@@ -2281,7 +2472,7 @@ function renderInsightsRoleEfficiency() {
     return '<div class="insight-card"><div class="insight-title">Role Efficiency · Batting Position</div>' + controls
       + (insightsBatPosLoading ? '<div style="font-size:12px;color:var(--muted);margin-bottom:8px;">Loading batting positions from ESPN...</div>' : '')
       + bucketCards + unknownDetails
-      + '</div>';
+      + renderInsightExplain('roleEfficiency') + '</div>';
   }
 
   const bowlAgg = {
@@ -2319,7 +2510,7 @@ function renderInsightsRoleEfficiency() {
   return '<div class="insight-card"><div class="insight-title">Role Efficiency · Bowling Type/Arm</div>' + controls
     + rows.map(([k,v]) => '<div style="margin-bottom:8px;"><div style="display:flex;justify-content:space-between;font-size:12px;color:var(--muted);"><span>' + k + '</span><span>' + Math.round(v) + '</span></div><div class="insight-stack"><div class="insight-seg-base" style="width:' + Math.round((v/max)*100) + '%"></div></div></div>').join('')
     + unknownDetails
-    + '</div>';
+    + renderInsightExplain('roleEfficiency') + '</div>';
 }
 
 function renderInsightsConsistencyScatter() {
@@ -2352,13 +2543,20 @@ function renderInsightsConsistencyScatter() {
       + '<text x="' + (pl - 8) + '" y="' + (y + 4).toFixed(1) + '" fill="#9fb8d8" font-size="11" text-anchor="end">' + Math.round(val) + '</text>';
   }).join('');
   const circles = data.map(d => '<circle cx="' + cx(d.avg).toFixed(1) + '" cy="' + cy(d.std).toFixed(1) + '" r="' + (3 + (d.total / maxT) * 7).toFixed(1) + '" fill="' + (colorByRole[d.role] || '#cccccc') + '" fill-opacity="0.75"><title>' + d.name + ' · avg ' + Math.round(d.avg) + ' · sigma ' + Math.round(d.std) + '</title></circle>').join('');
-  return '<div class="insight-card"><div class="insight-title">Consistency vs Ceiling</div><svg viewBox="0 0 ' + w + ' ' + h + '" style="width:100%;height:auto;background:#071325;border:1px solid #123050;border-radius:8px;">'
+  const hoverPoints = data.map(d => ({
+    x: cx(d.avg),
+    y: cy(d.std),
+    label: d.name + ' · ' + d.role + ' · Avg ' + Math.round(d.avg) + ' · Sigma ' + Math.round(d.std) + ' · Total ' + Math.round(d.total)
+  }));
+  registerInsightChartPoints('scatter', hoverPoints);
+  const legend = ['BAT','BOW','ALL','WIC'].map(role => '<div class="insight-legend-item"><span class="insight-dot" style="background:' + (colorByRole[role] || '#ccc') + '"></span>' + role + '</div>').join('');
+  return '<div class="insight-card"><div class="insight-title">Consistency vs Ceiling</div><svg id="insight-svg-scatter" viewBox="0 0 ' + w + ' ' + h + '" style="width:100%;height:auto;background:#071325;border:1px solid #123050;border-radius:8px;touch-action:manipulation;" onmousemove="handleInsightChartMove(event,\'scatter\')" onmouseleave="handleInsightChartLeave()" ontouchstart="handleInsightChartPressStart(event,\'scatter\')" ontouchmove="handleInsightChartPressMove(event,\'scatter\')" ontouchend="handleInsightChartPressEnd()" ontouchcancel="handleInsightChartPressEnd()">'
     + xGrid + yGrid + circles
     + '<line x1="' + pl + '" y1="' + (h-pb) + '" x2="' + (w-pr) + '" y2="' + (h-pb) + '" stroke="#2a5274" />'
     + '<line x1="' + pl + '" y1="' + ptp + '" x2="' + pl + '" y2="' + (h-pb) + '" stroke="#2a5274" />'
     + '<text x="' + ((pl + w - pr) / 2) + '" y="' + (h - 14) + '" fill="#c9d9eb" font-size="12" text-anchor="middle">Average Points per Match</text>'
     + '<text x="18" y="' + ((ptp + h - pb) / 2) + '" transform="rotate(-90 18 ' + ((ptp + h - pb) / 2) + ')" fill="#c9d9eb" font-size="12" text-anchor="middle">Volatility (Std Dev)</text>'
-    + '</svg></div>';
+    + '</svg><div class="insight-legend">' + legend + '</div>' + renderInsightExplain('scatter') + '</div>';
 }
 
 function renderInsightsDotEconomy(series) {
@@ -2443,15 +2641,25 @@ function renderInsightsDotEconomy(series) {
       + '<text x="' + (x + barW/2).toFixed(1) + '" y="' + (h - pb + 28) + '" fill="#9fb8d8" font-size="10" text-anchor="end" transform="rotate(-45 ' + (x + barW/2).toFixed(1) + ' ' + (h - pb + 28) + ')">' + r.name + '</text>'
       + '</g>';
   }).join('');
+  const hoverPoints = rows.map((r, i) => {
+    const x = pl + i * gap + (gap - barW) / 2 + barW / 2;
+    const y = yScale(Math.max(0, r.wk) + Math.max(0, r.dots) + Math.max(0, r.eco));
+    return {
+      x,
+      y,
+      label: r.name + ' · Total ' + Math.round(r.total) + ' · Wk ' + Math.round(r.wk) + ' · Dots ' + Math.round(r.dots) + ' · Eco ' + Math.round(r.eco)
+    };
+  });
+  registerInsightChartPoints('dotEco', hoverPoints);
 
   return '<div class="insight-card"><div class="insight-title">Dot-ball Economy Value</div>' + controls
-    + '<svg viewBox="0 0 ' + w + ' ' + h + '" style="width:100%;height:auto;background:#071325;border:1px solid #123050;border-radius:8px;">'
+    + '<svg id="insight-svg-doteco" viewBox="0 0 ' + w + ' ' + h + '" style="width:100%;height:auto;background:#071325;border:1px solid #123050;border-radius:8px;touch-action:manipulation;" onmousemove="handleInsightChartMove(event,\'dotEco\')" onmouseleave="handleInsightChartLeave()" ontouchstart="handleInsightChartPressStart(event,\'dotEco\')" ontouchmove="handleInsightChartPressMove(event,\'dotEco\')" ontouchend="handleInsightChartPressEnd()" ontouchcancel="handleInsightChartPressEnd()">'
     + yGrid + bars
     + '<line x1="' + pl + '" y1="' + yScale(0).toFixed(1) + '" x2="' + (w-pr) + '" y2="' + yScale(0).toFixed(1) + '" stroke="#2a5274" />'
     + '<line x1="' + pl + '" y1="' + pt + '" x2="' + pl + '" y2="' + (h-pb) + '" stroke="#2a5274" />'
     + '<text x="' + ((pl + w - pr) / 2) + '" y="' + (h - 12) + '" fill="#c9d9eb" font-size="12" text-anchor="middle">Player</text>'
     + '<text x="18" y="' + ((pt + h - pb) / 2) + '" transform="rotate(-90 18 ' + ((pt + h - pb) / 2) + ')" fill="#c9d9eb" font-size="12" text-anchor="middle">Points</text>'
-    + '</svg><div class="insight-legend"><div class="insight-legend-item"><span class="insight-dot" style="background:#1b6ca8"></span>Wicket Pts</div><div class="insight-legend-item"><span class="insight-dot" style="background:#00e676"></span>Dot Pts</div><div class="insight-legend-item"><span class="insight-dot" style="background:#ffb800"></span>Eco Bonus</div><div class="insight-legend-item"><span class="insight-dot" style="background:#ff2d55"></span>Eco Penalty</div></div></div>';
+    + '</svg><div class="insight-legend"><div class="insight-legend-item"><span class="insight-dot" style="background:#1b6ca8"></span>Wicket Pts</div><div class="insight-legend-item"><span class="insight-dot" style="background:#00e676"></span>Dot Pts</div><div class="insight-legend-item"><span class="insight-dot" style="background:#ffb800"></span>Eco Bonus</div><div class="insight-legend-item"><span class="insight-dot" style="background:#ff2d55"></span>Eco Penalty</div></div>' + renderInsightExplain('dotEco') + '</div>';
 }
 
 function renderInsights() {
