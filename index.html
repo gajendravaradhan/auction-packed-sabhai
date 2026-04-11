@@ -2764,7 +2764,13 @@ function getCountdownText() {
 
 function startCountdown() {
   clearInterval(_countdownTimer);
-  _countdownTimer=setInterval(()=>{const el=document.getElementById('syncCountdown');if(!el){clearInterval(_countdownTimer);return;}el.textContent=getCountdownText();},1000);
+  const tick = () => {
+    const el = document.getElementById('syncCountdown');
+    if (!el) return;
+    el.textContent = getCountdownText();
+  };
+  tick();
+  _countdownTimer = setInterval(tick, 1000);
 }
 
 function startAutoSync() {
@@ -2834,8 +2840,6 @@ async function syncMissingScheduledMatchesUpToToday(startedOrEndedIds = null) {
     }
     if (!scheduleMatch.cricapi_match_id) continue;
     if ((liveData.matches || []).some(m => m.apiId === scheduleMatch.cricapi_match_id)) continue;
-
-    if (scheduleMatch.date === today && startedOrEndedIds && !startedOrEndedIds.has(scheduleMatch.cricapi_match_id)) continue;
 
     try {
       const r = await fetch(API_BASE + '/match_scorecard?apikey=' + CRICKETDATA_API_KEY + '&id=' + scheduleMatch.cricapi_match_id, { signal: AbortSignal.timeout(12000) });
@@ -3023,7 +3027,7 @@ async function runSyncNow() {
   showToast('Syncing...','');
   try {
     const seen=new Set(),iplMatches=[];
-    for(const offset of [3,4,5]){
+    for (let offset = 0; offset <= 10; offset++) {
       try{
         const r=await fetch(API_BASE+'/currentMatches?apikey='+CRICKETDATA_API_KEY+'&offset='+offset,{signal:AbortSignal.timeout(12000)});
         const d=await r.json(); incrementApiCalls(1);
@@ -3032,18 +3036,34 @@ async function runSyncNow() {
     }
     if(iplMatches.length===0){console.warn('[AP] No IPL matches found in currentMatches feed for this run');}
     const startedOrEndedIds = new Set(iplMatches.filter(m=>m.matchStarted||m.matchEnded).map(m=>m.id));
+    const startedOrEndedFilter = startedOrEndedIds.size > 0 ? startedOrEndedIds : null;
     let synced=0;
     for(const m of iplMatches){
       if(!m.matchStarted&&!m.matchEnded)continue;
       try{
         const r=await fetch(API_BASE+'/match_scorecard?apikey='+CRICKETDATA_API_KEY+'&id='+m.id,{signal:AbortSignal.timeout(12000)});
         const sc=await r.json(); incrementApiCalls(1);
-        if(!sc.data)continue;
-        upsertMatch(m.id,m.name||'',m.date||'',sc.data); synced++;
-      }catch(e){console.warn('[AP] scorecard failed:',m.id,e.message);}
+        const scorecardData = sc.data ? { ...sc.data } : { scorecard: [] };
+        // Prefer explicit scorecard flags, but fall back to currentMatches flags when needed.
+        scorecardData.matchStarted = !!(scorecardData.matchStarted || m.matchStarted);
+        scorecardData.matchEnded = !!(scorecardData.matchEnded || m.matchEnded);
+        upsertMatch(m.id,m.name||'',m.date||'',scorecardData); synced++;
+      }catch(e){
+        console.warn('[AP] scorecard failed:',m.id,e.message);
+        try {
+          upsertMatch(m.id,m.name||'',m.date||'',{
+            scorecard: [],
+            matchStarted: !!m.matchStarted,
+            matchEnded: !!m.matchEnded
+          });
+          synced++;
+        } catch (fallbackErr) {
+          console.warn('[AP] fallback upsert failed:', m.id, fallbackErr.message);
+        }
+      }
     }
 
-    const stackAdded = await syncMissingScheduledMatchesUpToToday(startedOrEndedIds);
+    const stackAdded = await syncMissingScheduledMatchesUpToToday(startedOrEndedFilter);
 
     // New ESPN API calls for matches needing updates
     const matchesToUpdate = getMatchesForESPNUpdate();
