@@ -1526,14 +1526,14 @@ function collapseSectionToLatestMatch() {
   if (!liveData.matches || liveData.matches.length === 0) return;
   const latestIdx = liveData.matches.length - 1;
   (liveData.matches || []).forEach((m, idx) => {
-    const keepOpen = idx === latestIdx;
-    m._expanded = keepOpen;
+    const keepVisible = idx === latestIdx;
+    m._expanded = false;
     const body = document.getElementById('admin-match-body-' + idx);
     const card = body ? body.closest('.match-input-card') : null;
     const arrow = document.getElementById('admin-match-arrow-' + idx);
-    if (card) card.style.display = keepOpen ? 'block' : 'none';
-    if (body) body.style.display = keepOpen ? 'block' : 'none';
-    if (arrow) arrow.textContent = keepOpen ? '▲' : '▼';
+    if (card) card.style.display = keepVisible ? 'block' : 'none';
+    if (body) body.style.display = 'none';
+    if (arrow) arrow.textContent = '▼';
   });
 }
 
