@@ -27,6 +27,28 @@
 - No listener-triggered writes introduced.
 - Validation included in-memory live simulation with full state restore.
 
+## v3.2 Release Update (April 11, 2026)
+
+Release title: Players UX Compaction and Adaptive Sticky Columns
+
+### Highlights
+
+1. Conditional sticky columns for Players table
+- Rank and Player columns are sticky only when horizontal overflow exists.
+- Sticky behavior is removed automatically when no horizontal scroll is needed.
+
+2. Compact filter controls aligned with header density
+- Reduced filter field height, font size, and padding.
+- Tightened filter row spacing for cleaner data-table ergonomics.
+
+3. Multi-sort layout modernization
+- Replaced heavy group wrappers with a compact indexed grid layout.
+- Improved readability on desktop while stacking cleanly on mobile.
+
+4. Change boundary safety
+- No scoring, parser, or sync-flow behavior changed.
+- No Firebase save-path changes introduced.
+
 ---
 
 ## Post-v1.0 Updates (April 11, 2026)
@@ -148,6 +170,34 @@ Operational intent:
 - Parser truth, sync parity, and C/VC integrity checks all passed.
 - No unexplained deltas.
 - Final decision: ship/hold with required fixes if hold.
+
+### UI Verification Template (UI-Only Changes)
+
+1. Change Scope
+- Release/patch ID, touched UI surfaces, and risk level.
+
+2. Layout Behavior
+- Confirm Players table overflow behavior at desktop and mobile widths.
+- Confirm sticky columns activate only when overflow exists.
+- Confirm sticky columns are disabled when no overflow exists.
+
+3. Control Density and Fit
+- Confirm filter controls match table-header density.
+- Confirm controls do not create avoidable extra horizontal scroll.
+- Confirm multi-sort readability on desktop and mobile.
+
+4. Functional Regression
+- Confirm filter behavior per column still works.
+- Confirm sort and multi-sort order behavior remains correct.
+- Confirm resize and tab switch do not break Players layout.
+
+5. Invariants
+- Scoring logic unchanged.
+- Parser/sync logic unchanged.
+- Firebase write paths unchanged.
+
+6. Release Decision
+- Ship/hold with explicit reasons.
 
 ---
 

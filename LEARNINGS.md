@@ -115,6 +115,23 @@ Accuracy and data safety are higher priority than speed.
 - Re-check at least one raw ESPN payload with command-line extraction before release.
 - Confirm helper output equals raw payload truth for status and POTM.
 
+## v3.2 UI/UX Learnings (April 11, 2026)
+
+1. Sticky/frozen columns should be conditional, not always-on
+- Sticky columns improve usability only when horizontal overflow exists.
+- For non-overflow layouts, sticky behavior should be disabled to avoid visual clutter and awkward hover layering.
+
+2. Dense data tables need role-scaled typography
+- Filter controls should match header density, not form-field defaults.
+- In compact tables, shorter heights and tighter paddings reduce accidental horizontal scroll.
+
+3. Multi-sort controls should prioritize scanability over grouping chrome
+- Multiple boxed wrappers increase visual noise, especially on mobile.
+- A compact indexed grid with aligned key/direction selectors improves readability on both desktop and phone.
+
+4. UI-only changes still require explicit regression checks
+- Even when scoring logic is untouched, verify sorting, filtering, and sticky behavior under resize and tab switches.
+
 ## Points Accuracy Verification Protocol
 
 Run this protocol for any change touching scoring, parsing, enrichment, sync ordering, or imports.
@@ -218,6 +235,56 @@ Past incident: partial sync parity gap
 - Raw payload sample(s):
 - Helper output sample(s):
 - Before/after totals evidence:
+
+## UI/UX Verification Template
+
+Use this template for UI-only releases (no scoring/parser/sync behavior changes).
+
+### 1. Change Scope
+
+- Release/patch ID:
+- Areas touched: layout | styling | controls | interaction
+- Risk level: low | medium | high
+
+### 2. Layout Behavior Checks
+
+- Horizontal overflow present on Players table: yes/no
+- Sticky columns enabled only when overflow exists: yes/no
+- Sticky columns disabled when no overflow exists: yes/no
+
+### 3. Control Density Checks
+
+- Filter input height/font aligned with table-header density: yes/no
+- Filter controls fit without forcing extra horizontal scroll: yes/no
+- Multi-sort controls readable at desktop width: yes/no
+- Multi-sort controls readable at mobile width: yes/no
+
+### 4. Interaction Checks
+
+- Column sort buttons still update sort state correctly: yes/no
+- Filter inputs still apply expected column filters: yes/no
+- Multi-sort level key/direction changes still apply in order: yes/no
+- Players tab remains stable after resize and tab switch: yes/no
+
+### 5. Non-Functional Invariants
+
+- No scoring functions changed: yes/no
+- No parser/sync functions changed: yes/no
+- No Firebase write path changes introduced: yes/no
+
+### 6. Evidence Links
+
+- Screenshots (desktop/mobile):
+- Before/after UI diff notes:
+- Relevant commit SHA(s):
+
+### 7. Release Gate Decision
+
+- Layout behavior checks passed: yes/no
+- Interaction checks passed: yes/no
+- Invariants check passed: yes/no
+- Final decision: ship | hold
+- If hold, required fixes:
 - Relevant commit SHA(s):
 
 ### 8. Release Gate Decision

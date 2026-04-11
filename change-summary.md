@@ -30,6 +30,23 @@ Tag: v3.0
 4. Run player-level breakdown audits for base, POTM, and C/VC multiplier behavior.
 5. Confirm invariants: captains intact, no unintended performance pruning, and expected status transitions only.
 
+## v3.2 UI Compaction Update (April 11, 2026)
+
+1. Players sticky columns are now overflow-aware
+- Sticky behavior for rank and player columns is enabled only when horizontal scroll exists.
+- Sticky behavior is automatically disabled when table width fits viewport.
+
+2. Players filters were compacted for table-density consistency
+- Reduced filter input/select height, font size, and padding.
+- Tightened filter-row spacing to match header density.
+
+3. Multi-sort controls were redesigned for mobile and desktop readability
+- Replaced heavy grouped wrappers with a compact indexed grid.
+- Preserved existing multi-sort logic and ordering behavior.
+
+4. Scope safety
+- No scoring, parser, sync-flow, or Firebase write-path logic changed.
+
 ## Verification Results Template
 
 Use this template for every scoring-impacting release note so evidence and prevention are always explicit.
@@ -105,6 +122,44 @@ Past incident: partial sync parity gap
 - Sync parity check passed: yes/no
 - C/VC integrity check passed: yes/no
 - Unexplained delta present: yes/no
+- Final decision: ship | hold
+- If hold, required fixes:
+
+## UI Verification Template (UI-Only Releases)
+
+### 1. Change Scope
+
+- Release/patch ID:
+- Areas touched: layout | styling | controls | interaction
+- Risk level: low | medium | high
+
+### 2. Layout Behavior
+
+- Horizontal overflow detected in Players table when expected: yes/no
+- Sticky columns active only with overflow: yes/no
+- Sticky columns disabled when no overflow: yes/no
+
+### 3. Control Fit and Density
+
+- Filter controls visually align with header density: yes/no
+- Filter row does not introduce avoidable horizontal scroll: yes/no
+- Multi-sort is readable on desktop: yes/no
+- Multi-sort is readable on mobile: yes/no
+
+### 4. Functional Regression Checks
+
+- Column filters still apply correctly: yes/no
+- Sort and multi-sort state changes still apply correctly: yes/no
+- Tab switch and window resize keep Players layout stable: yes/no
+
+### 5. Invariants
+
+- Scoring functions unchanged: yes/no
+- Parser/sync logic unchanged: yes/no
+- Firebase write paths unchanged: yes/no
+
+### 6. Release Decision
+
 - Final decision: ship | hold
 - If hold, required fixes:
 

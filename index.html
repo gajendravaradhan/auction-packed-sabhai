@@ -110,25 +110,33 @@ input:focus{outline:none;border-color:var(--orange);}
 .ps-th-btn.filter{font-size:0;}
 .ps-th-btn.filter::before{content:'';width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:7px solid currentColor;position:absolute;top:6px;}
 .ps-th-btn.filter::after{content:'';width:3px;height:5px;background:currentColor;position:absolute;top:13px;border-radius:1px;}
-.ps-filter-row th{padding:6px 10px;border-bottom:1px solid var(--border);}
-.ps-filter-input,.ps-filter-select{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:4px 5px;color:var(--text);font-family:'Rajdhani',sans-serif;font-size:11px;}
+.ps-filter-row th{padding:4px 8px;border-bottom:1px solid var(--border);}
+.ps-filter-input,.ps-filter-select{width:100%;max-width:112px;height:22px;background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:1px 4px;color:var(--text);font-family:'Rajdhani',sans-serif;font-size:10px;line-height:1.1;}
 .ps-filter-input:focus,.ps-filter-select:focus{outline:none;border-color:var(--orange);}
-.ps-multisort{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:8px 0 14px;}
-.ps-multisort-label{font-size:11px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;}
-.ps-ms-group{display:flex;gap:6px;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:4px 6px;}
-.ps-ms-group select{background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:4px;padding:4px 6px;font-family:'Rajdhani',sans-serif;font-size:12px;}
-.ps-ms-group select:focus{outline:none;border-color:var(--orange);}
+.ps-multisort{display:grid;grid-template-columns:92px 1fr;gap:8px;align-items:start;margin:8px 0 12px;}
+.ps-multisort-title{font-size:10px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;padding-top:8px;}
+.ps-multisort-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;}
+.ps-ms-item{display:grid;grid-template-columns:20px 1fr;gap:5px;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:4px;min-width:0;}
+.ps-ms-index{font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;color:var(--muted);text-align:center;}
+.ps-ms-inputs{display:grid;grid-template-columns:minmax(0,1fr) 58px;gap:4px;min-width:0;}
+.ps-ms-inputs select{width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:4px;height:24px;padding:1px 4px;font-family:'Rajdhani',sans-serif;font-size:11px;}
+.ps-ms-inputs select:focus{outline:none;border-color:var(--orange);}
 @media (max-width: 640px){
   .ps-th-btn{width:30px;height:30px;font-size:15px;}
+  .ps-filter-input,.ps-filter-select{max-width:100%;height:20px;font-size:9px;padding:1px 3px;}
+  .ps-multisort{grid-template-columns:1fr;gap:6px;}
+  .ps-multisort-title{padding-top:0;}
+  .ps-multisort-grid{grid-template-columns:1fr;}
 }
 .ps-table td{padding:9px 10px;border-bottom:1px solid #0e1e35;vertical-align:middle;}
 .ps-table td.num{text-align:right;font-family:'Barlow Condensed',sans-serif;font-size:16px;}
 .ps-table tr:hover td{background:#0a1828;}
-.ps-sticky-rank{position:sticky;left:0;background:var(--surface);z-index:5;}
-.ps-sticky-player{position:sticky;left:42px;background:var(--surface);z-index:5;}
-.ps-table thead .ps-sticky-rank,.ps-table thead .ps-sticky-player{z-index:8;background:var(--surface);}
-.ps-table thead .ps-filter-row .ps-sticky-rank,.ps-table thead .ps-filter-row .ps-sticky-player{z-index:7;background:var(--surface);}
-.ps-table tr:hover td.ps-sticky-rank,.ps-table tr:hover td.ps-sticky-player{background:#0a1828;}
+.ps-table-wrap.has-h-scroll .ps-sticky-rank{position:sticky;left:0;background:var(--surface);z-index:5;}
+.ps-table-wrap.has-h-scroll .ps-sticky-player{position:sticky;left:42px;background:var(--surface);z-index:5;}
+.ps-table-wrap.has-h-scroll .ps-table thead .ps-sticky-rank,.ps-table-wrap.has-h-scroll .ps-table thead .ps-sticky-player{z-index:8;background:var(--surface);}
+.ps-table-wrap.has-h-scroll .ps-table thead .ps-filter-row .ps-sticky-rank,.ps-table-wrap.has-h-scroll .ps-table thead .ps-filter-row .ps-sticky-player{z-index:7;background:var(--surface);}
+.ps-table-wrap.has-h-scroll .ps-table tr:hover td.ps-sticky-rank,.ps-table-wrap.has-h-scroll .ps-table tr:hover td.ps-sticky-player{background:#0a1828;}
+.ps-table-wrap:not(.has-h-scroll) .ps-sticky-rank,.ps-table-wrap:not(.has-h-scroll) .ps-sticky-player{position:static;left:auto;}
 .ps-player-name{font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;}
 .ps-player-team{font-size:11px;color:var(--muted);letter-spacing:1px;}
 .role-tag{display:inline-block;font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:800;letter-spacing:1px;padding:1px 5px;border-radius:3px;background:var(--surface2);color:var(--muted);text-transform:uppercase;}
@@ -298,54 +306,62 @@ select.field-input{cursor:pointer;}
         <button class="ps-filter-btn" onclick="filterPlayers('WIC')" id="pf-WIC">WK</button>
       </div>
       <div class="ps-multisort">
-        <span class="ps-multisort-label">Multi Sort</span>
-        <div class="ps-ms-group">
-          <span class="ps-multisort-label">1</span>
-          <select id="psSortKey1" onchange="setPlayersSortLevel(0,this.value)">
-            <option value="none">None</option>
-            <option value="rank">Rank</option>
-            <option value="name">Player</option>
-            <option value="role">Role</option>
-            <option value="team">Team</option>
-            <option value="iplTeam">IPL Team</option>
-            <option value="pts">Pts</option>
-          </select>
-          <select id="psSortDir1" onchange="setPlayersSortDirLevel(0,this.value)">
-            <option value="asc">Asc</option>
-            <option value="desc">Desc</option>
-          </select>
-        </div>
-        <div class="ps-ms-group">
-          <span class="ps-multisort-label">2</span>
-          <select id="psSortKey2" onchange="setPlayersSortLevel(1,this.value)">
-            <option value="none">None</option>
-            <option value="rank">Rank</option>
-            <option value="name">Player</option>
-            <option value="role">Role</option>
-            <option value="team">Team</option>
-            <option value="iplTeam">IPL Team</option>
-            <option value="pts">Pts</option>
-          </select>
-          <select id="psSortDir2" onchange="setPlayersSortDirLevel(1,this.value)">
-            <option value="asc">Asc</option>
-            <option value="desc">Desc</option>
-          </select>
-        </div>
-        <div class="ps-ms-group">
-          <span class="ps-multisort-label">3</span>
-          <select id="psSortKey3" onchange="setPlayersSortLevel(2,this.value)">
-            <option value="none">None</option>
-            <option value="rank">Rank</option>
-            <option value="name">Player</option>
-            <option value="role">Role</option>
-            <option value="team">Team</option>
-            <option value="iplTeam">IPL Team</option>
-            <option value="pts">Pts</option>
-          </select>
-          <select id="psSortDir3" onchange="setPlayersSortDirLevel(2,this.value)">
-            <option value="asc">Asc</option>
-            <option value="desc">Desc</option>
-          </select>
+        <div class="ps-multisort-title">Multi Sort</div>
+        <div class="ps-multisort-grid">
+          <div class="ps-ms-item">
+            <span class="ps-ms-index">1</span>
+            <div class="ps-ms-inputs">
+              <select id="psSortKey1" onchange="setPlayersSortLevel(0,this.value)">
+                <option value="none">None</option>
+                <option value="rank">Rank</option>
+                <option value="name">Player</option>
+                <option value="role">Role</option>
+                <option value="team">Team</option>
+                <option value="iplTeam">IPL Team</option>
+                <option value="pts">Pts</option>
+              </select>
+              <select id="psSortDir1" onchange="setPlayersSortDirLevel(0,this.value)">
+                <option value="asc">Asc</option>
+                <option value="desc">Desc</option>
+              </select>
+            </div>
+          </div>
+          <div class="ps-ms-item">
+            <span class="ps-ms-index">2</span>
+            <div class="ps-ms-inputs">
+              <select id="psSortKey2" onchange="setPlayersSortLevel(1,this.value)">
+                <option value="none">None</option>
+                <option value="rank">Rank</option>
+                <option value="name">Player</option>
+                <option value="role">Role</option>
+                <option value="team">Team</option>
+                <option value="iplTeam">IPL Team</option>
+                <option value="pts">Pts</option>
+              </select>
+              <select id="psSortDir2" onchange="setPlayersSortDirLevel(1,this.value)">
+                <option value="asc">Asc</option>
+                <option value="desc">Desc</option>
+              </select>
+            </div>
+          </div>
+          <div class="ps-ms-item">
+            <span class="ps-ms-index">3</span>
+            <div class="ps-ms-inputs">
+              <select id="psSortKey3" onchange="setPlayersSortLevel(2,this.value)">
+                <option value="none">None</option>
+                <option value="rank">Rank</option>
+                <option value="name">Player</option>
+                <option value="role">Role</option>
+                <option value="team">Team</option>
+                <option value="iplTeam">IPL Team</option>
+                <option value="pts">Pts</option>
+              </select>
+              <select id="psSortDir3" onchange="setPlayersSortDirLevel(2,this.value)">
+                <option value="asc">Asc</option>
+                <option value="desc">Desc</option>
+              </select>
+            </div>
+          </div>
         </div>
       </div>
       <div class="ps-table-wrap">
@@ -1393,6 +1409,13 @@ function sortPlayersRows(rows) {
   return rows;
 }
 
+function updatePlayersStickyColumns() {
+  const wrap = document.querySelector('#tabContentPlayers .ps-table-wrap');
+  if (!wrap) return;
+  const hasHorizontalScroll = (wrap.scrollWidth - wrap.clientWidth) > 2;
+  wrap.classList.toggle('has-h-scroll', hasHorizontalScroll);
+}
+
 function renderPlayers() {
   const tbody=document.getElementById('psTableBody');
   const container=document.getElementById('tabContentPlayers');
@@ -1427,6 +1450,8 @@ function renderPlayers() {
       <td class="num ${pc}">${v.pts}</td>
     </tr>`;
   }).join('');
+
+  requestAnimationFrame(updatePlayersStickyColumns);
 }
 
 // ── LIVE ──
@@ -4510,6 +4535,9 @@ window.addEventListener('DOMContentLoaded',()=>{
   if(cvSel)TEAMS.forEach(t=>{const o=document.createElement('option');o.value=t.name;o.textContent=t.name;cvSel.appendChild(o);});
 
   initMatchDayWatcher();
+});
+window.addEventListener('resize',()=>{
+  if (currentTab === 'players') updatePlayersStickyColumns();
 });
 // ═══════════════════════════════════════════════════════
 // FETCH CRICAPI RESULTS (ADMIN)
