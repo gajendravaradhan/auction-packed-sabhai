@@ -1420,8 +1420,17 @@ function renderPlayers() {
 // ── LIVE ──
 function renderLive() {
   const wrap=document.getElementById('liveWrap'); if(!wrap)return;
-  const live=(liveData.matches||[]).find(m=>m.status==='live');
-  if(!live){wrap.innerHTML='<div class="no-live">No match currently in progress</div>';return;}
+  const liveMatches=(liveData.matches||[]).filter(m=>m&&m.status==='live');
+  const live=liveMatches.find(m=>m.performances&&Object.keys(m.performances).length>0)||null;
+  if(!live){
+    if(liveMatches.length>0){
+      const pending=liveMatches[0];
+      wrap.innerHTML=`<div class="live-match-header"><div style="margin-bottom:8px"><span style="font-family:Barlow Condensed,sans-serif;font-size:10px;font-weight:700;letter-spacing:2px;color:var(--gold);border:1px solid #ffb80040;border-radius:4px;padding:3px 8px;">LIVE</span></div><div class="live-match-teams">${pending.label||'Match in Progress'}</div><div class="live-match-score">Waiting for scorecard data...</div></div><div class="no-live" style="padding-top:20px;">Live status detected, but player performances are not available yet.</div>`;
+      return;
+    }
+    wrap.innerHTML='<div class="no-live">No match currently in progress</div>';
+    return;
+  }
   const tp={};TEAMS.forEach(t=>{tp[t.name]=0;});
   Object.entries(live.performances||{}).forEach(([name,perf])=>{
     const team=TEAMS.find(t=>t.players.some(p=>p.name===name));if(!team)return;
@@ -3120,14 +3129,20 @@ async function runSyncNow() {
       }catch(e){
         console.warn('[AP] scorecard failed:',m.id,e.message);
         try {
-          upsertMatchMetaOnly(
-            m.id,
-            m.name||'',
-            m.date||'',
-            !!m.matchStarted,
-            !!m.matchEnded
-          );
-          synced++;
+          const existingMatch=(liveData.matches||[]).find(x=>x&&x.apiId===m.id);
+          if(existingMatch){
+            upsertMatchMetaOnly(
+              m.id,
+              m.name||'',
+              m.date||'',
+              !!m.matchStarted,
+              !!m.matchEnded
+            );
+            synced++;
+          } else {
+            // Avoid creating empty "live" placeholders when scorecard fetch fails.
+            console.warn('[AP] skip meta-only create for unseen match:', m.id);
+          }
           const scheduleMatch = findScheduleMatchForCricapiMatch({ id: m.id, name: m.name || '', date: m.date || '' });
           if (scheduleMatch) {
             const espnResult = await syncEspnForScheduleMatchesAtomic([scheduleMatch], { persistEach: true });
