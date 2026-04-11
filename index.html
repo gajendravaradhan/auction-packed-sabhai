@@ -3110,6 +3110,21 @@ async function runSyncNow() {
     if(iplMatches.length===0){console.warn('[AP] No IPL matches found in currentMatches feed for this run');}
     const startedOrEndedIds = new Set(iplMatches.filter(m=>m.matchStarted||m.matchEnded).map(m=>m.id));
     const startedOrEndedFilter = startedOrEndedIds.size > 0 ? startedOrEndedIds : null;
+
+    // If a live placeholder has no performance data and is not present in current feed,
+    // demote it to upcoming to avoid a ghost LIVE state with zero points.
+    let staleLiveCleared = 0;
+    (liveData.matches || []).forEach(match => {
+      if (!match || match.status !== 'live') return;
+      const perfCount = match.performances ? Object.keys(match.performances).length : 0;
+      if (perfCount > 0) return;
+      const stillPresent = startedOrEndedIds.size > 0 ? startedOrEndedIds.has(match.apiId) : false;
+      if (!stillPresent) {
+        match.status = 'upcoming';
+        staleLiveCleared++;
+      }
+    });
+
     let synced=0;
     for(const m of iplMatches){
       if(!m.matchStarted&&!m.matchEnded)continue;
@@ -3161,8 +3176,9 @@ async function runSyncNow() {
     showToast(
       'Synced '+synced+' match'+(synced!==1?'es':'')+
       (stackAdded>0?', stack +'+stackAdded:'')+
+      (staleLiveCleared>0?', cleared stale live '+staleLiveCleared:'')+
       (espnSynced>0?', ESPN updated '+espnSynced:''),
-      synced>0||espnSynced>0||stackAdded>0?'success':''
+      synced>0||espnSynced>0||stackAdded>0||staleLiveCleared>0?'success':''
     );
     saveLiveData();
     renderAdmin(); renderTab(currentTab);
