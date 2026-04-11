@@ -100,6 +100,8 @@ input:focus{outline:none;border-color:var(--orange);}
 .ps-table{width:100%;border-collapse:collapse;font-size:14px;}
 .ps-table th{font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:3px;color:var(--muted);text-transform:uppercase;text-align:left;padding:8px 10px;border-bottom:1px solid var(--border);}
 .ps-table th.num{text-align:right;}
+.ps-col-rank{width:42px;min-width:42px;max-width:42px;}
+.ps-col-player{min-width:145px;}
 .ps-th-wrap{display:flex;align-items:center;justify-content:space-between;gap:6px;}
 .ps-th-controls{display:flex;align-items:center;gap:4px;}
 .ps-th-btn{display:inline-flex;align-items:center;justify-content:center;position:relative;width:24px;height:24px;border:1px solid var(--border);border-radius:4px;background:transparent;color:var(--muted);cursor:pointer;padding:0;font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:800;}
@@ -109,7 +111,7 @@ input:focus{outline:none;border-color:var(--orange);}
 .ps-th-btn.filter::before{content:'';width:0;height:0;border-left:5px solid transparent;border-right:5px solid transparent;border-top:7px solid currentColor;position:absolute;top:6px;}
 .ps-th-btn.filter::after{content:'';width:3px;height:5px;background:currentColor;position:absolute;top:13px;border-radius:1px;}
 .ps-filter-row th{padding:6px 10px;border-bottom:1px solid var(--border);}
-.ps-filter-input,.ps-filter-select{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:5px 6px;color:var(--text);font-family:'Rajdhani',sans-serif;font-size:12px;}
+.ps-filter-input,.ps-filter-select{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:4px 5px;color:var(--text);font-family:'Rajdhani',sans-serif;font-size:11px;}
 .ps-filter-input:focus,.ps-filter-select:focus{outline:none;border-color:var(--orange);}
 .ps-multisort{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:8px 0 14px;}
 .ps-multisort-label{font-size:11px;color:var(--muted);letter-spacing:2px;text-transform:uppercase;}
@@ -122,7 +124,12 @@ input:focus{outline:none;border-color:var(--orange);}
 .ps-table td{padding:9px 10px;border-bottom:1px solid #0e1e35;vertical-align:middle;}
 .ps-table td.num{text-align:right;font-family:'Barlow Condensed',sans-serif;font-size:16px;}
 .ps-table tr:hover td{background:#0a1828;}
-.ps-player-name{font-family:'Barlow Condensed',sans-serif;font-size:16px;font-weight:700;letter-spacing:1px;}
+.ps-sticky-rank{position:sticky;left:0;background:var(--surface);z-index:5;}
+.ps-sticky-player{position:sticky;left:42px;background:var(--surface);z-index:5;}
+.ps-table thead .ps-sticky-rank,.ps-table thead .ps-sticky-player{z-index:8;background:var(--surface);}
+.ps-table thead .ps-filter-row .ps-sticky-rank,.ps-table thead .ps-filter-row .ps-sticky-player{z-index:7;background:var(--surface);}
+.ps-table tr:hover td.ps-sticky-rank,.ps-table tr:hover td.ps-sticky-player{background:#0a1828;}
+.ps-player-name{font-family:'Barlow Condensed',sans-serif;font-size:11px;font-weight:700;letter-spacing:1px;}
 .ps-player-team{font-size:11px;color:var(--muted);letter-spacing:1px;}
 .role-tag{display:inline-block;font-family:'Barlow Condensed',sans-serif;font-size:10px;font-weight:800;letter-spacing:1px;padding:1px 5px;border-radius:3px;background:var(--surface2);color:var(--muted);text-transform:uppercase;}
 .pts-positive{color:var(--green);}.pts-negative{color:var(--red);}.pts-zero{color:var(--muted);}
@@ -173,6 +180,7 @@ select.field-input{cursor:pointer;}
 .insight-title{font-family:'Barlow Condensed',sans-serif;font-size:12px;letter-spacing:4px;color:var(--muted);text-transform:uppercase;margin-bottom:10px;}
 .insight-legend{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:6px;margin-top:10px;}
 .insight-legend-item{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:8px;}
+.insight-legend-item input[type=checkbox]{width:13px;height:13px;accent-color:var(--gold);}
 .insight-dot{width:10px;height:10px;border-radius:50%;display:inline-block;}
 .insight-stack{height:16px;background:#081427;border-radius:999px;overflow:hidden;display:flex;border:1px solid #112742;}
 .insight-seg-base{background:#1b6ca8;}
@@ -344,12 +352,12 @@ select.field-input{cursor:pointer;}
         <table class="ps-table">
           <thead>
             <tr>
-              <th>
+              <th class="ps-col-rank ps-sticky-rank">
                 <div class="ps-th-wrap">
                   <span>#</span>
                 </div>
               </th>
-              <th>
+              <th class="ps-col-player ps-sticky-player">
                 <div class="ps-th-wrap">
                   <span>Player</span>
                   <span class="ps-th-controls">
@@ -396,8 +404,8 @@ select.field-input{cursor:pointer;}
               </th>
             </tr>
             <tr class="ps-filter-row">
-              <th><input id="psFilter-rank" class="ps-filter-input" type="text" placeholder="filter" oninput="setPlayersColumnFilter('rank',this.value)"></th>
-              <th><input id="psFilter-name" class="ps-filter-input" type="text" placeholder="filter" oninput="setPlayersColumnFilter('name',this.value)"></th>
+              <th class="ps-col-rank ps-sticky-rank"></th>
+              <th class="ps-col-player ps-sticky-player"><input id="psFilter-name" class="ps-filter-input" type="text" placeholder="filter" oninput="setPlayersColumnFilter('name',this.value)"></th>
               <th>
                 <select id="psFilter-role" class="ps-filter-select" onchange="setPlayersColumnFilter('role',this.value)">
                   <option value="">All</option>
@@ -1411,8 +1419,8 @@ function renderPlayers() {
   tbody.innerHTML=rows.map((v,i)=>{
     const pc=v.pts>0?'pts-positive':v.pts<0?'pts-negative':'pts-zero';
     return `<tr style="cursor:pointer;" onclick="openPlayerModal('${v.name.replace(/'/g,"\\'")}')">
-      <td style="color:var(--muted);font-size:13px;">${i+1}</td>
-      <td><div class="ps-player-name">${v.name}</div><div class="ps-player-team">${v.teamName}</div></td>
+      <td class="ps-col-rank ps-sticky-rank" style="color:var(--muted);font-size:11px;">${i+1}</td>
+      <td class="ps-col-player ps-sticky-player"><div class="ps-player-name">${v.name}</div><div class="ps-player-team">${v.teamName}</div></td>
       <td><span class="role-tag">${v.role}</span></td>
       <td style="font-size:13px;color:var(--muted);">${v.teamName}</td>
       <td style="font-size:12px;color:var(--muted);">${v.iplTeam||''}</td>
@@ -2039,6 +2047,8 @@ function renderInsights() {
 
 let insightsMomentumVisibleTeams = null;
 let insightsRankFlowVisibleTeams = null;
+let insightsScatterVisibleRoles = null;
+let insightsDotLegendVisible = null;
 let insightsRoleMode = 'batting';
 let insightsDotOrder = 'total';
 let insightsBatPosByPlayer = {};
@@ -2166,6 +2176,42 @@ function toggleRankFlowTeam(teamName) {
 function setAllRankFlowTeams(val) {
   ensureInsightsRankFlowVisibleTeams();
   TEAMS.forEach(t => { insightsRankFlowVisibleTeams[t.name] = !!val; });
+  renderInsights();
+}
+
+function ensureInsightsScatterVisibleRoles() {
+  if (!insightsScatterVisibleRoles) {
+    insightsScatterVisibleRoles = { BAT: true, BOW: true, ALL: true, WIC: true };
+  }
+}
+
+function toggleScatterRole(role) {
+  ensureInsightsScatterVisibleRoles();
+  insightsScatterVisibleRoles[role] = !insightsScatterVisibleRoles[role];
+  renderInsights();
+}
+
+function setAllScatterRoles(val) {
+  ensureInsightsScatterVisibleRoles();
+  ['BAT', 'BOW', 'ALL', 'WIC'].forEach(r => { insightsScatterVisibleRoles[r] = !!val; });
+  renderInsights();
+}
+
+function ensureInsightsDotLegendVisible() {
+  if (!insightsDotLegendVisible) {
+    insightsDotLegendVisible = { wk: true, dots: true, ecoPos: true, ecoNeg: true };
+  }
+}
+
+function toggleDotLegendPart(key) {
+  ensureInsightsDotLegendVisible();
+  insightsDotLegendVisible[key] = !insightsDotLegendVisible[key];
+  renderInsights();
+}
+
+function setAllDotLegendParts(val) {
+  ensureInsightsDotLegendVisible();
+  ['wk', 'dots', 'ecoPos', 'ecoNeg'].forEach(k => { insightsDotLegendVisible[k] = !!val; });
   renderInsights();
 }
 
@@ -2297,8 +2343,7 @@ function renderInsightsMomentum(series) {
   const chips = '<div class="insight-controls">'
     + '<button class="insight-action-btn" onclick="setAllMomentumTeams(true)">Select All</button>'
     + '<button class="insight-action-btn" onclick="setAllMomentumTeams(false)">Clear All</button>'
-    + visible.length + ' selected</div>'
-    + '<div class="insight-controls">' + TEAMS.map(t => '<label style="font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px;"><input type="checkbox" ' + (insightsMomentumVisibleTeams[t.name] ? 'checked' : '') + ' onchange="toggleMomentumTeam(\'' + t.name + '\')">' + t.name + '</label>').join('') + '</div>';
+    + visible.length + ' selected</div>';
 
   const w = 980, h = 420, pl = 62, pr = 30, pt = 20, pb = 58;
   const n = series.matches.length;
@@ -2319,21 +2364,24 @@ function renderInsightsMomentum(series) {
       + '<text x="' + (pl - 8) + '" y="' + (yy + 4).toFixed(1) + '" fill="#9fb8d8" font-size="11" text-anchor="end">' + Math.round(v) + '</text>';
   }).join('');
   const xTicks = Array.from({ length: n }, (_, i) => '<text x="' + x(i).toFixed(1) + '" y="' + (h - pb + 16) + '" fill="#9fb8d8" font-size="10" text-anchor="middle">' + (i + 1) + '</text>').join('');
-  const lines = visible.map((t, idx) => {
+  const lines = visible.map(t => {
+    const color = insightPalette(Math.max(0, TEAMS.findIndex(tt => tt.name === t.name)));
     const pts = (series.cumulative[t.name] || []).map((v, i) => x(i).toFixed(1) + ',' + y(v).toFixed(1)).join(' ');
-    return '<polyline fill="none" stroke="' + insightPalette(idx) + '" stroke-width="2.5" points="' + pts + '" />';
+    return '<polyline fill="none" stroke="' + color + '" stroke-width="2.5" points="' + pts + '" />';
   }).join('');
   const hoverPoints = [];
-  visible.forEach((t, idx) => {
+  visible.forEach(t => {
     (series.cumulative[t.name] || []).forEach((v, i) => {
       hoverPoints.push({ x: x(i), y: y(v), label: t.name + ' · Match ' + (i + 1) + ': ' + Math.round(v) + ' pts' });
     });
   });
   registerInsightChartPoints('momentum', hoverPoints);
-  const legend = visible.map((t, idx) => {
+  const legend = TEAMS.map(t => {
+    const color = insightPalette(Math.max(0, TEAMS.findIndex(tt => tt.name === t.name)));
     const arr = series.cumulative[t.name] || [];
     const fin = arr.length ? arr[arr.length - 1] : 0;
-    return '<div class="insight-legend-item"><span class="insight-dot" style="background:' + insightPalette(idx) + '"></span>' + t.name + ': ' + fin + '</div>';
+    const checked = !!insightsMomentumVisibleTeams[t.name];
+    return '<label class="insight-legend-item" style="opacity:' + (checked ? '1' : '.5') + '"><span class="insight-dot" style="background:' + color + '"></span><input type="checkbox" ' + (checked ? 'checked' : '') + ' onchange="toggleMomentumTeam(\'' + t.name + '\')">' + t.name + ': ' + fin + '</label>';
   }).join('');
 
   return '<div class="insight-card"><div class="insight-title">Team Momentum</div>' + chips
@@ -2353,8 +2401,7 @@ function renderInsightsRankFlow(series) {
   const chips = '<div class="insight-controls">'
     + '<button class="insight-action-btn" onclick="setAllRankFlowTeams(true)">Select All</button>'
     + '<button class="insight-action-btn" onclick="setAllRankFlowTeams(false)">Clear All</button>'
-    + visible.length + ' selected</div>'
-    + '<div class="insight-controls">' + TEAMS.map(t => '<label style="font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px;"><input type="checkbox" ' + (insightsRankFlowVisibleTeams[t.name] ? 'checked' : '') + ' onchange="toggleRankFlowTeam(\'' + t.name + '\')">' + t.name + '</label>').join('') + '</div>';
+    + visible.length + ' selected</div>';
   const w = 980, h = 420, pl = 72, pr = 70, pt = 24, pb = 58;
   const n = series.matches.length;
   const x = i => pl + (insightsRankMode === 'slope' ? (i ? (w - pl - pr) : 0) : (n <= 1 ? 0 : i * (w - pl - pr) / (n - 1)));
@@ -2394,9 +2441,10 @@ function renderInsightsRankFlow(series) {
     + '<button class="insights-subtab ' + (insightsRankMode === 'slope' ? 'active' : '') + '" onclick="setInsightsRankMode(\'slope\')">Slope</button>'
     + '<button class="insights-subtab ' + (insightsRankMode === 'bump' ? 'active' : '') + '" onclick="setInsightsRankMode(\'bump\')">Bump</button>'
     + '</div>';
-  const legend = visible.map(t => {
+  const legend = TEAMS.map(t => {
     const color = insightPalette(Math.max(0, TEAMS.findIndex(tt => tt.name === t.name)));
-    return '<div class="insight-legend-item"><span class="insight-dot" style="background:' + color + '"></span>' + t.name + '</div>';
+    const checked = !!insightsRankFlowVisibleTeams[t.name];
+    return '<label class="insight-legend-item" style="opacity:' + (checked ? '1' : '.5') + '"><span class="insight-dot" style="background:' + color + '"></span><input type="checkbox" ' + (checked ? 'checked' : '') + ' onchange="toggleRankFlowTeam(\'' + t.name + '\')">' + t.name + '</label>';
   }).join('');
   return '<div class="insight-card"><div class="insight-title">Rank Flow</div>' + modeBtns + chips
     + '<svg id="insight-svg-rankflow" viewBox="0 0 ' + w + ' ' + h + '" style="width:100%;height:auto;background:#071325;border:1px solid #123050;border-radius:8px;touch-action:manipulation;" onmousemove="handleInsightChartMove(event,\'rankFlow\')" onmouseleave="handleInsightChartLeave()" ontouchstart="handleInsightChartPressStart(event,\'rankFlow\')" ontouchmove="handleInsightChartPressMove(event,\'rankFlow\')" ontouchend="handleInsightChartPressEnd()" ontouchcancel="handleInsightChartPressEnd()">'
@@ -2545,21 +2593,33 @@ function renderInsightsRoleEfficiency() {
 }
 
 function renderInsightsConsistencyScatter() {
+  ensureInsightsScatterVisibleRoles();
   const pt = getPlayerTotals();
-  const data = Object.entries(pt).map(([name, v]) => {
+  const allData = Object.entries(pt).map(([name, v]) => {
     const vals = (v.matchPts || []).map(m => m.pts);
     const avg = vals.length ? vals.reduce((s, x) => s + x, 0) / vals.length : 0;
     const variance = vals.length ? vals.reduce((s, x) => s + Math.pow(x - avg, 2), 0) / vals.length : 0;
     return { name, role: v.role, avg, std: Math.sqrt(variance), total: v.pts };
   }).filter(x => x.total > 0);
-  if (!data.length) return '<div class="insight-card">No player data yet.</div>';
+  if (!allData.length) return '<div class="insight-card">No player data yet.</div>';
+  const colorByRole = { BAT: '#ffb800', BOW: '#00e676', ALL: '#00bcd4', WIC: '#ff5c00' };
+  const data = allData.filter(d => insightsScatterVisibleRoles[d.role]);
+  const selectedRoles = ['BAT','BOW','ALL','WIC'].filter(r => insightsScatterVisibleRoles[r]).length;
+  const controls = '<div class="insight-controls">'
+    + '<button class="insight-action-btn" onclick="setAllScatterRoles(true)">Select All</button>'
+    + '<button class="insight-action-btn" onclick="setAllScatterRoles(false)">Clear All</button>'
+    + selectedRoles + ' selected</div>';
+  const legend = ['BAT','BOW','ALL','WIC'].map(role => '<label class="insight-legend-item" style="opacity:' + (insightsScatterVisibleRoles[role] ? '1' : '.5') + '"><span class="insight-dot" style="background:' + (colorByRole[role] || '#ccc') + '"></span><input type="checkbox" ' + (insightsScatterVisibleRoles[role] ? 'checked' : '') + ' onchange="toggleScatterRole(\'' + role + '\')">' + role + '</label>').join('');
+  if (!data.length) {
+    registerInsightChartPoints('scatter', []);
+    return '<div class="insight-card"><div class="insight-title">Consistency vs Ceiling</div>' + controls + '<div class="insight-legend">' + legend + '</div><div style="font-size:12px;color:var(--muted);margin-top:8px;">Select at least one role to render points.</div>' + renderInsightExplain('scatter') + '</div>';
+  }
   const maxX = Math.max(...data.map(d => d.avg), 1);
   const maxY = Math.max(...data.map(d => d.std), 1);
   const maxT = Math.max(...data.map(d => d.total), 1);
   const w = 980, h = 420, pl = 62, pr = 24, ptp = 18, pb = 58;
   const cx = v => pl + (v / maxX) * (w - pl - pr);
   const cy = v => h - pb - (v / maxY) * (h - ptp - pb);
-  const colorByRole = { BAT: '#ffb800', BOW: '#00e676', ALL: '#00bcd4', WIC: '#ff5c00' };
   const xTicks = 6, yTicks = 6;
   const xGrid = Array.from({ length: xTicks + 1 }, (_, i) => {
     const val = maxX * i / xTicks;
@@ -2580,8 +2640,7 @@ function renderInsightsConsistencyScatter() {
     label: d.name + ' · ' + d.role + ' · Avg ' + Math.round(d.avg) + ' · Sigma ' + Math.round(d.std) + ' · Total ' + Math.round(d.total)
   }));
   registerInsightChartPoints('scatter', hoverPoints);
-  const legend = ['BAT','BOW','ALL','WIC'].map(role => '<div class="insight-legend-item"><span class="insight-dot" style="background:' + (colorByRole[role] || '#ccc') + '"></span>' + role + '</div>').join('');
-  return '<div class="insight-card"><div class="insight-title">Consistency vs Ceiling</div><svg id="insight-svg-scatter" viewBox="0 0 ' + w + ' ' + h + '" style="width:100%;height:auto;background:#071325;border:1px solid #123050;border-radius:8px;touch-action:manipulation;" onmousemove="handleInsightChartMove(event,\'scatter\')" onmouseleave="handleInsightChartLeave()" ontouchstart="handleInsightChartPressStart(event,\'scatter\')" ontouchmove="handleInsightChartPressMove(event,\'scatter\')" ontouchend="handleInsightChartPressEnd()" ontouchcancel="handleInsightChartPressEnd()">'
+  return '<div class="insight-card"><div class="insight-title">Consistency vs Ceiling</div>' + controls + '<svg id="insight-svg-scatter" viewBox="0 0 ' + w + ' ' + h + '" style="width:100%;height:auto;background:#071325;border:1px solid #123050;border-radius:8px;touch-action:manipulation;" onmousemove="handleInsightChartMove(event,\'scatter\')" onmouseleave="handleInsightChartLeave()" ontouchstart="handleInsightChartPressStart(event,\'scatter\')" ontouchmove="handleInsightChartPressMove(event,\'scatter\')" ontouchend="handleInsightChartPressEnd()" ontouchcancel="handleInsightChartPressEnd()">'
     + xGrid + yGrid + circles
     + '<line x1="' + pl + '" y1="' + (h-pb) + '" x2="' + (w-pr) + '" y2="' + (h-pb) + '" stroke="#2a5274" />'
     + '<line x1="' + pl + '" y1="' + ptp + '" x2="' + pl + '" y2="' + (h-pb) + '" stroke="#2a5274" />'
@@ -2591,6 +2650,7 @@ function renderInsightsConsistencyScatter() {
 }
 
 function renderInsightsDotEconomy(series) {
+  ensureInsightsDotLegendVisible();
   const roster = getRosterLookup();
   const agg = {};
   Object.keys(roster).forEach(name => { agg[name] = { dots: 0, eco: 0, wk: 0, total: 0 }; });
@@ -2629,16 +2689,31 @@ function renderInsightsDotEconomy(series) {
   else rows.sort((a,b)=>b.total-a.total);
   rows = rows.slice(0, 20);
   if (!rows.length) return '<div class="insight-card">No bowling contribution data yet.</div>';
+  const selectedLegendCount = ['wk', 'dots', 'ecoPos', 'ecoNeg'].filter(k => insightsDotLegendVisible[k]).length;
 
-  const controls = '<div class="insight-controls" style="justify-content:flex-end;"><label style="font-size:12px;color:var(--muted);">Order</label><select class="insight-select" onchange="setInsightsDotOrder(this.value)">'
+  const controls = '<div class="insight-controls" style="justify-content:space-between;"><div>'
+    + '<button class="insight-action-btn" onclick="setAllDotLegendParts(true)">Select All</button> '
+    + '<button class="insight-action-btn" onclick="setAllDotLegendParts(false)">Clear All</button> '
+    + '<span style="font-size:12px;color:var(--muted);margin-left:6px;">' + selectedLegendCount + ' selected</span></div><div><label style="font-size:12px;color:var(--muted);">Order</label><select class="insight-select" onchange="setInsightsDotOrder(this.value)">'
     + '<option value="total"' + (insightsDotOrder==='total'?' selected':'') + '>Total points</option>'
     + '<option value="alpha"' + (insightsDotOrder==='alpha'?' selected':'') + '>Alphabetical</option>'
     + '<option value="wickets"' + (insightsDotOrder==='wickets'?' selected':'') + '>Wickets component</option>'
-    + '<option value="dots"' + (insightsDotOrder==='dots'?' selected':'') + '>Dot component</option></select></div>';
+    + '<option value="dots"' + (insightsDotOrder==='dots'?' selected':'') + '>Dot component</option></select></div></div>';
+
+  const legend = '<div class="insight-legend">'
+    + '<label class="insight-legend-item" style="opacity:' + (insightsDotLegendVisible.wk ? '1' : '.5') + '"><span class="insight-dot" style="background:#1b6ca8"></span><input type="checkbox" ' + (insightsDotLegendVisible.wk ? 'checked' : '') + ' onchange="toggleDotLegendPart(\'wk\')">Wicket Pts</label>'
+    + '<label class="insight-legend-item" style="opacity:' + (insightsDotLegendVisible.dots ? '1' : '.5') + '"><span class="insight-dot" style="background:#00e676"></span><input type="checkbox" ' + (insightsDotLegendVisible.dots ? 'checked' : '') + ' onchange="toggleDotLegendPart(\'dots\')">Dot Pts</label>'
+    + '<label class="insight-legend-item" style="opacity:' + (insightsDotLegendVisible.ecoPos ? '1' : '.5') + '"><span class="insight-dot" style="background:#ffb800"></span><input type="checkbox" ' + (insightsDotLegendVisible.ecoPos ? 'checked' : '') + ' onchange="toggleDotLegendPart(\'ecoPos\')">Eco Bonus</label>'
+    + '<label class="insight-legend-item" style="opacity:' + (insightsDotLegendVisible.ecoNeg ? '1' : '.5') + '"><span class="insight-dot" style="background:#ff2d55"></span><input type="checkbox" ' + (insightsDotLegendVisible.ecoNeg ? 'checked' : '') + ' onchange="toggleDotLegendPart(\'ecoNeg\')">Eco Penalty</label>'
+    + '</div>';
+  if (selectedLegendCount === 0) {
+    registerInsightChartPoints('dotEco', []);
+    return '<div class="insight-card"><div class="insight-title">Dot-ball Economy Value</div>' + controls + legend + '<div style="font-size:12px;color:var(--muted);margin-top:8px;">Select at least one legend component to render bars.</div>' + renderInsightExplain('dotEco') + '</div>';
+  }
 
   const w = 1140, h = 430, pl = 64, pr = 20, pt = 20, pb = 110;
-  const maxPos = Math.max(...rows.map(r => Math.max(0, r.wk) + Math.max(0, r.dots) + Math.max(0, r.eco)), 1);
-  const minNeg = Math.min(...rows.map(r => Math.min(0, r.eco)), 0);
+  const maxPos = Math.max(...rows.map(r => (insightsDotLegendVisible.wk ? Math.max(0, r.wk) : 0) + (insightsDotLegendVisible.dots ? Math.max(0, r.dots) : 0) + (insightsDotLegendVisible.ecoPos ? Math.max(0, r.eco) : 0)), 1);
+  const minNeg = Math.min(...rows.map(r => insightsDotLegendVisible.ecoNeg ? Math.min(0, r.eco) : 0), 0);
   const yTop = maxPos;
   const yBottom = minNeg;
   const yScale = v => pt + (yTop - v) * (h - pt - pb) / (yTop - yBottom || 1);
@@ -2656,29 +2731,36 @@ function renderInsightsDotEconomy(series) {
   const bars = rows.map((r, i) => {
     const x = pl + i * gap + (gap - barW) / 2;
     const zeroY = yScale(0);
-    const wkH = Math.max(0, yScale(0) - yScale(Math.max(0, r.wk)));
-    const dotH = Math.max(0, yScale(Math.max(0, r.wk)) - yScale(Math.max(0, r.wk) + Math.max(0, r.dots)));
-    const ecoPosH = Math.max(0, yScale(Math.max(0, r.wk) + Math.max(0, r.dots)) - yScale(Math.max(0, r.wk) + Math.max(0, r.dots) + Math.max(0, r.eco)));
-    const ecoNegH = Math.max(0, yScale(Math.min(0, r.eco)) - zeroY);
-    const topBase = yScale(Math.max(0, r.wk));
-    const topDots = yScale(Math.max(0, r.wk) + Math.max(0, r.dots));
+    const wkVal = insightsDotLegendVisible.wk ? Math.max(0, r.wk) : 0;
+    const dotVal = insightsDotLegendVisible.dots ? Math.max(0, r.dots) : 0;
+    const ecoPosVal = insightsDotLegendVisible.ecoPos ? Math.max(0, r.eco) : 0;
+    const ecoNegVal = insightsDotLegendVisible.ecoNeg ? Math.min(0, r.eco) : 0;
+    const wkH = Math.max(0, yScale(0) - yScale(wkVal));
+    const dotH = Math.max(0, yScale(wkVal) - yScale(wkVal + dotVal));
+    const ecoPosH = Math.max(0, yScale(wkVal + dotVal) - yScale(wkVal + dotVal + ecoPosVal));
+    const ecoNegH = Math.max(0, yScale(ecoNegVal) - zeroY);
+    const topBase = yScale(wkVal);
+    const topDots = yScale(wkVal + dotVal);
+    const topAll = yScale(wkVal + dotVal + ecoPosVal);
     const totalTip = r.name + ' · Total: ' + Math.round(r.total) + ' (Wk ' + Math.round(r.wk) + ', Dots ' + Math.round(r.dots) + ', Eco ' + Math.round(r.eco) + ')';
     return '<g>'
       + (wkH > 0 ? '<rect x="' + x.toFixed(1) + '" y="' + topBase.toFixed(1) + '" width="' + barW + '" height="' + wkH.toFixed(1) + '" fill="#1b6ca8"><title>' + r.name + ' · Wicket Pts: ' + Math.round(r.wk) + '</title></rect>' : '')
       + (dotH > 0 ? '<rect x="' + x.toFixed(1) + '" y="' + topDots.toFixed(1) + '" width="' + barW + '" height="' + dotH.toFixed(1) + '" fill="#00e676"><title>' + r.name + ' · Dot Pts: ' + Math.round(r.dots) + '</title></rect>' : '')
-      + (ecoPosH > 0 ? '<rect x="' + x.toFixed(1) + '" y="' + yScale(Math.max(0, r.wk) + Math.max(0, r.dots) + Math.max(0, r.eco)).toFixed(1) + '" width="' + barW + '" height="' + ecoPosH.toFixed(1) + '" fill="#ffb800"><title>' + r.name + ' · Eco Bonus: ' + Math.round(Math.max(0, r.eco)) + '</title></rect>' : '')
+      + (ecoPosH > 0 ? '<rect x="' + x.toFixed(1) + '" y="' + topAll.toFixed(1) + '" width="' + barW + '" height="' + ecoPosH.toFixed(1) + '" fill="#ffb800"><title>' + r.name + ' · Eco Bonus: ' + Math.round(Math.max(0, r.eco)) + '</title></rect>' : '')
       + (ecoNegH > 0 ? '<rect x="' + x.toFixed(1) + '" y="' + zeroY.toFixed(1) + '" width="' + barW + '" height="' + ecoNegH.toFixed(1) + '" fill="#ff2d55"><title>' + r.name + ' · Eco Penalty: ' + Math.round(Math.min(0, r.eco)) + '</title></rect>' : '')
-      + '<rect x="' + x.toFixed(1) + '" y="' + yScale(Math.max(0, r.wk) + Math.max(0, r.dots) + Math.max(0, r.eco)).toFixed(1) + '" width="' + barW + '" height="' + (Math.max(1, yScale(Math.min(0, r.eco)) - yScale(Math.max(0, r.wk) + Math.max(0, r.dots) + Math.max(0, r.eco)))).toFixed(1) + '" fill="transparent"><title>' + totalTip + '</title></rect>'
+      + '<rect x="' + x.toFixed(1) + '" y="' + topAll.toFixed(1) + '" width="' + barW + '" height="' + (Math.max(1, yScale(ecoNegVal) - topAll)).toFixed(1) + '" fill="transparent"><title>' + totalTip + '</title></rect>'
       + '<text x="' + (x + barW/2).toFixed(1) + '" y="' + (h - pb + 28) + '" fill="#9fb8d8" font-size="10" text-anchor="end" transform="rotate(-45 ' + (x + barW/2).toFixed(1) + ' ' + (h - pb + 28) + ')">' + r.name + '</text>'
       + '</g>';
   }).join('');
   const hoverPoints = rows.map((r, i) => {
     const x = pl + i * gap + (gap - barW) / 2 + barW / 2;
-    const y = yScale(Math.max(0, r.wk) + Math.max(0, r.dots) + Math.max(0, r.eco));
+    const visPos = (insightsDotLegendVisible.wk ? Math.max(0, r.wk) : 0) + (insightsDotLegendVisible.dots ? Math.max(0, r.dots) : 0) + (insightsDotLegendVisible.ecoPos ? Math.max(0, r.eco) : 0);
+    const visNeg = insightsDotLegendVisible.ecoNeg ? Math.min(0, r.eco) : 0;
+    const y = yScale(visPos);
     return {
       x,
       y,
-      label: r.name + ' · Total ' + Math.round(r.total) + ' · Wk ' + Math.round(r.wk) + ' · Dots ' + Math.round(r.dots) + ' · Eco ' + Math.round(r.eco)
+      label: r.name + ' · Visible ' + Math.round(visPos + visNeg) + ' · Wk ' + Math.round(r.wk) + ' · Dots ' + Math.round(r.dots) + ' · Eco ' + Math.round(r.eco)
     };
   });
   registerInsightChartPoints('dotEco', hoverPoints);
@@ -2690,7 +2772,7 @@ function renderInsightsDotEconomy(series) {
     + '<line x1="' + pl + '" y1="' + pt + '" x2="' + pl + '" y2="' + (h-pb) + '" stroke="#2a5274" />'
     + '<text x="' + ((pl + w - pr) / 2) + '" y="' + (h - 12) + '" fill="#c9d9eb" font-size="12" text-anchor="middle">Player</text>'
     + '<text x="18" y="' + ((pt + h - pb) / 2) + '" transform="rotate(-90 18 ' + ((pt + h - pb) / 2) + ')" fill="#c9d9eb" font-size="12" text-anchor="middle">Points</text>'
-    + '</svg><div class="insight-legend"><div class="insight-legend-item"><span class="insight-dot" style="background:#1b6ca8"></span>Wicket Pts</div><div class="insight-legend-item"><span class="insight-dot" style="background:#00e676"></span>Dot Pts</div><div class="insight-legend-item"><span class="insight-dot" style="background:#ffb800"></span>Eco Bonus</div><div class="insight-legend-item"><span class="insight-dot" style="background:#ff2d55"></span>Eco Penalty</div></div>' + renderInsightExplain('dotEco') + '</div>';
+    + '</svg>' + legend + renderInsightExplain('dotEco') + '</div>';
 }
 
 function renderInsights() {
