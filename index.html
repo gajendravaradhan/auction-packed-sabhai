@@ -743,6 +743,8 @@ let _lastSyncTime = null;
 let _countdownTimer = null;
 let _adminCVExpanded = false;
 let _lastKnownCaptains = null;
+let _lastCurrentMatchesFeedError = '';
+let _lastCurrentMatchesFeedErrorAt = 0;
 
 function resetStaleCounter() {
   try { const s=JSON.parse(localStorage.getItem(LS_API_CALLS_KEY)||'{}'); if(s.count>=100) localStorage.removeItem(LS_API_CALLS_KEY); } catch(e){}
@@ -1423,6 +1425,11 @@ function renderLive() {
   const liveMatches=(liveData.matches||[]).filter(m=>m&&m.status==='live');
   const live=liveMatches.find(m=>m.performances&&Object.keys(m.performances).length>0)||null;
   if(!live){
+    const feedBlocked = _lastCurrentMatchesFeedError && /blocked/i.test(_lastCurrentMatchesFeedError) && (Date.now()-_lastCurrentMatchesFeedErrorAt)<(20*60*1000);
+    if(feedBlocked){
+      wrap.innerHTML='<div class="no-live">Live status temporarily unavailable: CricAPI feed is blocked for 15 minutes. Last known data is preserved.</div>';
+      return;
+    }
     if(liveMatches.length>0){
       const pending=liveMatches[0];
       wrap.innerHTML=`<div class="live-match-header"><div style="margin-bottom:8px"><span style="font-family:Barlow Condensed,sans-serif;font-size:10px;font-weight:700;letter-spacing:2px;color:var(--gold);border:1px solid #ffb80040;border-radius:4px;padding:3px 8px;">LIVE</span></div><div class="live-match-teams">${pending.label||'Match in Progress'}</div><div class="live-match-score">Waiting for scorecard data...</div></div><div class="no-live" style="padding-top:20px;">Live status detected, but player performances are not available yet.</div>`;
@@ -3099,15 +3106,28 @@ async function runSyncNow() {
   showToast('Syncing...','');
   try {
     const seen=new Set(),iplMatches=[];
+    let currentMatchesFailureReason='';
     let espnSynced = 0;
     for (let offset = 0; offset <= 10; offset++) {
       try{
         const r=await fetch(API_BASE+'/currentMatches?apikey='+CRICKETDATA_API_KEY+'&offset='+offset,{signal:AbortSignal.timeout(12000)});
         const d=await r.json(); incrementApiCalls(1);
+        if(d&&d.status==='failure'&&d.reason){
+          currentMatchesFailureReason=d.reason;
+        }
         (d.data||[]).filter(m=>isIPLMatch(m)&&!seen.has(m.id)).forEach(m=>{seen.add(m.id);iplMatches.push(m);});
       }catch(e){console.warn('[AP] offset='+offset,e.message);}
     }
-    if(iplMatches.length===0){console.warn('[AP] No IPL matches found in currentMatches feed for this run');}
+    if(iplMatches.length===0){
+      console.warn('[AP] No IPL matches found in currentMatches feed for this run');
+      if(currentMatchesFailureReason){
+        _lastCurrentMatchesFeedError=currentMatchesFailureReason;
+        _lastCurrentMatchesFeedErrorAt=Date.now();
+      }
+    } else {
+      _lastCurrentMatchesFeedError='';
+      _lastCurrentMatchesFeedErrorAt=0;
+    }
     const startedOrEndedIds = new Set(iplMatches.filter(m=>m.matchStarted||m.matchEnded).map(m=>m.id));
     const startedOrEndedFilter = startedOrEndedIds.size > 0 ? startedOrEndedIds : null;
 
@@ -3118,8 +3138,11 @@ async function runSyncNow() {
       if (!match || match.status !== 'live') return;
       const perfCount = match.performances ? Object.keys(match.performances).length : 0;
       if (perfCount > 0) return;
-      const stillPresent = startedOrEndedIds.size > 0 ? startedOrEndedIds.has(match.apiId) : false;
-      if (!stillPresent) {
+      // Only reconcile when currentMatches feed returned active IDs.
+      // If the feed is blocked/unavailable, do not destructively clear live state.
+      const canReconcile = startedOrEndedIds.size > 0;
+      const stillPresent = canReconcile ? startedOrEndedIds.has(match.apiId) : true;
+      if (canReconcile && !stillPresent) {
         match.status = 'upcoming';
         staleLiveCleared++;
       }
