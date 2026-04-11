@@ -857,8 +857,20 @@ function getPlayerTotals() {
     if (match.status!=='done' && match.status!=='live') return;
     const perfs = match.performances || {};
     const potm  = match.potm || null;
+    // Extract team names from match label (format: "Team1 vs Team2, match info")
+    const labelTeams = (match.label||'').split(',')[0].split(' vs ').map(t => t.trim().toLowerCase());
+    
     Object.entries(perfs).forEach(([name,perf]) => {
       if (totals[name]===undefined) return;
+      
+      // Check if player's team is actually in this match
+      const playerTeam = totals[name].teamName.toLowerCase();
+      const isInMatch = labelTeams.length > 0 && labelTeams.some(t => 
+        playerTeam.includes(t) || t.includes(playerTeam)
+      );
+      
+      if (!isInMatch) return; // Skip if player's team is not in this match
+      
       const pf = {...perf, playerName:name, role:totals[name].role};
       const mp = calcFantasyPoints(pf, totals[name].teamName, potm);
       totals[name].pts += mp;
@@ -2520,7 +2532,14 @@ function openPlayerModal(playerName){
   const ptsCls=info.pts>0?'color:var(--green)':info.pts<0?'color:var(--red)':'color:var(--muted)';
 
   const breakdowns=(liveData.matches||[])
-    .filter(m=>(m.status==='done'||m.status==='live')&&(m.performances||{})[playerName])
+    .filter(m=>{
+      if(m.status!=='done'&&m.status!=='live')return false;
+      if(!(m.performances||{})[playerName])return false;
+      // Verify player's team is in this match
+      const labelTeams = (m.label||'').split(',')[0].split(' vs ').map(t => t.trim().toLowerCase());
+      const playerTeam = info.teamName.toLowerCase();
+      return labelTeams.length > 0 && labelTeams.some(t => playerTeam.includes(t) || t.includes(playerTeam));
+    })
     .sort((a,b)=>(a.date||'').localeCompare(b.date||''))
     .map(match=>{
       const perf=match.performances[playerName];
