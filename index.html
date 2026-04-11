@@ -1831,7 +1831,10 @@ async function refreshAllMatches() {
     try{
       const r=await fetch(API_BASE+'/match_scorecard?apikey='+CRICKETDATA_API_KEY+'&id='+m.apiId,{signal:AbortSignal.timeout(12000)});
       const d=await r.json(); incrementApiCalls(1);
-      if(d&&d.data){m.performances=parseScorecard(d.data);m.status=d.data.matchEnded?'done':d.data.matchStarted?'live':'upcoming';done++;}
+      if(d&&d.data){
+        upsertMatch(m.apiId,d.data.name||m.label||'',d.data.date||m.date||'',d.data);
+        done++;
+      }
     }catch(e){console.warn('[AP] refresh failed:',m.apiId,e.message);}
   }
   saveLiveData();
@@ -1846,8 +1849,8 @@ async function reimportScorecard(idx,matchId) {
     const r=await fetch(API_BASE+'/match_scorecard?apikey='+CRICKETDATA_API_KEY+'&id='+matchId,{signal:AbortSignal.timeout(12000)});
     const d=await r.json();
     if(!d.data){showToast('No scorecard yet','error');return;}
-    liveData.matches[idx].performances=parseScorecard(d.data);
-    liveData.matches[idx].status=d.data.matchEnded?'done':d.data.matchStarted?'live':'upcoming';
+    const old=liveData.matches[idx]||{};
+    upsertMatch(matchId,d.data.name||old.label||'',d.data.date||old.date||'',d.data);
     saveLiveData();
   }catch(e){showToast('Refresh failed','error');}
 }
@@ -2234,12 +2237,19 @@ function parseScorecard(matchData) {
     // Fielding
     const mtt=(matchData.teams||[]).map(t=>(t||'').toLowerCase());
     (innings.batting||[]).forEach(b=>{
-      const dt=(b.dismissal||'').toLowerCase();
-      const dr=b['dismissal-text']||b.dismissalText||b.dismissal_text||'';
-      if(dt==='catch'){
+      const dt=(b.dismissal||'').toLowerCase().trim();
+      const dr=String(b['dismissal-text']||b.dismissalText||b.dismissal_text||'').trim();
+      const drLower=dr.toLowerCase();
+      const isCaughtAndBowled=/^c\s*&\s*b|^c&b|^c\s+and\s+b|caught\s+and\s+bowled/i.test(drLower);
+      const isCatchDismissal=dt==='catch'||dt==='caught'||dt==='caught and bowled'||dt==='c&b'||dt==='cb'||isCaughtAndBowled;
+      if(isCatchDismissal){
         let cn=b.catcher?.name||'';
-        if(!cn&&/^c\s*&\s*b|^c&b/i.test(dr))cn=b.bowler?.name||'';
-        const f=findPlayerTeamAware(cn,mtt);
+        if(!cn&&isCaughtAndBowled)cn=b.bowler?.name||'';
+        if(!cn&&isCaughtAndBowled){
+          const m=dr.match(/(?:c\s*&\s*b|c&b|c\s+and\s+b|caught\s+and\s+bowled)\s+(.+)$/i);
+          if(m)cn=m[1].trim();
+        }
+        const f=findPlayerTeamAware(cn,mtt)||findPlayer(cn);
         if(f){if(!performances[f])performances[f]={played:true,_warnings:[]};performances[f].catches=(performances[f].catches||0)+1;}
       }
       if(dt==='stumped'){
