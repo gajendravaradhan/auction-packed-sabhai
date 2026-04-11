@@ -98,3 +98,55 @@ Accuracy and data safety are higher priority than speed.
 - Simulate done-match changes in browser memory only.
 - Restore all pre-test state after checks.
 - Never call save paths during simulation when production data must remain untouched.
+
+## v3.1 Operational Guardrails (April 11, 2026)
+
+1. Treat external APIs as multi-shape contracts
+- POTM/status fields can appear in multiple payload paths depending on ESPN response shape.
+- Parsers must resolve through ordered fallbacks, not a single hard-coded path.
+- Verification UIs must call the same parser helpers used by live sync paths.
+
+2. Enforce atomic enrichment flow
+- For every sync/import path: CricAPI update must complete before ESPN enrichment starts.
+- Never leave manual reimport or fetch-all paths outside this sequence.
+- If this rule changes, all entry points must be audited in the same change.
+
+3. Use source-of-truth spot checks after parser changes
+- Re-check at least one raw ESPN payload with command-line extraction before release.
+- Confirm helper output equals raw payload truth for status and POTM.
+
+## Points Accuracy Verification Protocol
+
+Run this protocol for any change touching scoring, parsing, enrichment, sync ordering, or imports.
+
+1. Pre-sync baseline capture
+- Capture team totals snapshot.
+- Capture target-match fields: status, POTM, and at least 2 bowler dot counts.
+
+2. Execute one full sync cycle
+- Run the same production path (not a custom debug-only path).
+- Confirm completion counters (matches synced, ESPN updated).
+
+3. Post-sync diff analysis
+- Compute per-team delta and explain every non-zero change.
+- If all deltas are zero, confirm expected reason (for example, data already present).
+
+4. Player-level scoring audit
+- For at least 3 players in affected match(es), validate:
+- base points breakdown
+- POTM value applied before multiplier
+- captain/vice-captain multiplier rounding behavior
+
+5. Invariant checks
+- `liveData.captains` unchanged and non-null.
+- No unexpected key deletions from `match.performances`.
+- Match status transitions only where source data indicates change.
+
+## Release Gate for Discrepancy Risk
+
+Do not commit or push if any item below is unresolved:
+
+1. Parser helper output disagrees with sampled raw ESPN payload.
+2. Any team delta cannot be explained from match-level updates.
+3. C/VC state changed unexpectedly.
+4. Sync path parity is incomplete (one entry point still bypasses atomic sequence).

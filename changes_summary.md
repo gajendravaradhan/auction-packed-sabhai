@@ -94,6 +94,17 @@ After restoration and fixes, leaderboard baseline is:
 - SRIPAD: 1615
 - ANIRUDH: 1566 (includes Digvesh correction)
 
+### Process Hardening Addendum (April 11)
+
+1. Adopted discrepancy-prevention guardrails in [LEARNINGS.md](LEARNINGS.md).
+2. Added a mandatory points verification protocol for scoring-impacting fixes.
+3. Added release gates to block push when parser truth checks, sync parity checks, or C/VC integrity checks fail.
+
+Operational intent:
+- Ensure every CricAPI sync/import path is followed by ESPN enrichment.
+- Validate parser helper outputs against sampled raw ESPN payloads.
+- Require pre-sync vs post-sync team delta explanation and player-level scoring audits before release.
+
 ---
 
 ## Overview
