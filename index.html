@@ -1025,7 +1025,9 @@ function getPlayerTotals() {
   const totals = {};
   TEAMS.forEach(t => t.players.forEach(p => { totals[p.name]={pts:0,teamName:t.name,role:p.role,iplTeam:IPL_TEAM_MAP[p.name]||'',matchPts:[]}; }));
   (liveData.matches||[]).forEach(match => {
-    if (match.status!=='done' && match.status!=='live') return;
+    const perfCount = match && match.performances ? Object.keys(match.performances).length : 0;
+    const scoringStatus = match && (match.status==='done' || match.status==='live');
+    if (!scoringStatus && perfCount===0) return;
     const perfs = match.performances || {};
     const potm  = match.potm || null;
     Object.entries(perfs).forEach(([name,perf]) => {
@@ -1448,7 +1450,11 @@ function getRosterLookup() {
 
 function getScoringMatches() {
   return (liveData.matches || [])
-    .filter(m => m && (m.status === 'done' || m.status === 'live'))
+    .filter(m => {
+      if (!m) return false;
+      if (m.status === 'done' || m.status === 'live') return true;
+      return !!(m.performances && Object.keys(m.performances).length > 0);
+    })
     .sort((a, b) => (a.date || '').localeCompare(b.date || '') || (a.label || '').localeCompare(b.label || ''));
 }
 
