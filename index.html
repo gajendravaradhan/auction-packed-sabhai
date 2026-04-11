@@ -165,6 +165,32 @@ select.field-input{cursor:pointer;}
 .toast.show{transform:translateX(-50%) translateY(0);}
 .toast.success{border-color:var(--green);color:var(--green);}
 .toast.error{border-color:var(--red);color:var(--red);}
+.insights-subtabs{display:flex;gap:8px;overflow-x:auto;padding-bottom:8px;margin-bottom:14px;}
+.insights-subtab{border:1px solid var(--border);background:var(--surface);color:var(--muted);border-radius:999px;padding:7px 12px;font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer;white-space:nowrap;}
+.insights-subtab.active{background:var(--surface2);color:var(--text);border-color:var(--navy-light);}
+.insight-action-btn{border:1px solid var(--border);background:var(--surface);color:var(--muted);border-radius:999px;padding:7px 12px;font-family:'Barlow Condensed',sans-serif;font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;cursor:pointer;white-space:nowrap;}
+.insight-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:12px;}
+.insight-title{font-family:'Barlow Condensed',sans-serif;font-size:12px;letter-spacing:4px;color:var(--muted);text-transform:uppercase;margin-bottom:10px;}
+.insight-legend{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:6px;margin-top:10px;}
+.insight-legend-item{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:8px;}
+.insight-dot{width:10px;height:10px;border-radius:50%;display:inline-block;}
+.insight-stack{height:16px;background:#081427;border-radius:999px;overflow:hidden;display:flex;border:1px solid #112742;}
+.insight-seg-base{background:#1b6ca8;}
+.insight-seg-cap{background:var(--gold);}
+.insight-seg-vc{background:var(--orange);}
+.insight-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;}
+.insight-pill{background:#091528;border:1px solid #133054;border-radius:10px;padding:10px;}
+.insight-pill h4{font-family:'Barlow Condensed',sans-serif;font-size:14px;letter-spacing:1px;margin-bottom:4px;}
+.insight-pill .big{font-family:'Barlow Condensed',sans-serif;font-size:24px;font-weight:900;color:var(--text);}
+.insight-select{background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);padding:7px 10px;font-family:'Rajdhani',sans-serif;font-size:14px;}
+.insight-controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px;}
+.treemap{display:flex;flex-wrap:wrap;gap:8px;}
+.treemap-tile{min-height:72px;border-radius:10px;padding:8px;border:1px solid #1a3a5c;background:linear-gradient(140deg,#12263f,#0b1c30);display:flex;flex-direction:column;justify-content:space-between;}
+.treemap-name{font-family:'Barlow Condensed',sans-serif;font-size:13px;letter-spacing:1px;color:var(--text);}
+.treemap-val{font-family:'Barlow Condensed',sans-serif;font-size:18px;font-weight:900;color:var(--gold);}
+.insight-table{width:100%;border-collapse:collapse;}
+.insight-table th,.insight-table td{padding:8px;border-bottom:1px solid #0e1f36;font-size:12px;text-align:left;}
+.insight-table th{color:var(--muted);text-transform:uppercase;letter-spacing:1px;font-family:'Barlow Condensed',sans-serif;font-size:11px;}
 ::-webkit-scrollbar{width:6px;height:6px;}
 ::-webkit-scrollbar-track{background:var(--bg);}
 ::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px;}
@@ -243,7 +269,7 @@ select.field-input{cursor:pointer;}
       <button class="nav-tab" onclick="switchTab('matches')" id="tabMatches">Matches</button>
       <button class="nav-tab" onclick="switchTab('players')" id="tabPlayers">Players</button>
       <button class="nav-tab" onclick="switchTab('live')" id="tabLive">Live</button>
-      <button class="nav-tab" onclick="switchTab('captains')" id="tabCaptains">C/VC</button>
+      <button class="nav-tab" onclick="switchTab('insights')" id="tabInsights">Insights</button>
       <button class="nav-tab" onclick="switchTab('admin')" id="tabAdmin" style="display:none">Admin</button>
     </div>
   </div>
@@ -390,7 +416,7 @@ select.field-input{cursor:pointer;}
       </div>
     </div>
   </div>
-  <div id="tabContentCaptains" class="tab-content"><div style="max-width:700px;margin:0 auto;padding:20px 16px;" id="captainsView"></div></div>
+  <div id="tabContentInsights" class="tab-content"><div style="max-width:1100px;margin:0 auto;padding:20px 16px;" id="insightsView"></div></div>
   <div id="tabContentLive" class="tab-content"><div class="live-wrap" id="liveWrap"><div class="no-live">No match in progress</div></div></div>
   <div id="tabContentAdmin" class="tab-content"><div class="admin-wrap" id="adminWrap"></div></div>
 </div>
@@ -619,12 +645,85 @@ function calcFantasyPoints(p, teamName, matchPotm) {
   return pts;
 }
 
+function calcBattingOnlyPoints(p) {
+  if (!p || !p.played) return 0;
+  const runs = p.runs || 0;
+  const balls = p.balls || 0;
+  const fours = p.fours || 0;
+  const sixes = p.sixes || 0;
+  const dismissed = p.dismissed !== false;
+  const role = p.role || '';
+  let pts = 0;
+
+  pts += runs;
+  pts += fours * 2;
+  pts += sixes * 3;
+
+  if      (runs >= 100) pts += 50;
+  else if (runs >= 75)  pts += 35;
+  else if (runs >= 50)  pts += 25;
+
+  if (dismissed && runs === 0 && balls > 0 && ['BAT','WIC','ALL'].includes(role)) pts -= 10;
+
+  if ((balls >= 8 || runs >= 15) && balls > 0) {
+    const sr = (runs / balls) * 100;
+    if      (sr >= 150) pts += 30;
+    else if (sr >= 130) pts += 20;
+    else if (sr >= 100) pts += 15;
+    else if (sr >= 90)  pts += 0;
+    else if (sr >= 70)  pts -= 15;
+    else if (sr >= 50)  pts -= 20;
+    else                pts -= 25;
+  }
+
+  return pts;
+}
+
+function calcBowlingOnlyPoints(p) {
+  if (!p || !p.played) return 0;
+  const wickets = p.wickets || 0;
+  const overs = p.overs || 0;
+  const runsConceded = p.runsConceded || 0;
+  const maidens = p.maidens || 0;
+  const dots = p.dots || 0;
+  let pts = 0;
+
+  pts += wickets * 25;
+  if      (wickets >= 5) pts += 70;
+  else if (wickets >= 3) pts += 40;
+  else if (wickets >= 2) pts += 25;
+
+  pts += maidens * 20;
+  pts += dots * 2;
+
+  if (overs >= 2) {
+    const eco = runsConceded / overs;
+    if      (eco < 4)  pts += 40;
+    else if (eco < 5)  pts += 35;
+    else if (eco < 6)  pts += 25;
+    else if (eco < 9)  pts += 20;
+    else if (eco < 11) pts += 5;
+    else if (eco < 13) pts -= 10;
+    else               pts -= 20;
+  }
+
+  return pts;
+}
+
 // ═══════════════════════════════════════════════════════
 // STATE
 // ═══════════════════════════════════════════════════════
 let liveData = { matches: [] };
 let isAdmin = false;
 let currentTab = 'leaderboard';
+let insightsSubTab = 'momentum';
+let insightsRankMode = 'bump';
+let insightsTreemapTeam = 'VATS';
+let insightsH2HTeamA = 'VATS';
+let insightsH2HTeamB = 'ASVIN';
+let insightsSimTeam = 'ANIRUDH';
+let insightsSimCaptain = 'Ishan Kishan';
+let insightsSimViceCaptain = 'Arshdeep Singh';
 let playerFilter = 'ALL';
 let playersSortChain = [
   { key: 'pts', dir: 'desc' },
@@ -895,6 +994,7 @@ function initFirebaseListener() {
     const d = snap.val();
     liveData = d || { matches: [] };
     if (!liveData.matches) liveData.matches = [];
+    syncInsightsBatPosCacheWithLiveData();
     if (liveData.captains && typeof liveData.captains === 'object' && !Array.isArray(liveData.captains)) {
       _lastKnownCaptains = JSON.parse(JSON.stringify(liveData.captains));
     }
@@ -954,7 +1054,7 @@ function renderTab(tab) {
   if (tab==='matches')     renderMatches();
   if (tab==='players')     renderPlayers();
   if (tab==='live')        renderLive();
-  if (tab==='captains')    renderCaptainsView();
+  if (tab==='insights')    renderInsights();
   if (tab==='admin')       renderAdmin();
 }
 
@@ -1311,6 +1411,1007 @@ function renderLive() {
       const cls=i===0?'top1':i===1?'top2':i===2?'top3':'';
       return `<div class="lb-row ${cls}"><div class="lb-rank">${i+1}</div><div class="lb-team"><div class="lb-team-name">${name}</div></div><div><div class="lb-pts" style="${i===0?'color:var(--green)':''}">${pts}</div><div class="lb-pts-label">PTS</div></div></div>`;
     }).join('')}`;
+}
+
+function getRosterLookup() {
+  const map = {};
+  TEAMS.forEach(t => t.players.forEach(p => { map[p.name] = { teamName: t.name, role: p.role }; }));
+  return map;
+}
+
+function getScoringMatches() {
+  return (liveData.matches || [])
+    .filter(m => m && (m.status === 'done' || m.status === 'live'))
+    .sort((a, b) => (a.date || '').localeCompare(b.date || '') || (a.label || '').localeCompare(b.label || ''));
+}
+
+function getTeamMatchPoints(match, rosterMap) {
+  const teamPts = {};
+  TEAMS.forEach(t => { teamPts[t.name] = 0; });
+  Object.entries(match.performances || {}).forEach(([playerName, perf]) => {
+    const ro = rosterMap[playerName];
+    if (!ro) return;
+    const pf = { ...perf, playerName, role: ro.role };
+    teamPts[ro.teamName] += calcFantasyPoints(pf, ro.teamName, match.potm);
+  });
+  return teamPts;
+}
+
+function getInsightsSeriesData() {
+  const rosterMap = getRosterLookup();
+  const matches = getScoringMatches();
+  const pointsByMatch = [];
+  const cumulative = {};
+  const ranks = {};
+  TEAMS.forEach(t => {
+    cumulative[t.name] = [];
+    ranks[t.name] = [];
+  });
+
+  const running = {};
+  TEAMS.forEach(t => { running[t.name] = 0; });
+
+  matches.forEach((m, idx) => {
+    const one = getTeamMatchPoints(m, rosterMap);
+    pointsByMatch.push({ label: m.label || ('Match ' + (idx + 1)), date: m.date || '', points: one });
+    TEAMS.forEach(t => {
+      running[t.name] += one[t.name] || 0;
+      cumulative[t.name].push(running[t.name]);
+    });
+    const rankNow = Object.entries(running).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+    rankNow.forEach(([teamName], ridx) => { ranks[teamName].push(ridx + 1); });
+  });
+
+  return { matches, pointsByMatch, cumulative, ranks };
+}
+
+function insightPalette(i) {
+  const colors = ['#ffb800','#00e676','#00bcd4','#ff5c00','#7cb342','#f06292','#64b5f6','#ffd54f','#9575cd','#4dd0e1'];
+  return colors[i % colors.length];
+}
+
+function switchInsightsSubTab(tab) {
+  insightsSubTab = tab;
+  renderInsights();
+}
+
+function setInsightsRankMode(mode) {
+  insightsRankMode = mode;
+  renderInsights();
+}
+
+function renderInsightsMomentum(series) {
+  if (!series.matches.length) return '<div class="insight-card">No completed matches yet.</div>';
+  const w = 980, h = 360, pl = 48, pr = 30, pt = 20, pb = 34;
+  const n = series.matches.length;
+  let maxY = 1;
+  TEAMS.forEach(t => {
+    const arr = series.cumulative[t.name] || [];
+    const localMax = arr.length ? Math.max(...arr) : 0;
+    if (localMax > maxY) maxY = localMax;
+  });
+  const x = i => pl + (n <= 1 ? 0 : (i * (w - pl - pr) / (n - 1)));
+  const y = v => h - pb - (v * (h - pt - pb) / maxY);
+  const lines = TEAMS.map((t, idx) => {
+    const pts = (series.cumulative[t.name] || []).map((v, i) => x(i).toFixed(1) + ',' + y(v).toFixed(1)).join(' ');
+    return '<polyline fill="none" stroke="' + insightPalette(idx) + '" stroke-width="2.5" points="' + pts + '" />';
+  }).join('');
+  const legend = TEAMS.map((t, idx) => {
+    const arr = series.cumulative[t.name] || [];
+    const fin = arr.length ? arr[arr.length - 1] : 0;
+    return '<div class="insight-legend-item"><span class="insight-dot" style="background:' + insightPalette(idx) + '"></span>' + t.name + ': ' + fin + '</div>';
+  }).join('');
+
+  return '<div class="insight-card"><div class="insight-title">Team Momentum</div><svg viewBox="0 0 ' + w + ' ' + h + '" style="width:100%;height:auto;background:#071325;border:1px solid #123050;border-radius:8px;">'
+    + '<line x1="' + pl + '" y1="' + (h-pb) + '" x2="' + (w-pr) + '" y2="' + (h-pb) + '" stroke="#274766" />'
+    + '<line x1="' + pl + '" y1="' + pt + '" x2="' + pl + '" y2="' + (h-pb) + '" stroke="#274766" />'
+    + lines + '</svg><div class="insight-legend">' + legend + '</div></div>';
+}
+
+function getCvImpactData(series) {
+  const rosterMap = getRosterLookup();
+  const out = {};
+  TEAMS.forEach(t => { out[t.name] = { base: 0, cap: 0, vc: 0, total: 0 }; });
+  const cv = liveData.captains || {};
+  series.matches.forEach(match => {
+    Object.entries(match.performances || {}).forEach(([name, perf]) => {
+      const ro = rosterMap[name];
+      if (!ro) return;
+      const teamName = ro.teamName;
+      const pf = { ...perf, playerName: name, role: ro.role };
+      const base = calcBasePoints(pf);
+      const picks = cv[teamName] || {};
+      const isCap = picks.captain === name;
+      const isVC = picks.viceCaptain === name;
+      const isPotm = normalizePlayerKey(match.potm) && normalizePlayerKey(name) === normalizePlayerKey(match.potm);
+      const neutral = base + (isPotm ? 30 : 0);
+      const actual = calcFantasyPoints(pf, teamName, match.potm);
+      out[teamName].base += neutral;
+      if (isCap) out[teamName].cap += (actual - neutral);
+      else if (isVC) out[teamName].vc += (actual - neutral);
+      out[teamName].total += actual;
+    });
+  });
+  return out;
+}
+
+function renderInsightsCvImpact(series) {
+  const data = getCvImpactData(series);
+  const rows = TEAMS.map(t => ({ team: t.name, ...data[t.name] })).sort((a, b) => b.total - a.total);
+  return '<div class="insight-card"><div class="insight-title">C/VC Impact</div>' + rows.map(r => {
+    const denom = r.total || 1;
+    const b = Math.max(0, Math.round((r.base / denom) * 100));
+    const c = Math.max(0, Math.round((r.cap / denom) * 100));
+    const v = Math.max(0, 100 - b - c);
+    return '<div style="margin-bottom:10px;"><div style="display:flex;justify-content:space-between;font-size:12px;color:var(--muted);"><span>' + r.team + '</span><span>' + r.total + ' pts</span></div>'
+      + '<div class="insight-stack"><div class="insight-seg-base" style="width:' + b + '%"></div><div class="insight-seg-cap" style="width:' + c + '%"></div><div class="insight-seg-vc" style="width:' + v + '%"></div></div>'
+      + '<div style="font-size:11px;color:var(--muted);margin-top:4px;">Base ' + Math.round(r.base) + ' · Captain Gain ' + Math.round(r.cap) + ' · VC Gain ' + Math.round(r.vc) + '</div></div>';
+  }).join('') + '</div>';
+}
+
+function renderInsightsRankFlow(series) {
+  if (!series.matches.length) return '<div class="insight-card">No completed matches yet.</div>';
+  const w = 980, h = 360, pl = 70, pr = 80, pt = 24, pb = 24;
+  const n = series.matches.length;
+  const x = i => pl + (insightsRankMode === 'slope' ? (i ? (w - pl - pr) : 0) : (n <= 1 ? 0 : i * (w - pl - pr) / (n - 1)));
+  const y = rank => pt + ((rank - 1) * (h - pt - pb) / (TEAMS.length - 1));
+  const lines = TEAMS.map((t, idx) => {
+    const arr = series.ranks[t.name] || [];
+    if (!arr.length) return '';
+    const pts = (insightsRankMode === 'slope'
+      ? [arr[0], arr[arr.length - 1]]
+      : arr).map((r, i) => x(i).toFixed(1) + ',' + y(r).toFixed(1)).join(' ');
+    return '<polyline fill="none" stroke="' + insightPalette(idx) + '" stroke-width="2.3" points="' + pts + '" />';
+  }).join('');
+  const modeBtns = '<div class="insight-controls">'
+    + '<button class="insights-subtab ' + (insightsRankMode === 'slope' ? 'active' : '') + '" onclick="setInsightsRankMode(\'slope\')">Slope</button>'
+    + '<button class="insights-subtab ' + (insightsRankMode === 'bump' ? 'active' : '') + '" onclick="setInsightsRankMode(\'bump\')">Bump</button>'
+    + '</div>';
+  return '<div class="insight-card"><div class="insight-title">Rank Flow</div>' + modeBtns
+    + '<svg viewBox="0 0 ' + w + ' ' + h + '" style="width:100%;height:auto;background:#071325;border:1px solid #123050;border-radius:8px;">'
+    + '<line x1="' + pl + '" y1="' + pt + '" x2="' + pl + '" y2="' + (h-pb) + '" stroke="#274766" />'
+    + lines
+    + '</svg></div>';
+}
+
+function renderInsightsTreemap() {
+  const totals = getPlayerTotals();
+  const team = insightsTreemapTeam;
+  const players = (TEAMS.find(t => t.name === team) || { players: [] }).players.map(p => ({ name: p.name, pts: (totals[p.name] || { pts: 0 }).pts }));
+  const total = players.reduce((s, p) => s + Math.max(0, p.pts), 0) || 1;
+  const teamSel = '<select class="insight-select" onchange="insightsTreemapTeam=this.value;renderInsights();">' + TEAMS.map(t => '<option value="' + t.name + '"' + (t.name === team ? ' selected' : '') + '>' + t.name + '</option>').join('') + '</select>';
+  const tiles = players.sort((a,b)=>b.pts-a.pts).map((p, idx) => {
+    const width = Math.max(18, Math.round((Math.max(0, p.pts) / total) * 100));
+    return '<div class="treemap-tile" style="flex:0 0 calc(' + width + '% - 8px);border-color:' + insightPalette(idx) + '55;"><div class="treemap-name">' + p.name + '</div><div class="treemap-val">' + p.pts + '</div></div>';
+  }).join('');
+  return '<div class="insight-card"><div class="insight-title">Player Contribution Treemap</div><div class="insight-controls">' + teamSel + '</div><div class="treemap">' + tiles + '</div></div>';
+}
+
+function renderInsightsRoleEfficiency() {
+  const pt = getPlayerTotals();
+  const rows = ['BAT','BOW','ALL','WIC'].map(role => {
+    const vals = Object.values(pt).filter(v => v.role === role).map(v => v.pts);
+    const total = vals.reduce((s, v) => s + v, 0);
+    const avg = vals.length ? total / vals.length : 0;
+    const variance = vals.length ? vals.reduce((s, v) => s + Math.pow(v - avg, 2), 0) / vals.length : 0;
+    return { role, total, avg, std: Math.sqrt(variance), count: vals.length };
+  });
+  const maxAvg = Math.max(...rows.map(r => r.avg), 1);
+  return '<div class="insight-card"><div class="insight-title">Role Efficiency</div><div class="insight-grid">'
+    + rows.map(r => '<div class="insight-pill"><h4>' + r.role + '</h4><div class="big">' + Math.round(r.avg) + '</div><div style="font-size:11px;color:var(--muted);">Avg pts/player</div><div style="font-size:11px;color:var(--muted);margin-top:4px;">Total ' + r.total + ' · Sigma ' + Math.round(r.std) + '</div><div class="insight-stack" style="margin-top:6px;"><div class="insight-seg-base" style="width:' + Math.round((r.avg / maxAvg) * 100) + '%"></div></div></div>').join('')
+    + '</div></div>';
+}
+
+function renderInsightsConsistencyScatter() {
+  const pt = getPlayerTotals();
+  const data = Object.entries(pt).map(([name, v]) => {
+    const vals = (v.matchPts || []).map(m => m.pts);
+    const avg = vals.length ? vals.reduce((s, x) => s + x, 0) / vals.length : 0;
+    const variance = vals.length ? vals.reduce((s, x) => s + Math.pow(x - avg, 2), 0) / vals.length : 0;
+    return { name, role: v.role, avg, std: Math.sqrt(variance), total: v.pts };
+  }).filter(x => x.total > 0);
+  if (!data.length) return '<div class="insight-card">No player data yet.</div>';
+  const maxX = Math.max(...data.map(d => d.avg), 1);
+  const maxY = Math.max(...data.map(d => d.std), 1);
+  const maxT = Math.max(...data.map(d => d.total), 1);
+  const w = 980, h = 360, pl = 46, pr = 20, ptp = 16, pb = 34;
+  const cx = v => pl + (v / maxX) * (w - pl - pr);
+  const cy = v => h - pb - (v / maxY) * (h - ptp - pb);
+  const colorByRole = { BAT: '#ffb800', BOW: '#00e676', ALL: '#00bcd4', WIC: '#ff5c00' };
+  const circles = data.map(d => '<circle cx="' + cx(d.avg).toFixed(1) + '" cy="' + cy(d.std).toFixed(1) + '" r="' + (3 + (d.total / maxT) * 7).toFixed(1) + '" fill="' + (colorByRole[d.role] || '#cccccc') + '" fill-opacity="0.75"><title>' + d.name + ' · avg ' + Math.round(d.avg) + ' · sigma ' + Math.round(d.std) + '</title></circle>').join('');
+  return '<div class="insight-card"><div class="insight-title">Consistency vs Ceiling</div><svg viewBox="0 0 ' + w + ' ' + h + '" style="width:100%;height:auto;background:#071325;border:1px solid #123050;border-radius:8px;">'
+    + '<line x1="' + pl + '" y1="' + (h-pb) + '" x2="' + (w-pr) + '" y2="' + (h-pb) + '" stroke="#274766" />'
+    + '<line x1="' + pl + '" y1="' + ptp + '" x2="' + pl + '" y2="' + (h-pb) + '" stroke="#274766" />'
+    + circles + '</svg></div>';
+}
+
+function renderInsightsDotEconomy(series) {
+  const roster = getRosterLookup();
+  const agg = {};
+  Object.keys(roster).forEach(name => { agg[name] = { dots: 0, eco: 0, wk: 0, total: 0 }; });
+  series.matches.forEach(match => {
+    Object.entries(match.performances || {}).forEach(([name, perf]) => {
+      const ro = roster[name];
+      if (!ro) return;
+      const p = { ...perf, role: ro.role };
+      const dotsPts = (p.dots || 0) * 2;
+      let ecoPts = 0;
+      if ((p.overs || 0) >= 2) {
+        const eco = (p.runsConceded || 0) / (p.overs || 1);
+        if (eco < 4) ecoPts = 40;
+        else if (eco < 5) ecoPts = 35;
+        else if (eco < 6) ecoPts = 25;
+        else if (eco < 9) ecoPts = 20;
+        else if (eco < 11) ecoPts = 5;
+        else if (eco < 13) ecoPts = -10;
+        else ecoPts = -20;
+      }
+      const wk = p.wickets || 0;
+      let wkPts = wk * 25;
+      if (wk >= 5) wkPts += 70;
+      else if (wk >= 3) wkPts += 40;
+      else if (wk >= 2) wkPts += 25;
+      agg[name].dots += dotsPts;
+      agg[name].eco += ecoPts;
+      agg[name].wk += wkPts;
+      agg[name].total += dotsPts + ecoPts + wkPts;
+    });
+  });
+  const rows = Object.entries(agg).filter(([,v]) => v.total !== 0).map(([name,v]) => ({ name, ...v })).sort((a,b)=>b.total-a.total).slice(0,20);
+  if (!rows.length) return '<div class="insight-card">No bowling contribution data yet.</div>';
+  return '<div class="insight-card"><div class="insight-title">Dot-Ball Economy Value</div><table class="insight-table"><thead><tr><th>Player</th><th>Wicket Pts</th><th>Dot Pts</th><th>Eco Pts</th><th>Total</th></tr></thead><tbody>'
+    + rows.map(r => '<tr><td>' + r.name + '</td><td>' + Math.round(r.wk) + '</td><td>' + Math.round(r.dots) + '</td><td>' + Math.round(r.eco) + '</td><td><strong>' + Math.round(r.total) + '</strong></td></tr>').join('')
+    + '</tbody></table></div>';
+}
+
+function renderInsightsHeadToHead(series) {
+  const totals = getTeamTotals();
+  const cv = getCvImpactData(series);
+  const byTeamMatch = {};
+  TEAMS.forEach(t => { byTeamMatch[t.name] = []; });
+  series.pointsByMatch.forEach(m => TEAMS.forEach(t => byTeamMatch[t.name].push(m.points[t.name] || 0)));
+  function teamMetrics(name) {
+    const vals = byTeamMatch[name] || [];
+    const avg = vals.length ? vals.reduce((s,v)=>s+v,0)/vals.length : 0;
+    const variance = vals.length ? vals.reduce((s,v)=>s+Math.pow(v-avg,2),0)/vals.length : 0;
+    const sigma = Math.sqrt(variance);
+    const cvGain = (cv[name] ? cv[name].cap + cv[name].vc : 0);
+    const consistency = 1 / (1 + sigma);
+    const bowlingShare = 0.5;
+    return { total: totals[name] || 0, avg, cvGain, consistency, bowlingShare };
+  }
+  const allMetrics = TEAMS.map(t => teamMetrics(t.name));
+  const max = {
+    total: Math.max(...allMetrics.map(m => m.total), 1),
+    avg: Math.max(...allMetrics.map(m => m.avg), 1),
+    cvGain: Math.max(...allMetrics.map(m => m.cvGain), 1),
+    consistency: Math.max(...allMetrics.map(m => m.consistency), 1),
+    bowlingShare: Math.max(...allMetrics.map(m => m.bowlingShare), 1)
+  };
+  const mA = teamMetrics(insightsH2HTeamA);
+  const mB = teamMetrics(insightsH2HTeamB);
+  const axes = ['total','avg','cvGain','consistency','bowlingShare'];
+  const labels = ['Total','Avg','C/VC Gain','Consistency','Bowl Share'];
+  const w = 520, h = 360, cx = 260, cy = 180, rad = 130;
+  function poly(metrics, color) {
+    const pts = axes.map((k, i) => {
+      const ang = -Math.PI/2 + (i * 2 * Math.PI / axes.length);
+      const val = (metrics[k] / max[k]) * rad;
+      return (cx + Math.cos(ang) * val).toFixed(1) + ',' + (cy + Math.sin(ang) * val).toFixed(1);
+    }).join(' ');
+    return '<polygon points="' + pts + '" fill="' + color + '33" stroke="' + color + '" stroke-width="2" />';
+  }
+  const axisLines = axes.map((k, i) => {
+    const ang = -Math.PI/2 + (i * 2 * Math.PI / axes.length);
+    const x2 = cx + Math.cos(ang) * rad;
+    const y2 = cy + Math.sin(ang) * rad;
+    const lx = cx + Math.cos(ang) * (rad + 18);
+    const ly = cy + Math.sin(ang) * (rad + 18);
+    return '<line x1="' + cx + '" y1="' + cy + '" x2="' + x2.toFixed(1) + '" y2="' + y2.toFixed(1) + '" stroke="#274766" /><text x="' + lx.toFixed(1) + '" y="' + ly.toFixed(1) + '" fill="#9fb8d8" font-size="11" text-anchor="middle">' + labels[i] + '</text>';
+  }).join('');
+  const controls = '<div class="insight-controls"><select class="insight-select" onchange="insightsH2HTeamA=this.value;renderInsights();">' + TEAMS.map(t => '<option value="' + t.name + '"' + (t.name===insightsH2HTeamA?' selected':'') + '>' + t.name + '</option>').join('') + '</select>'
+    + '<select class="insight-select" onchange="insightsH2HTeamB=this.value;renderInsights();">' + TEAMS.map(t => '<option value="' + t.name + '"' + (t.name===insightsH2HTeamB?' selected':'') + '>' + t.name + '</option>').join('') + '</select></div>';
+  return '<div class="insight-card"><div class="insight-title">Head-to-Head Radar</div>' + controls + '<svg viewBox="0 0 ' + w + ' ' + h + '" style="width:100%;max-width:620px;height:auto;background:#071325;border:1px solid #123050;border-radius:8px;">'
+    + axisLines + poly(mA, '#ffb800') + poly(mB, '#00e676')
+    + '</svg><div class="insight-legend"><div class="insight-legend-item"><span class="insight-dot" style="background:#ffb800"></span>' + insightsH2HTeamA + '</div><div class="insight-legend-item"><span class="insight-dot" style="background:#00e676"></span>' + insightsH2HTeamB + '</div></div></div>';
+}
+
+function calcFantasyPointsWithPicks(p, captain, viceCaptain, matchPotm) {
+  if (!p || !p.played) return 0;
+  const base = calcBasePoints(p);
+  const isCap = captain === p.playerName;
+  const isVC = viceCaptain === p.playerName;
+  const isPotm = normalizePlayerKey(matchPotm) && normalizePlayerKey(p.playerName) === normalizePlayerKey(matchPotm);
+  let potmValue = 0;
+  if (isPotm) {
+    if (isCap) potmValue = 60;
+    else if (isVC) potmValue = 40;
+    else potmValue = 30;
+  }
+  const totalBeforeMultiplier = base + potmValue;
+  if (isCap) return Math.round(totalBeforeMultiplier * 2);
+  if (isVC) return Math.floor(totalBeforeMultiplier * 1.5);
+  return totalBeforeMultiplier;
+}
+
+function renderInsightsSimulator(series) {
+  const team = TEAMS.find(t => t.name === insightsSimTeam) || TEAMS[0];
+  if (!team) return '<div class="insight-card">No teams configured.</div>';
+  if (!team.players.some(p => p.name === insightsSimCaptain)) insightsSimCaptain = team.players[0].name;
+  if (!team.players.some(p => p.name === insightsSimViceCaptain) || insightsSimViceCaptain === insightsSimCaptain) insightsSimViceCaptain = team.players[Math.min(1, team.players.length - 1)].name;
+  const rosterMap = getRosterLookup();
+  const currentTotals = getTeamTotals();
+  let simulatedTeamPts = 0;
+  series.matches.forEach(match => {
+    Object.entries(match.performances || {}).forEach(([name, perf]) => {
+      const ro = rosterMap[name];
+      if (!ro || ro.teamName !== team.name) return;
+      const pf = { ...perf, playerName: name, role: ro.role };
+      simulatedTeamPts += calcFantasyPointsWithPicks(pf, insightsSimCaptain, insightsSimViceCaptain, match.potm);
+    });
+  });
+  const currentTeamPts = currentTotals[team.name] || 0;
+  const simTotals = { ...currentTotals, [team.name]: simulatedTeamPts };
+  const nowRank = Object.entries(currentTotals).sort((a,b)=>b[1]-a[1]).findIndex(([n])=>n===team.name)+1;
+  const simRank = Object.entries(simTotals).sort((a,b)=>b[1]-a[1]).findIndex(([n])=>n===team.name)+1;
+  const controls = '<div class="insight-controls"><select class="insight-select" onchange="insightsSimTeam=this.value;renderInsights();">' + TEAMS.map(t => '<option value="' + t.name + '"' + (t.name===team.name?' selected':'') + '>' + t.name + '</option>').join('') + '</select>'
+    + '<select class="insight-select" onchange="insightsSimCaptain=this.value;renderInsights();">' + team.players.map(p => '<option value="' + p.name + '"' + (p.name===insightsSimCaptain?' selected':'') + '>' + p.name + ' (C)</option>').join('') + '</select>'
+    + '<select class="insight-select" onchange="insightsSimViceCaptain=this.value;renderInsights();">' + team.players.map(p => '<option value="' + p.name + '"' + (p.name===insightsSimViceCaptain?' selected':'') + '>' + p.name + ' (VC)</option>').join('') + '</select></div>';
+  const delta = simulatedTeamPts - currentTeamPts;
+  const rankDelta = nowRank - simRank;
+  return '<div class="insight-card"><div class="insight-title">What-If Simulator</div>' + controls
+    + '<div class="insight-grid"><div class="insight-pill"><h4>Current</h4><div class="big">' + currentTeamPts + '</div><div style="font-size:11px;color:var(--muted);">Rank #' + nowRank + '</div></div>'
+    + '<div class="insight-pill"><h4>Simulated</h4><div class="big">' + simulatedTeamPts + '</div><div style="font-size:11px;color:var(--muted);">Rank #' + simRank + '</div></div>'
+    + '<div class="insight-pill"><h4>Delta</h4><div class="big" style="color:' + (delta>=0?'var(--green)':'var(--red)') + ';">' + (delta>=0?'+':'') + delta + '</div><div style="font-size:11px;color:var(--muted);">Rank ' + (rankDelta>=0?'+':'') + rankDelta + '</div></div></div></div>';
+}
+
+function renderInsights() {
+  const wrap = document.getElementById('insightsView');
+  if (!wrap) return;
+  const tabs = [
+    { key: 'momentum', label: 'Momentum' },
+    { key: 'cvImpact', label: 'C/VC Impact' },
+    { key: 'rankFlow', label: 'Rank Flow' },
+    { key: 'treemap', label: 'Treemap' },
+    { key: 'roleEfficiency', label: 'Role Efficiency' },
+    { key: 'scatter', label: 'Consistency' },
+    { key: 'dotEco', label: 'Dot/Eco' },
+    { key: 'h2h', label: 'Head-to-Head' },
+    { key: 'sim', label: 'What-If' }
+  ];
+  const series = getInsightsSeriesData();
+  let body = '';
+  if (insightsSubTab === 'momentum') body = renderInsightsMomentum(series);
+  if (insightsSubTab === 'cvImpact') body = renderInsightsCvImpact(series);
+  if (insightsSubTab === 'rankFlow') body = renderInsightsRankFlow(series);
+  if (insightsSubTab === 'treemap') body = renderInsightsTreemap();
+  if (insightsSubTab === 'roleEfficiency') body = renderInsightsRoleEfficiency();
+  if (insightsSubTab === 'scatter') body = renderInsightsConsistencyScatter();
+  if (insightsSubTab === 'dotEco') body = renderInsightsDotEconomy(series);
+  if (insightsSubTab === 'h2h') body = renderInsightsHeadToHead(series);
+  if (insightsSubTab === 'sim') body = renderInsightsSimulator(series);
+
+  wrap.innerHTML = '<div class="insights-subtabs">'
+    + tabs.map(t => '<button class="insights-subtab ' + (insightsSubTab===t.key?'active':'') + '" onclick="switchInsightsSubTab(\'' + t.key + '\')">' + t.label + '</button>').join('')
+    + '</div>' + body;
+}
+
+let insightsMomentumVisibleTeams = null;
+let insightsRoleMode = 'batting';
+let insightsDotOrder = 'total';
+let insightsBatPosByPlayer = {};
+let insightsBatPosEvents = [];
+let insightsBatPosCoveredMatches = {};
+let insightsBatPosLoaded = false;
+let insightsBatPosLoading = false;
+let insightsBatPosReloadRequested = false;
+let insightsBatPosLoadedSignature = '';
+
+function getCompletedMatchesSignature() {
+  const done = (liveData.matches || []).filter(m => m && m.status === 'done');
+  if (!done.length) return 'done:0';
+  const parts = done.map(m => {
+    const lbl = String(m.label || '');
+    const dt = String(m.date || '').slice(0, 10);
+    const perfCount = m.performances ? Object.keys(m.performances).length : 0;
+    const potm = String(m.potm || '');
+    return [dt, lbl, perfCount, potm].join('|');
+  }).sort();
+  return 'done:' + done.length + '::' + parts.join('||');
+}
+
+function resetInsightsBatPosCache() {
+  insightsBatPosByPlayer = {};
+  insightsBatPosEvents = [];
+  insightsBatPosCoveredMatches = {};
+  insightsBatPosLoaded = false;
+}
+
+function syncInsightsBatPosCacheWithLiveData() {
+  const nextSig = getCompletedMatchesSignature();
+  if (nextSig === insightsBatPosLoadedSignature) return;
+
+  resetInsightsBatPosCache();
+  if (insightsBatPosLoading) {
+    insightsBatPosReloadRequested = true;
+  }
+}
+
+const PLAYER_BOWLING_PROFILE = {
+  'Varun Chakravarthy': { type: 'Spinner', arm: 'Right' },
+  'Hardik Pandya': { type: 'Fast', arm: 'Right' },
+  'Mohammed Siraj': { type: 'Fast', arm: 'Right' },
+  'Axar Patel': { type: 'Spinner', arm: 'Left' },
+  'Mitchell Starc': { type: 'Fast', arm: 'Left' },
+  'Arshdeep Singh': { type: 'Fast', arm: 'Left' },
+  'Prasidh Krishna': { type: 'Fast', arm: 'Right' },
+  'Digvesh Singh': { type: 'Spinner', arm: 'Right' },
+  'Harshit Rana': { type: 'Fast', arm: 'Right' },
+  'Sam Curran': { type: 'Fast', arm: 'Left' },
+  'Jasprit Bumrah': { type: 'Fast', arm: 'Right' },
+  'Yuzvendra Chahal': { type: 'Spinner', arm: 'Right' },
+  'Aiden Markram': { type: 'Spinner', arm: 'Right' },
+  'Mitchell Marsh': { type: 'Fast', arm: 'Right' },
+  'Pat Cummins': { type: 'Fast', arm: 'Right' },
+  'Vaibhav Arora': { type: 'Fast', arm: 'Right' },
+  'Sunil Narine': { type: 'Spinner', arm: 'Right' },
+  'Khaleel Ahmed': { type: 'Fast', arm: 'Left' },
+  'Sandeep Sharma': { type: 'Fast', arm: 'Right' },
+  'T Natarajan': { type: 'Fast', arm: 'Left' },
+  'Deepak Chahar': { type: 'Fast', arm: 'Right' },
+  'Kuldeep Yadav': { type: 'Spinner', arm: 'Left' },
+  'Ravindra Jadeja': { type: 'Spinner', arm: 'Left' },
+  'Kagiso Rabada': { type: 'Fast', arm: 'Right' },
+  'Ravi Bishnoi': { type: 'Spinner', arm: 'Right' },
+  'Mitchell Santner': { type: 'Spinner', arm: 'Left' },
+  'Abhishek Sharma': { type: 'Spinner', arm: 'Left' },
+  'Jaydev Unadkat': { type: 'Fast', arm: 'Left' },
+  'Matt Henry': { type: 'Fast', arm: 'Right' },
+  'Sal Kishore': { type: 'Spinner', arm: 'Left' },
+  'Washington Sundar': { type: 'Spinner', arm: 'Right' },
+  'Krunal Pandya': { type: 'Spinner', arm: 'Left' },
+  'Cameron Green': { type: 'Fast', arm: 'Right' },
+  'Shivam Dube': { type: 'Fast', arm: 'Right' },
+  'Tim David': { type: 'Spinner', arm: 'Right' },
+  'Vipraj Nigam': { type: 'Spinner', arm: 'Right' },
+  'Suyash Sharma': { type: 'Spinner', arm: 'Right' },
+  'Rashid Khan': { type: 'Spinner', arm: 'Right' },
+  'Bhuvneshwar Kumar': { type: 'Fast', arm: 'Right' },
+  'Harshal Patel': { type: 'Fast', arm: 'Right' },
+  'Jofra Archer': { type: 'Fast', arm: 'Right' },
+  'Noor Ahmad': { type: 'Spinner', arm: 'Left' },
+  'Avesh Khan': { type: 'Fast', arm: 'Right' },
+  'Marco Jansen': { type: 'Fast', arm: 'Left' },
+  'Harpreet Brar': { type: 'Spinner', arm: 'Left' },
+  'Zeeshan Ansari': { type: 'Spinner', arm: 'Right' },
+  'Josh Hazlewood': { type: 'Fast', arm: 'Right' },
+  'Trent Boult': { type: 'Fast', arm: 'Left' },
+  'Mohammed Shami': { type: 'Fast', arm: 'Right' }
+};
+
+function ensureInsightsVisibleTeams() {
+  if (!insightsMomentumVisibleTeams) {
+    insightsMomentumVisibleTeams = {};
+    TEAMS.forEach(t => { insightsMomentumVisibleTeams[t.name] = true; });
+  }
+}
+
+function toggleMomentumTeam(teamName) {
+  ensureInsightsVisibleTeams();
+  insightsMomentumVisibleTeams[teamName] = !insightsMomentumVisibleTeams[teamName];
+  renderInsights();
+}
+
+function setAllMomentumTeams(val) {
+  ensureInsightsVisibleTeams();
+  TEAMS.forEach(t => { insightsMomentumVisibleTeams[t.name] = !!val; });
+  renderInsights();
+}
+
+function setInsightsRoleMode(mode) {
+  insightsRoleMode = mode;
+  renderInsights();
+}
+
+function setInsightsDotOrder(order) {
+  insightsDotOrder = order;
+  renderInsights();
+}
+
+async function loadBattingPositionBuckets() {
+  if (insightsBatPosLoaded || insightsBatPosLoading) return;
+  insightsBatPosLoading = true;
+  insightsBatPosReloadRequested = false;
+  const targetSignature = getCompletedMatchesSignature();
+  const acc = {};
+  const events = [];
+  const coveredMatches = {};
+
+  function findPerfKey(match, playerName) {
+    if (!match || !match.performances) return null;
+    const target = normalizePlayerKey(playerName);
+    const keys = Object.keys(match.performances);
+    return keys.find(k => normalizePlayerKey(k) === target) || null;
+  }
+
+  function fullTeamName(codeOrName) {
+    const m = {
+      MI: 'Mumbai Indians', KKR: 'Kolkata Knight Riders', SRH: 'Sunrisers Hyderabad',
+      RCB: 'Royal Challengers Bengaluru', CSK: 'Chennai Super Kings', RR: 'Rajasthan Royals',
+      PBKS: 'Punjab Kings', LSG: 'Lucknow Super Giants', GT: 'Gujarat Titans', DC: 'Delhi Capitals'
+    };
+    return m[codeOrName] || codeOrName;
+  }
+
+  function resolveLiveMatchForSchedule(sm) {
+    const idx = findLiveMatchIndexForScheduleMatch(sm);
+    if (idx >= 0) return (liveData.matches || [])[idx] || null;
+    const all = liveData.matches || [];
+    const home = fullTeamName(sm.home || '');
+    const away = fullTeamName(sm.away || '');
+    const sd = String(sm.date || '');
+    return all.find(m => {
+      const lbl = String(m.label || '').toLowerCase();
+      const md = String(m.date || '').slice(0, 10);
+      if (sd && md && sd !== md) return false;
+      return lbl.includes(home.toLowerCase()) && lbl.includes(away.toLowerCase());
+    }) || null;
+  }
+
+  const roster = getRosterLookup();
+  try {
+    const today = new Date().toISOString().slice(0, 10);
+    const matches = (IPL_2026_SCHEDULE || []).filter(m => m && m.date && m.date <= today);
+    for (const sm of matches) {
+      if (!sm.espn_match_id || !sm.slug) continue;
+      const data = await fetchESPNMatchDetails(sm.espn_match_id, sm.slug);
+      if (!data) continue;
+      const match = resolveLiveMatchForSchedule(sm);
+      const innings = getESPNInnings(data) || [];
+      if (match && innings.length) {
+        coveredMatches[match.label || (sm.home + ' vs ' + sm.away)] = true;
+      }
+      innings.forEach(inn => {
+        const bat = inn && inn.batting ? inn.batting : [];
+        let pos = 0;
+        bat.forEach(b => {
+          const bt = String(b.batted_type || b.battedType || '').toLowerCase();
+          if (bt !== 'yes') return;
+          const nm = normalizePlayerName(b.name || b.batsmanName || b.batsman || '');
+          if (!nm) return;
+          pos++;
+          if (!acc[nm]) acc[nm] = [];
+          acc[nm].push(pos);
+
+          if (match) {
+            const ro = roster[nm];
+            const perfKey = findPerfKey(match, nm);
+            if (ro && perfKey) {
+              const perf = match.performances[perfKey] || null;
+              if (perf) {
+                const pts = calcBattingOnlyPoints({ ...perf, playerName: perfKey, role: ro.role });
+                events.push({
+                  playerName: nm,
+                  perfKey,
+                  position: pos,
+                  matchLabel: match.label || (sm.home + ' vs ' + sm.away),
+                  matchDate: match.date || sm.date || '',
+                  points: pts
+                });
+              }
+            }
+          }
+        });
+      });
+    }
+    Object.entries(acc).forEach(([name, arr]) => {
+      const avg = arr.reduce((s, v) => s + v, 0) / arr.length;
+      let bucket = '9-11';
+      if (avg <= 3.5) bucket = '1-3';
+      else if (avg <= 6.5) bucket = '4-6';
+      else if (avg <= 8.5) bucket = '7-8';
+      insightsBatPosByPlayer[name] = bucket;
+    });
+    insightsBatPosEvents = events;
+    insightsBatPosCoveredMatches = coveredMatches;
+  } catch (e) {
+    console.warn('[AP] batting position load failed', e && e.message ? e.message : e);
+  }
+  insightsBatPosLoadedSignature = targetSignature;
+  insightsBatPosLoaded = true;
+  insightsBatPosLoading = false;
+  if (insightsBatPosReloadRequested || getCompletedMatchesSignature() !== insightsBatPosLoadedSignature) {
+    insightsBatPosReloadRequested = false;
+    resetInsightsBatPosCache();
+    if (currentTab === 'insights' && insightsSubTab === 'roleEfficiency') loadBattingPositionBuckets();
+    return;
+  }
+  if (currentTab === 'insights' && insightsSubTab === 'roleEfficiency') renderInsights();
+}
+
+function renderInsightsMomentum(series) {
+  ensureInsightsVisibleTeams();
+  if (!series.matches.length) return '<div class="insight-card">No completed matches yet.</div>';
+  const visible = TEAMS.filter(t => insightsMomentumVisibleTeams[t.name]);
+  const chips = '<div class="insight-controls">'
+    + '<button class="insight-action-btn" onclick="setAllMomentumTeams(true)">Select All</button>'
+    + '<button class="insight-action-btn" onclick="setAllMomentumTeams(false)">Clear All</button>'
+    + visible.length + ' selected</div>'
+    + '<div class="insight-controls">' + TEAMS.map(t => '<label style="font-size:12px;color:var(--muted);display:flex;align-items:center;gap:6px;"><input type="checkbox" ' + (insightsMomentumVisibleTeams[t.name] ? 'checked' : '') + ' onchange="toggleMomentumTeam(\'' + t.name + '\')">' + t.name + '</label>').join('') + '</div>';
+
+  const w = 980, h = 420, pl = 62, pr = 30, pt = 20, pb = 58;
+  const n = series.matches.length;
+  let maxY = 1;
+  visible.forEach(t => {
+    const arr = series.cumulative[t.name] || [];
+    const localMax = arr.length ? Math.max(...arr) : 0;
+    if (localMax > maxY) maxY = localMax;
+  });
+  const x = i => pl + (n <= 1 ? 0 : (i * (w - pl - pr) / (n - 1)));
+  const y = v => h - pb - (v * (h - pt - pb) / maxY);
+  const yTicks = 6;
+  const xGrid = Array.from({ length: n }, (_, i) => '<line x1="' + x(i).toFixed(1) + '" y1="' + pt + '" x2="' + x(i).toFixed(1) + '" y2="' + (h - pb) + '" stroke="#163555" stroke-width="1" />').join('');
+  const yGrid = Array.from({ length: yTicks + 1 }, (_, i) => {
+    const v = (maxY * i / yTicks);
+    const yy = y(v);
+    return '<line x1="' + pl + '" y1="' + yy.toFixed(1) + '" x2="' + (w - pr) + '" y2="' + yy.toFixed(1) + '" stroke="#163555" stroke-width="1" />'
+      + '<text x="' + (pl - 8) + '" y="' + (yy + 4).toFixed(1) + '" fill="#9fb8d8" font-size="11" text-anchor="end">' + Math.round(v) + '</text>';
+  }).join('');
+  const xTicks = Array.from({ length: n }, (_, i) => '<text x="' + x(i).toFixed(1) + '" y="' + (h - pb + 16) + '" fill="#9fb8d8" font-size="10" text-anchor="middle">' + (i + 1) + '</text>').join('');
+  const lines = visible.map((t, idx) => {
+    const pts = (series.cumulative[t.name] || []).map((v, i) => x(i).toFixed(1) + ',' + y(v).toFixed(1)).join(' ');
+    return '<polyline fill="none" stroke="' + insightPalette(idx) + '" stroke-width="2.5" points="' + pts + '" />';
+  }).join('');
+  const legend = visible.map((t, idx) => {
+    const arr = series.cumulative[t.name] || [];
+    const fin = arr.length ? arr[arr.length - 1] : 0;
+    return '<div class="insight-legend-item"><span class="insight-dot" style="background:' + insightPalette(idx) + '"></span>' + t.name + ': ' + fin + '</div>';
+  }).join('');
+
+  return '<div class="insight-card"><div class="insight-title">Team Momentum</div>' + chips
+    + '<svg viewBox="0 0 ' + w + ' ' + h + '" style="width:100%;height:auto;background:#071325;border:1px solid #123050;border-radius:8px;">'
+    + xGrid + yGrid + lines + xTicks
+    + '<line x1="' + pl + '" y1="' + (h - pb) + '" x2="' + (w - pr) + '" y2="' + (h - pb) + '" stroke="#2a5274" stroke-width="1.3" />'
+    + '<line x1="' + pl + '" y1="' + pt + '" x2="' + pl + '" y2="' + (h - pb) + '" stroke="#2a5274" stroke-width="1.3" />'
+    + '<text x="' + ((pl + w - pr) / 2) + '" y="' + (h - 14) + '" fill="#c9d9eb" font-size="12" text-anchor="middle">Match Number</text>'
+    + '<text x="18" y="' + ((pt + h - pb) / 2) + '" transform="rotate(-90 18 ' + ((pt + h - pb) / 2) + ')" fill="#c9d9eb" font-size="12" text-anchor="middle">Cumulative Points</text>'
+    + '</svg><div class="insight-legend">' + legend + '</div></div>';
+}
+
+function renderInsightsRankFlow(series) {
+  if (!series.matches.length) return '<div class="insight-card">No completed matches yet.</div>';
+  const w = 980, h = 420, pl = 72, pr = 70, pt = 24, pb = 58;
+  const n = series.matches.length;
+  const x = i => pl + (insightsRankMode === 'slope' ? (i ? (w - pl - pr) : 0) : (n <= 1 ? 0 : i * (w - pl - pr) / (n - 1)));
+  const y = rank => pt + ((rank - 1) * (h - pt - pb) / (TEAMS.length - 1));
+  const xTicksN = insightsRankMode === 'slope' ? 2 : n;
+  const xGrid = Array.from({ length: xTicksN }, (_, i) => {
+    const xi = insightsRankMode === 'slope' ? x(i) : x(i);
+    const lbl = insightsRankMode === 'slope' ? (i === 0 ? '1' : String(n)) : String(i + 1);
+    return '<line x1="' + xi.toFixed(1) + '" y1="' + pt + '" x2="' + xi.toFixed(1) + '" y2="' + (h-pb) + '" stroke="#163555" />'
+      + '<text x="' + xi.toFixed(1) + '" y="' + (h - pb + 16) + '" fill="#9fb8d8" font-size="10" text-anchor="middle">' + lbl + '</text>';
+  }).join('');
+  const yGrid = Array.from({ length: TEAMS.length }, (_, i) => {
+    const rank = i + 1;
+    const yy = y(rank);
+    return '<line x1="' + pl + '" y1="' + yy.toFixed(1) + '" x2="' + (w-pr) + '" y2="' + yy.toFixed(1) + '" stroke="#163555" />'
+      + '<text x="' + (pl - 8) + '" y="' + (yy + 4).toFixed(1) + '" fill="#9fb8d8" font-size="11" text-anchor="end">' + rank + '</text>';
+  }).join('');
+  const lines = TEAMS.map((t, idx) => {
+    const arr = series.ranks[t.name] || [];
+    if (!arr.length) return '';
+    const source = insightsRankMode === 'slope' ? [arr[0], arr[arr.length - 1]] : arr;
+    const pts = source.map((r, i) => x(i).toFixed(1) + ',' + y(r).toFixed(1)).join(' ');
+    return '<polyline fill="none" stroke="' + insightPalette(idx) + '" stroke-width="2.2" points="' + pts + '" />';
+  }).join('');
+  const modeBtns = '<div class="insight-controls">'
+    + '<button class="insights-subtab ' + (insightsRankMode === 'slope' ? 'active' : '') + '" onclick="setInsightsRankMode(\'slope\')">Slope</button>'
+    + '<button class="insights-subtab ' + (insightsRankMode === 'bump' ? 'active' : '') + '" onclick="setInsightsRankMode(\'bump\')">Bump</button>'
+    + '</div>';
+  return '<div class="insight-card"><div class="insight-title">Rank Flow</div>' + modeBtns
+    + '<svg viewBox="0 0 ' + w + ' ' + h + '" style="width:100%;height:auto;background:#071325;border:1px solid #123050;border-radius:8px;">'
+    + xGrid + yGrid + lines
+    + '<line x1="' + pl + '" y1="' + (h - pb) + '" x2="' + (w-pr) + '" y2="' + (h-pb) + '" stroke="#2a5274" />'
+    + '<line x1="' + pl + '" y1="' + pt + '" x2="' + pl + '" y2="' + (h-pb) + '" stroke="#2a5274" />'
+    + '<text x="' + ((pl + w - pr) / 2) + '" y="' + (h - 14) + '" fill="#c9d9eb" font-size="12" text-anchor="middle">Match Number</text>'
+    + '<text x="18" y="' + ((pt + h - pb) / 2) + '" transform="rotate(-90 18 ' + ((pt + h - pb) / 2) + ')" fill="#c9d9eb" font-size="12" text-anchor="middle">Rank</text>'
+    + '</svg></div>';
+}
+
+function renderInsightsRoleEfficiency() {
+  if (!insightsBatPosLoaded && !insightsBatPosLoading) loadBattingPositionBuckets();
+  const controls = '<div class="insight-controls">'
+    + '<button class="insights-subtab ' + (insightsRoleMode === 'batting' ? 'active' : '') + '" onclick="setInsightsRoleMode(\'batting\')">Batting Position Drilldown</button>'
+    + '<button class="insights-subtab ' + (insightsRoleMode === 'bowling' ? 'active' : '') + '" onclick="setInsightsRoleMode(\'bowling\')">Bowling Type/Arm Drilldown</button>'
+    + '</div>';
+
+  if (insightsRoleMode === 'batting') {
+    const bucketRanges = {
+      '1-3': [1, 2, 3],
+      '4-6': [4, 5, 6],
+      '7-8': [7, 8],
+      '9-11': [9, 10, 11]
+    };
+    const posColors = {
+      1: '#fff176', 2: '#ffd54f', 3: '#ffb300',
+      4: '#b9f6ca', 5: '#69f0ae', 6: '#00e676',
+      7: '#b2ebf2', 8: '#4dd0e1',
+      9: '#ffccbc', 10: '#ff8a65', 11: '#ff5722'
+    };
+
+    const byBucketPos = { '1-3': {}, '4-6': {}, '7-8': {}, '9-11': {} };
+    Object.values(bucketRanges).flat().forEach(p => {
+      Object.keys(byBucketPos).forEach(b => { byBucketPos[b][p] = 0; });
+    });
+
+    (insightsBatPosEvents || []).forEach(ev => {
+      const p = ev.position;
+      let b = null;
+      if (p <= 3) b = '1-3';
+      else if (p <= 6) b = '4-6';
+      else if (p <= 8) b = '7-8';
+      else b = '9-11';
+      byBucketPos[b][p] = (byBucketPos[b][p] || 0) + ev.points;
+    });
+
+    const knownByPlayerMatch = {};
+    (insightsBatPosEvents || []).forEach(ev => {
+      const keyA = ev.playerName + '||' + ev.matchLabel;
+      const keyB = ev.perfKey + '||' + ev.matchLabel;
+      knownByPlayerMatch[keyA] = (knownByPlayerMatch[keyA] || 0) + ev.points;
+      if (keyB !== keyA) {
+        knownByPlayerMatch[keyB] = (knownByPlayerMatch[keyB] || 0) + ev.points;
+      }
+    });
+
+    const unknownRows = [];
+    const roster = getRosterLookup();
+    getScoringMatches().forEach(match => {
+      const matchLabel = match.label || '';
+      if (!insightsBatPosCoveredMatches[matchLabel]) return;
+      Object.entries(match.performances || {}).forEach(([perfKey, perf]) => {
+        const ro = roster[perfKey];
+        if (!ro || (ro.role !== 'BAT' && ro.role !== 'ALL' && ro.role !== 'WIC')) return;
+        const battingPts = calcBattingOnlyPoints({ ...perf, playerName: perfKey, role: ro.role });
+        if (battingPts === 0) return;
+        const key = perfKey + '||' + matchLabel;
+        const known = knownByPlayerMatch[key] || 0;
+        const diff = battingPts - known;
+        if (Math.abs(diff) >= 0.5) {
+          unknownRows.push({ playerName: perfKey, matchLabel: matchLabel || 'Match', pts: Math.round(diff) });
+        }
+      });
+    });
+
+    const bucketTotals = Object.keys(bucketRanges).reduce((acc, b) => {
+      acc[b] = bucketRanges[b].reduce((s, p) => s + (byBucketPos[b][p] || 0), 0);
+      return acc;
+    }, {});
+
+    const bucketCards = Object.keys(bucketRanges).map(b => {
+      const total = bucketTotals[b] || 0;
+      const segs = bucketRanges[b].map(p => {
+        const v = byBucketPos[b][p] || 0;
+        if (v <= 0 || total <= 0) return '';
+        const w = Math.max(3, (v / total) * 100);
+        return '<div title="Pos ' + p + ': ' + Math.round(v) + ' pts" style="height:100%;width:' + w.toFixed(2) + '%;background:' + (posColors[p] || '#999') + ';"></div>';
+      }).join('');
+      const posLegend = bucketRanges[b].map(p => {
+        const v = byBucketPos[b][p] || 0;
+        return '<span style="display:inline-flex;align-items:center;gap:5px;margin-right:10px;font-size:11px;color:var(--muted);"><span style="width:8px;height:8px;border-radius:50%;background:' + (posColors[p] || '#999') + ';"></span>' + p + ': ' + Math.round(v) + '</span>';
+      }).join('');
+      return '<div style="margin-bottom:10px;"><div style="display:flex;justify-content:space-between;font-size:12px;color:var(--muted);"><span>Position ' + b + '</span><span>' + Math.round(total) + '</span></div>'
+        + '<div class="insight-stack" style="height:18px;">' + segs + '</div><div style="margin-top:4px;">' + posLegend + '</div></div>';
+    }).join('');
+
+    const unknownDetails = unknownRows.length
+      ? '<div style="margin-top:10px;"><div class="insight-title" style="margin-bottom:6px;">Unknown Contributors</div><table class="insight-table"><thead><tr><th>Player</th><th>Match</th><th>Points</th></tr></thead><tbody>'
+        + unknownRows.slice(0, 40).map(r => '<tr><td>' + r.playerName + '</td><td>' + r.matchLabel + '</td><td>' + r.pts + '</td></tr>').join('')
+        + '</tbody></table><div style="font-size:11px;color:var(--muted);margin-top:6px;">Unknown means batting position was not captured from ESPN innings for that player/match (for example no batting row with batted_type=yes, API mismatch, or unresolved name).</div></div>'
+      : '<div style="font-size:11px;color:var(--green);margin-top:8px;">No unknown contributors.</div>';
+
+    return '<div class="insight-card"><div class="insight-title">Role Efficiency · Batting Position</div>' + controls
+      + (insightsBatPosLoading ? '<div style="font-size:12px;color:var(--muted);margin-bottom:8px;">Loading batting positions from ESPN...</div>' : '')
+      + bucketCards + unknownDetails
+      + '</div>';
+  }
+
+  const bowlAgg = {
+    'Spinner-Left': 0,
+    'Spinner-Right': 0,
+    'Fast-Left': 0,
+    'Fast-Right': 0,
+    'Unknown': 0
+  };
+  const unknownRows = [];
+  const roster = getRosterLookup();
+  getScoringMatches().forEach(match => {
+    Object.entries(match.performances || {}).forEach(([name, perf]) => {
+      const ro = roster[name];
+      if (!ro || (ro.role !== 'BOW' && ro.role !== 'ALL')) return;
+      const bowlPts = calcBowlingOnlyPoints({ ...perf, playerName: name, role: ro.role });
+      if (bowlPts === 0) return;
+      const p = PLAYER_BOWLING_PROFILE[name];
+      if (!p) {
+        bowlAgg.Unknown += bowlPts;
+        unknownRows.push({ playerName: name, matchLabel: match.label || 'Match', pts: Math.round(bowlPts) });
+        return;
+      }
+      const key = p.type + '-' + p.arm;
+      bowlAgg[key] = (bowlAgg[key] || 0) + bowlPts;
+    });
+  });
+  const rows = Object.entries(bowlAgg).filter(([k, v]) => !(k === 'Unknown' && v === 0 && !unknownRows.length));
+  const max = Math.max(...rows.map(([,v]) => v), 1);
+  const unknownDetails = unknownRows.length
+    ? '<div style="margin-top:10px;"><div class="insight-title" style="margin-bottom:6px;">Unknown Contributors</div><table class="insight-table"><thead><tr><th>Player</th><th>Match</th><th>Points</th></tr></thead><tbody>'
+      + unknownRows.slice(0, 50).map(r => '<tr><td>' + r.playerName + '</td><td>' + r.matchLabel + '</td><td>' + r.pts + '</td></tr>').join('')
+      + '</tbody></table><div style="font-size:11px;color:var(--muted);margin-top:6px;">Unknown means bowling profile (type/arm) is missing for that player in the app mapping.</div></div>'
+    : '<div style="font-size:11px;color:var(--green);margin-top:8px;">No unknown contributors.</div>';
+  return '<div class="insight-card"><div class="insight-title">Role Efficiency · Bowling Type/Arm</div>' + controls
+    + rows.map(([k,v]) => '<div style="margin-bottom:8px;"><div style="display:flex;justify-content:space-between;font-size:12px;color:var(--muted);"><span>' + k + '</span><span>' + Math.round(v) + '</span></div><div class="insight-stack"><div class="insight-seg-base" style="width:' + Math.round((v/max)*100) + '%"></div></div></div>').join('')
+    + unknownDetails
+    + '</div>';
+}
+
+function renderInsightsConsistencyScatter() {
+  const pt = getPlayerTotals();
+  const data = Object.entries(pt).map(([name, v]) => {
+    const vals = (v.matchPts || []).map(m => m.pts);
+    const avg = vals.length ? vals.reduce((s, x) => s + x, 0) / vals.length : 0;
+    const variance = vals.length ? vals.reduce((s, x) => s + Math.pow(x - avg, 2), 0) / vals.length : 0;
+    return { name, role: v.role, avg, std: Math.sqrt(variance), total: v.pts };
+  }).filter(x => x.total > 0);
+  if (!data.length) return '<div class="insight-card">No player data yet.</div>';
+  const maxX = Math.max(...data.map(d => d.avg), 1);
+  const maxY = Math.max(...data.map(d => d.std), 1);
+  const maxT = Math.max(...data.map(d => d.total), 1);
+  const w = 980, h = 420, pl = 62, pr = 24, ptp = 18, pb = 58;
+  const cx = v => pl + (v / maxX) * (w - pl - pr);
+  const cy = v => h - pb - (v / maxY) * (h - ptp - pb);
+  const colorByRole = { BAT: '#ffb800', BOW: '#00e676', ALL: '#00bcd4', WIC: '#ff5c00' };
+  const xTicks = 6, yTicks = 6;
+  const xGrid = Array.from({ length: xTicks + 1 }, (_, i) => {
+    const val = maxX * i / xTicks;
+    const x = cx(val);
+    return '<line x1="' + x.toFixed(1) + '" y1="' + ptp + '" x2="' + x.toFixed(1) + '" y2="' + (h-pb) + '" stroke="#163555" />'
+      + '<text x="' + x.toFixed(1) + '" y="' + (h - pb + 16) + '" fill="#9fb8d8" font-size="10" text-anchor="middle">' + Math.round(val) + '</text>';
+  }).join('');
+  const yGrid = Array.from({ length: yTicks + 1 }, (_, i) => {
+    const val = maxY * i / yTicks;
+    const y = cy(val);
+    return '<line x1="' + pl + '" y1="' + y.toFixed(1) + '" x2="' + (w-pr) + '" y2="' + y.toFixed(1) + '" stroke="#163555" />'
+      + '<text x="' + (pl - 8) + '" y="' + (y + 4).toFixed(1) + '" fill="#9fb8d8" font-size="11" text-anchor="end">' + Math.round(val) + '</text>';
+  }).join('');
+  const circles = data.map(d => '<circle cx="' + cx(d.avg).toFixed(1) + '" cy="' + cy(d.std).toFixed(1) + '" r="' + (3 + (d.total / maxT) * 7).toFixed(1) + '" fill="' + (colorByRole[d.role] || '#cccccc') + '" fill-opacity="0.75"><title>' + d.name + ' · avg ' + Math.round(d.avg) + ' · sigma ' + Math.round(d.std) + '</title></circle>').join('');
+  return '<div class="insight-card"><div class="insight-title">Consistency vs Ceiling</div><svg viewBox="0 0 ' + w + ' ' + h + '" style="width:100%;height:auto;background:#071325;border:1px solid #123050;border-radius:8px;">'
+    + xGrid + yGrid + circles
+    + '<line x1="' + pl + '" y1="' + (h-pb) + '" x2="' + (w-pr) + '" y2="' + (h-pb) + '" stroke="#2a5274" />'
+    + '<line x1="' + pl + '" y1="' + ptp + '" x2="' + pl + '" y2="' + (h-pb) + '" stroke="#2a5274" />'
+    + '<text x="' + ((pl + w - pr) / 2) + '" y="' + (h - 14) + '" fill="#c9d9eb" font-size="12" text-anchor="middle">Average Points per Match</text>'
+    + '<text x="18" y="' + ((ptp + h - pb) / 2) + '" transform="rotate(-90 18 ' + ((ptp + h - pb) / 2) + ')" fill="#c9d9eb" font-size="12" text-anchor="middle">Volatility (Std Dev)</text>'
+    + '</svg></div>';
+}
+
+function renderInsightsDotEconomy(series) {
+  const roster = getRosterLookup();
+  const agg = {};
+  Object.keys(roster).forEach(name => { agg[name] = { dots: 0, eco: 0, wk: 0, total: 0 }; });
+  series.matches.forEach(match => {
+    Object.entries(match.performances || {}).forEach(([name, perf]) => {
+      const ro = roster[name];
+      if (!ro) return;
+      const p = { ...perf, role: ro.role };
+      const dotsPts = (p.dots || 0) * 2;
+      let ecoPts = 0;
+      if ((p.overs || 0) >= 2) {
+        const eco = (p.runsConceded || 0) / (p.overs || 1);
+        if (eco < 4) ecoPts = 40;
+        else if (eco < 5) ecoPts = 35;
+        else if (eco < 6) ecoPts = 25;
+        else if (eco < 9) ecoPts = 20;
+        else if (eco < 11) ecoPts = 5;
+        else if (eco < 13) ecoPts = -10;
+        else ecoPts = -20;
+      }
+      const wk = p.wickets || 0;
+      let wkPts = wk * 25;
+      if (wk >= 5) wkPts += 70;
+      else if (wk >= 3) wkPts += 40;
+      else if (wk >= 2) wkPts += 25;
+      agg[name].dots += dotsPts;
+      agg[name].eco += ecoPts;
+      agg[name].wk += wkPts;
+      agg[name].total += dotsPts + ecoPts + wkPts;
+    });
+  });
+  let rows = Object.entries(agg).filter(([,v]) => v.wk || v.dots || v.eco).map(([name,v]) => ({ name, ...v }));
+  if (insightsDotOrder === 'alpha') rows.sort((a,b)=>a.name.localeCompare(b.name));
+  else if (insightsDotOrder === 'wickets') rows.sort((a,b)=>b.wk-a.wk);
+  else if (insightsDotOrder === 'dots') rows.sort((a,b)=>b.dots-a.dots);
+  else rows.sort((a,b)=>b.total-a.total);
+  rows = rows.slice(0, 20);
+  if (!rows.length) return '<div class="insight-card">No bowling contribution data yet.</div>';
+
+  const controls = '<div class="insight-controls" style="justify-content:flex-end;"><label style="font-size:12px;color:var(--muted);">Order</label><select class="insight-select" onchange="setInsightsDotOrder(this.value)">'
+    + '<option value="total"' + (insightsDotOrder==='total'?' selected':'') + '>Total points</option>'
+    + '<option value="alpha"' + (insightsDotOrder==='alpha'?' selected':'') + '>Alphabetical</option>'
+    + '<option value="wickets"' + (insightsDotOrder==='wickets'?' selected':'') + '>Wickets component</option>'
+    + '<option value="dots"' + (insightsDotOrder==='dots'?' selected':'') + '>Dot component</option></select></div>';
+
+  const w = 1140, h = 430, pl = 64, pr = 20, pt = 20, pb = 110;
+  const maxPos = Math.max(...rows.map(r => Math.max(0, r.wk) + Math.max(0, r.dots) + Math.max(0, r.eco)), 1);
+  const minNeg = Math.min(...rows.map(r => Math.min(0, r.eco)), 0);
+  const yTop = maxPos;
+  const yBottom = minNeg;
+  const yScale = v => pt + (yTop - v) * (h - pt - pb) / (yTop - yBottom || 1);
+  const plotW = w - pl - pr;
+  const barW = Math.max(12, Math.floor(plotW / rows.length * 0.65));
+  const gap = plotW / rows.length;
+  const yTicks = 6;
+  const yGrid = Array.from({ length: yTicks + 1 }, (_, i) => {
+    const v = yBottom + (i * (yTop - yBottom) / yTicks);
+    const yy = yScale(v);
+    return '<line x1="' + pl + '" y1="' + yy.toFixed(1) + '" x2="' + (w-pr) + '" y2="' + yy.toFixed(1) + '" stroke="#163555" />'
+      + '<text x="' + (pl - 8) + '" y="' + (yy + 4).toFixed(1) + '" fill="#9fb8d8" font-size="11" text-anchor="end">' + Math.round(v) + '</text>';
+  }).join('');
+
+  const bars = rows.map((r, i) => {
+    const x = pl + i * gap + (gap - barW) / 2;
+    const zeroY = yScale(0);
+    const wkH = Math.max(0, yScale(0) - yScale(Math.max(0, r.wk)));
+    const dotH = Math.max(0, yScale(Math.max(0, r.wk)) - yScale(Math.max(0, r.wk) + Math.max(0, r.dots)));
+    const ecoPosH = Math.max(0, yScale(Math.max(0, r.wk) + Math.max(0, r.dots)) - yScale(Math.max(0, r.wk) + Math.max(0, r.dots) + Math.max(0, r.eco)));
+    const ecoNegH = Math.max(0, yScale(Math.min(0, r.eco)) - zeroY);
+    const topBase = yScale(Math.max(0, r.wk));
+    const topDots = yScale(Math.max(0, r.wk) + Math.max(0, r.dots));
+    const totalTip = r.name + ' · Total: ' + Math.round(r.total) + ' (Wk ' + Math.round(r.wk) + ', Dots ' + Math.round(r.dots) + ', Eco ' + Math.round(r.eco) + ')';
+    return '<g>'
+      + (wkH > 0 ? '<rect x="' + x.toFixed(1) + '" y="' + topBase.toFixed(1) + '" width="' + barW + '" height="' + wkH.toFixed(1) + '" fill="#1b6ca8"><title>' + r.name + ' · Wicket Pts: ' + Math.round(r.wk) + '</title></rect>' : '')
+      + (dotH > 0 ? '<rect x="' + x.toFixed(1) + '" y="' + topDots.toFixed(1) + '" width="' + barW + '" height="' + dotH.toFixed(1) + '" fill="#00e676"><title>' + r.name + ' · Dot Pts: ' + Math.round(r.dots) + '</title></rect>' : '')
+      + (ecoPosH > 0 ? '<rect x="' + x.toFixed(1) + '" y="' + yScale(Math.max(0, r.wk) + Math.max(0, r.dots) + Math.max(0, r.eco)).toFixed(1) + '" width="' + barW + '" height="' + ecoPosH.toFixed(1) + '" fill="#ffb800"><title>' + r.name + ' · Eco Bonus: ' + Math.round(Math.max(0, r.eco)) + '</title></rect>' : '')
+      + (ecoNegH > 0 ? '<rect x="' + x.toFixed(1) + '" y="' + zeroY.toFixed(1) + '" width="' + barW + '" height="' + ecoNegH.toFixed(1) + '" fill="#ff2d55"><title>' + r.name + ' · Eco Penalty: ' + Math.round(Math.min(0, r.eco)) + '</title></rect>' : '')
+      + '<rect x="' + x.toFixed(1) + '" y="' + yScale(Math.max(0, r.wk) + Math.max(0, r.dots) + Math.max(0, r.eco)).toFixed(1) + '" width="' + barW + '" height="' + (Math.max(1, yScale(Math.min(0, r.eco)) - yScale(Math.max(0, r.wk) + Math.max(0, r.dots) + Math.max(0, r.eco)))).toFixed(1) + '" fill="transparent"><title>' + totalTip + '</title></rect>'
+      + '<text x="' + (x + barW/2).toFixed(1) + '" y="' + (h - pb + 28) + '" fill="#9fb8d8" font-size="10" text-anchor="end" transform="rotate(-45 ' + (x + barW/2).toFixed(1) + ' ' + (h - pb + 28) + ')">' + r.name + '</text>'
+      + '</g>';
+  }).join('');
+
+  return '<div class="insight-card"><div class="insight-title">Dot-ball Economy Value</div>' + controls
+    + '<svg viewBox="0 0 ' + w + ' ' + h + '" style="width:100%;height:auto;background:#071325;border:1px solid #123050;border-radius:8px;">'
+    + yGrid + bars
+    + '<line x1="' + pl + '" y1="' + yScale(0).toFixed(1) + '" x2="' + (w-pr) + '" y2="' + yScale(0).toFixed(1) + '" stroke="#2a5274" />'
+    + '<line x1="' + pl + '" y1="' + pt + '" x2="' + pl + '" y2="' + (h-pb) + '" stroke="#2a5274" />'
+    + '<text x="' + ((pl + w - pr) / 2) + '" y="' + (h - 12) + '" fill="#c9d9eb" font-size="12" text-anchor="middle">Player</text>'
+    + '<text x="18" y="' + ((pt + h - pb) / 2) + '" transform="rotate(-90 18 ' + ((pt + h - pb) / 2) + ')" fill="#c9d9eb" font-size="12" text-anchor="middle">Points</text>'
+    + '</svg><div class="insight-legend"><div class="insight-legend-item"><span class="insight-dot" style="background:#1b6ca8"></span>Wicket Pts</div><div class="insight-legend-item"><span class="insight-dot" style="background:#00e676"></span>Dot Pts</div><div class="insight-legend-item"><span class="insight-dot" style="background:#ffb800"></span>Eco Bonus</div><div class="insight-legend-item"><span class="insight-dot" style="background:#ff2d55"></span>Eco Penalty</div></div></div>';
+}
+
+function renderInsights() {
+  const wrap = document.getElementById('insightsView');
+  if (!wrap) return;
+  const tabs = [
+    { key: 'momentum', label: 'Momentum' },
+    { key: 'cvImpact', label: 'C/VC Impact' },
+    { key: 'rankFlow', label: 'Rank Flow' },
+    { key: 'roleEfficiency', label: 'Role Efficiency' },
+    { key: 'scatter', label: 'Consistency' },
+    { key: 'dotEco', label: 'Dot/Eco' },
+    { key: 'h2h', label: 'Head-to-Head' }
+  ];
+  if (!tabs.some(t => t.key === insightsSubTab)) insightsSubTab = 'momentum';
+  const series = getInsightsSeriesData();
+  let body = '';
+  if (insightsSubTab === 'momentum') body = renderInsightsMomentum(series);
+  if (insightsSubTab === 'cvImpact') body = renderInsightsCvImpact(series);
+  if (insightsSubTab === 'rankFlow') body = renderInsightsRankFlow(series);
+  if (insightsSubTab === 'roleEfficiency') body = renderInsightsRoleEfficiency();
+  if (insightsSubTab === 'scatter') body = renderInsightsConsistencyScatter();
+  if (insightsSubTab === 'dotEco') body = renderInsightsDotEconomy(series);
+  if (insightsSubTab === 'h2h') body = renderInsightsHeadToHead(series);
+
+  wrap.innerHTML = '<div class="insights-subtabs">'
+    + tabs.map(t => '<button class="insights-subtab ' + (insightsSubTab===t.key?'active':'') + '" onclick="switchInsightsSubTab(\'' + t.key + '\')">' + t.label + '</button>').join('')
+    + '</div>' + body;
 }
 
 // ── CAPTAINS VIEW ──
@@ -1903,6 +3004,7 @@ function normalizePlayerName(name) {
     sooryavanshi: 'Vaibhav Suryavanshi',
     yashaswijaiswal: 'Yashasvi Jaiswal',
     yashasvijaiswal: 'Yashasvi Jaiswal',
+    kartiksharma: 'Karthik Sharma',
     digveshrathi: 'Digvesh Singh',
     digveshsinghrathi: 'Digvesh Singh'
   };

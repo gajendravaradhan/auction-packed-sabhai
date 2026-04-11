@@ -78,3 +78,23 @@ Purpose: Prevent repeat regressions and enforce safe delivery habits for this co
 
 If confidence is below high for a scoring-impacting change, stop and validate before commit/push.
 Accuracy and data safety are higher priority than speed.
+
+## v3.0 Learnings (April 11, 2026)
+
+1. Derived insights caches must be invalidated on source-data boundary changes
+- Batting-position drilldown data is derived from completed matches and ESPN enrichment.
+- A one-time load flag is insufficient when new completed matches arrive.
+- Cache invalidation should be tied to a deterministic completed-match signature.
+
+2. Invalidation must be scoring-agnostic
+- Auto-refresh behavior for Insights should not touch any scoring functions.
+- Keep cache lifecycle logic separate from points calculation paths.
+
+3. Handle in-flight refresh safely
+- If data changes while enrichment is loading, queue a follow-up reload.
+- This avoids stale UI while preventing overlapping load races.
+
+4. Validate with reversible in-memory simulation before release
+- Simulate done-match changes in browser memory only.
+- Restore all pre-test state after checks.
+- Never call save paths during simulation when production data must remain untouched.

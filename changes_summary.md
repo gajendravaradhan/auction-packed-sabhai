@@ -6,6 +6,29 @@
 
 ---
 
+## v3.0 Release Update (April 11, 2026)
+
+**Release Version:** 3.0  
+**Release Title:** Auction PAcked v3.0
+
+### Highlights
+
+1. Insights batting-position auto-refresh after completed matches
+- Added completed-match signature tracking for batting-position cache.
+- Cache now invalidates automatically when done-match set changes.
+- Batting-position enrichment now reloads without manual page refresh.
+
+2. Safe in-flight refresh handling
+- Added reload-request guard when source data changes during enrichment load.
+- Prevents stale insights state while avoiding duplicate overlapping loads.
+
+3. Data safety preserved
+- No changes to scoring functions or points formulas.
+- No listener-triggered writes introduced.
+- Validation included in-memory live simulation with full state restore.
+
+---
+
 ## Post-v1.0 Updates (April 11, 2026)
 
 This section captures everything shipped after the original v1.0 summary.
