@@ -1,6 +1,6 @@
 # Auction Packed · Live
 
-**Version:** 4.0  
+**Version:** 4.1  
 **Status:** Production Ready  
 **Last Updated:** April 14, 2026
 
@@ -233,6 +233,13 @@ firebase.initializeApp({
 ---
 
 ## 📈 Version History
+
+### v4.1 (April 14, 2026)
+- ✅ Dynamic ESPN match ID resolution via live-scores API
+- ✅ `fetchAndStoreESPNLiveMatchIds()` — fetches and stores correct `match_id` + `slug` per match when live
+- ✅ `resolveESPNMatchInfo()` — single authority for ESPN IDs; Firebase-stored values override hard-coded schedule
+- ✅ `liveData.espnMatchSlugMap` — new Firebase field persisting resolved IDs permanently
+- ✅ All ESPN fetch call sites updated to use resolved values
 
 ### v4.0 (April 14, 2026)
 - ✅ Team slugs on Leaderboard and Live tab (custom nicknames as primary heading, real name in red)

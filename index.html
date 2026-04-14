@@ -490,11 +490,11 @@ const IPL_2026_SCHEDULE = [
   {match:18,espn_match_id:1527691,date:'2026-04-11',home:'DC',away:'CSK',venue:'Chennai',time:'19:30',slug:'chennai-super-kings-vs-delhi-capitals-18th-match-1527691',cricapi_match_id:null},
   {match:19,espn_match_id:1527692,date:'2026-04-12',home:'GT',away:'LSG',venue:'Lucknow',time:'15:30',slug:'gujarat-titans-vs-lucknow-super-giants-19th-match-1527692',cricapi_match_id:null},
   {match:20,espn_match_id:1527693,date:'2026-04-12',home:'RCB',away:'MI',venue:'Mumbai',time:'19:30',slug:'mumbai-indians-vs-royal-challengers-bengaluru-20th-match-1527693',cricapi_match_id:null},
-  {match:21,espn_match_id:1527694,date:'2026-04-13',home:'RR',away:'SRH',venue:'Hyderabad',time:'19:30',slug:'rajasthan-royals-vs-sunrisers-hyderabad-21st-match-1527694',cricapi_match_id:null},
-  {match:22,espn_match_id:1527695,date:'2026-04-14',home:'KKR',away:'CSK',venue:'Chennai',time:'19:30',slug:'chennai-super-kings-vs-kolkata-knight-riders-22nd-match-1527695',cricapi_match_id:null},
-  {match:23,espn_match_id:1527696,date:'2026-04-15',home:'LSG',away:'RCB',venue:'Bengaluru',time:'19:30',slug:'lucknow-super-giants-vs-royal-challengers-bengaluru-23rd-match-1527696',cricapi_match_id:null},
-  {match:24,espn_match_id:1527697,date:'2026-04-16',home:'PBKS',away:'MI',venue:'Mumbai',time:'19:30',slug:'mumbai-indians-vs-punjab-kings-24th-match-1527697',cricapi_match_id:null},
-  {match:25,espn_match_id:1527698,date:'2026-04-17',home:'KKR',away:'GT',venue:'Ahmedabad',time:'19:30',slug:'gujarat-titans-vs-kolkata-knight-riders-25th-match-1527698',cricapi_match_id:null},
+  {match:21,espn_match_id:1529264,date:'2026-04-13',home:'RR',away:'SRH',venue:'Hyderabad',time:'19:30',slug:'rajasthan-royals-vs-sunrisers-hyderabad-21st-match-1529264',cricapi_match_id:null},
+  {match:22,espn_match_id:1529265,date:'2026-04-14',home:'KKR',away:'CSK',venue:'Chennai',time:'19:30',slug:'chennai-super-kings-vs-kolkata-knight-riders-22nd-match-1529265',cricapi_match_id:null},
+  {match:23,espn_match_id:1529266,date:'2026-04-15',home:'LSG',away:'RCB',venue:'Bengaluru',time:'19:30',slug:'lucknow-super-giants-vs-royal-challengers-bengaluru-23rd-match-1529266',cricapi_match_id:null},
+  {match:24,espn_match_id:1529267,date:'2026-04-16',home:'PBKS',away:'MI',venue:'Mumbai',time:'19:30',slug:'mumbai-indians-vs-punjab-kings-24th-match-1529267',cricapi_match_id:null},
+  {match:25,espn_match_id:1529268,date:'2026-04-17',home:'KKR',away:'GT',venue:'Ahmedabad',time:'19:30',slug:'gujarat-titans-vs-kolkata-knight-riders-25th-match-1529268',cricapi_match_id:null},
   {match:26,espn_match_id:1527699,date:'2026-04-18',home:'DC',away:'RCB',venue:'Bengaluru',time:'15:30',slug:'delhi-capitals-vs-royal-challengers-bengaluru-26th-match-1527699',cricapi_match_id:null},
   {match:27,espn_match_id:1527700,date:'2026-04-18',home:'CSK',away:'SRH',venue:'Hyderabad',time:'19:30',slug:'chennai-super-kings-vs-sunrisers-hyderabad-27th-match-1527700',cricapi_match_id:null},
   {match:28,espn_match_id:1527701,date:'2026-04-19',home:'RR',away:'KKR',venue:'Kolkata',time:'15:30',slug:'kolkata-knight-riders-vs-rajasthan-royals-28th-match-1527701',cricapi_match_id:null},
@@ -925,6 +925,103 @@ function persistCricapiIdMapSilently() {
   });
 }
 
+function ensureEspnMatchSlugMap() {
+  if (!liveData.espnMatchSlugMap || typeof liveData.espnMatchSlugMap !== 'object' || Array.isArray(liveData.espnMatchSlugMap)) {
+    liveData.espnMatchSlugMap = {};
+  }
+}
+
+function persistEspnMatchSlugMapSilently() {
+  if (!window._db || !liveData.espnMatchSlugMap) return;
+  window._db.ref('live/espnMatchSlugMap').set(liveData.espnMatchSlugMap).catch(e => {
+    console.warn('[AP] Failed to persist ESPN match slug map:', e && e.message ? e.message : e);
+  });
+}
+
+// Returns the best-known {match_id, slug} for a schedule match.
+// Prefers dynamically-resolved values stored in Firebase; falls back to hard-coded schedule values.
+function resolveESPNMatchInfo(scheduleMatch) {
+  if (!scheduleMatch) return { match_id: null, slug: null };
+  ensureEspnMatchSlugMap();
+  const key = String(scheduleMatch.match);
+  const stored = liveData.espnMatchSlugMap[key];
+  if (stored && stored.match_id && stored.slug) {
+    return { match_id: stored.match_id, slug: stored.slug };
+  }
+  return { match_id: scheduleMatch.espn_match_id || null, slug: scheduleMatch.slug || null };
+}
+
+// Calls the ESPN liveScores endpoint, finds IPL matches, resolves their match_id+slug,
+// matches them back to IPL_2026_SCHEDULE entries, and persists the mapping once per match.
+async function fetchAndStoreESPNLiveMatchIds() {
+  try {
+    const url = 'https://espncricinfo-api.p.rapidapi.com/api/v1/cricketinfo/live-scores';
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-rapidapi-host': 'espncricinfo-api.p.rapidapi.com',
+        'x-rapidapi-key': 'ab1d0f5e94mshbb65ad32bc5b28ep12a94fjsn11d3ec803de9'
+      },
+      signal: AbortSignal.timeout(10000)
+    });
+    if (!response.ok) return;
+    const data = await response.json();
+    incrementApiCalls(1);
+
+    // Response shape: { result: [ ...matches ] }
+    const matchList = Array.isArray(data.result) ? data.result : [];
+
+    ensureEspnMatchSlugMap();
+    let changed = false;
+
+    for (const lm of matchList) {
+      // Only process IPL matches — series is a nested object { id, name, slug }
+      const seriesId   = String((lm.series && lm.series.id)   || '');
+      const seriesName = String((lm.series && lm.series.name) || '').toLowerCase();
+      const isIPL = seriesId === '1510719' || seriesName.includes('indian premier league') || seriesName.includes('ipl');
+      if (!isIPL) continue;
+
+      const rawMatchId = String(lm.match_id || '');
+      const rawSlug    = String(lm.slug || '');
+      if (!rawMatchId) continue;
+
+      // fetchESPNMatchDetails expects full match_slug = base-slug + '-' + match_id
+      // e.g. "chennai-super-kings-vs-kolkata-knight-riders-22nd-match" + "-" + "1529265"
+      const fullSlug = rawSlug ? `${rawSlug}-${rawMatchId}` : rawMatchId;
+
+      const matchDate = String(lm.start_date || '').slice(0, 10);
+
+      // Build a label from the teams array for matchScheduleTeams()
+      const teamNames = Array.isArray(lm.teams)
+        ? lm.teams.map(t => t.abbreviation || t.name || '').join(' vs ')
+        : '';
+
+      const scheduleEntry = IPL_2026_SCHEDULE.find(sm => {
+        if (!sm || !sm.home) return false;
+        if (matchDate && sm.date && sm.date !== matchDate) return false;
+        return matchScheduleTeams(sm, teamNames) || matchScheduleTeams(sm, rawSlug.replace(/-/g, ' '));
+      });
+
+      if (!scheduleEntry) continue;
+
+      const key = String(scheduleEntry.match);
+      const existing = liveData.espnMatchSlugMap[key];
+      if (!existing || existing.match_id !== rawMatchId || existing.slug !== fullSlug) {
+        liveData.espnMatchSlugMap[key] = { match_id: rawMatchId, slug: fullSlug };
+        changed = true;
+        console.log(`[ESPN] Resolved match ${scheduleEntry.match} (${scheduleEntry.home} vs ${scheduleEntry.away}): id=${rawMatchId} slug=${fullSlug}`);
+      }
+    }
+
+    // Persist the full liveData so espnMatchSlugMap is written atomically with everything else,
+    // avoiding a race where a concurrent saveLiveData call overwrites a child-path-only write.
+    if (changed) saveLiveData(true);
+  } catch (e) {
+    console.warn('[ESPN] fetchAndStoreESPNLiveMatchIds failed:', e && e.message ? e.message : e);
+  }
+}
+
 function normalizeTeamNameForMatchCheck(name) {
   return String(name || '').toLowerCase().replace(/[^a-z]/g, '');
 }
@@ -1038,6 +1135,7 @@ function initFirebaseListener() {
     }
     const mapChanged = ensureCricapiIdMap();
     if (mapChanged) persistCricapiIdMapSilently();
+    ensureEspnMatchSlugMap();
     renderTab(currentTab);
   });
 }
@@ -1051,6 +1149,7 @@ function saveLiveData(silent = false) {
     _lastKnownCaptains = JSON.parse(JSON.stringify(liveData.captains));
   }
   ensureCricapiIdMap();
+  ensureEspnMatchSlugMap();
   window._db.ref('live').set(liveData)
     .then(() => { if(!silent) showToast('Saved!','success'); })
     .catch(() => { if(!silent) showToast('Save failed','error'); });
@@ -2431,8 +2530,9 @@ async function loadBattingPositionBuckets() {
     const today = new Date().toISOString().slice(0, 10);
     const matches = (IPL_2026_SCHEDULE || []).filter(m => m && m.date && m.date <= today);
     for (const sm of matches) {
-      if (!sm.espn_match_id || !sm.slug) continue;
-      const data = await fetchESPNMatchDetails(sm.espn_match_id, sm.slug);
+      const espnInfo = resolveESPNMatchInfo(sm);
+      if (!espnInfo.match_id || !espnInfo.slug) continue;
+      const data = await fetchESPNMatchDetails(espnInfo.match_id, espnInfo.slug);
       if (!data) continue;
       const match = resolveLiveMatchForSchedule(sm);
       const innings = getESPNInnings(data) || [];
@@ -3966,9 +4066,14 @@ function getMatchesForESPNUpdate() {
   const today = new Date().toISOString().slice(0, 10);
   const lastUpdate = liveData.espnLastUpdate;
 
+  function hasESPNInfo(m) {
+    const info = resolveESPNMatchInfo(m);
+    return !!(info.match_id && info.slug);
+  }
+
   // If no checkpoint exists, get all matches up to today
   if (!lastUpdate) {
-    return IPL_2026_SCHEDULE.filter(m => m.date <= today && m.espn_match_id && m.slug);
+    return IPL_2026_SCHEDULE.filter(m => m.date <= today && hasESPNInfo(m));
   }
 
   // Get matches from the day after last update up to today
@@ -3977,7 +4082,7 @@ function getMatchesForESPNUpdate() {
   nextDay.setDate(nextDay.getDate() + 1);
   const nextDayStr = nextDay.toISOString().slice(0, 10);
 
-  return IPL_2026_SCHEDULE.filter(m => m.date >= nextDayStr && m.date <= today && m.espn_match_id && m.slug);
+  return IPL_2026_SCHEDULE.filter(m => m.date >= nextDayStr && m.date <= today && hasESPNInfo(m));
 }
 
 const ESPN_TEAM_MAP = {
@@ -4038,9 +4143,16 @@ async function syncEspnForScheduleMatchesAtomic(scheduleMatches, options = {}) {
   const seen = new Set();
   let synced = 0;
 
+  // Resolve live match IDs first so any today/live matches get correct ESPN IDs before we fetch
+  const today = new Date().toISOString().slice(0, 10);
+  const hasToday = (scheduleMatches || []).some(sm => sm && sm.date === today);
+  if (hasToday) await fetchAndStoreESPNLiveMatchIds();
+
   for (const scheduleMatch of (scheduleMatches || [])) {
-    if (!scheduleMatch || !scheduleMatch.espn_match_id || !scheduleMatch.slug) continue;
-    const key = String(scheduleMatch.espn_match_id);
+    if (!scheduleMatch) continue;
+    const espnInfo = resolveESPNMatchInfo(scheduleMatch);
+    if (!espnInfo.match_id || !espnInfo.slug) continue;
+    const key = String(espnInfo.match_id);
     if (seen.has(key)) continue;
     seen.add(key);
 
@@ -4050,7 +4162,7 @@ async function syncEspnForScheduleMatchesAtomic(scheduleMatches, options = {}) {
     }
     if (matchIndex === -1) continue;
 
-    const espnData = await fetchESPNMatchDetails(scheduleMatch.espn_match_id, scheduleMatch.slug);
+    const espnData = await fetchESPNMatchDetails(espnInfo.match_id, espnInfo.slug);
     if (!espnData) continue;
 
     parseESPNData(espnData, matchIndex);
@@ -4142,11 +4254,16 @@ async function fetchESPNDataManual() {
 
     statusEl.textContent = `Found ${matchesToUpdate.length} match${matchesToUpdate.length !== 1 ? 'es' : ''} to update. Fetching ESPN data...`;
     let synced = 0;
+
+    // Resolve live match IDs before iterating so today's matches get correct ESPN IDs
+    await fetchAndStoreESPNLiveMatchIds();
+
     const seriesMatches = await fetchSeriesMatchList();
 
     for (let i = 0; i < matchesToUpdate.length; i++) {
       const scheduleMatch = matchesToUpdate[i];
-      if (!scheduleMatch.espn_match_id || !scheduleMatch.slug) continue;
+      const espnInfo = resolveESPNMatchInfo(scheduleMatch);
+      if (!espnInfo.match_id || !espnInfo.slug) continue;
       const entry = verificationEntries[i];
 
       if (!scheduleMatch.cricapi_match_id && seriesMatches.length > 0) {
@@ -4175,7 +4292,7 @@ async function fetchESPNDataManual() {
       renderESPNVerificationBody(verificationEntries, `Verifying ${matchesToUpdate.length} match${matchesToUpdate.length !== 1 ? 'es' : ''}...`);
       statusEl.textContent += `\nFetching data for ${scheduleMatch.home} vs ${scheduleMatch.away}...`;
 
-      const espnData = await fetchESPNMatchDetails(scheduleMatch.espn_match_id, scheduleMatch.slug);
+      const espnData = await fetchESPNMatchDetails(espnInfo.match_id, espnInfo.slug);
       if (espnData) {
         parseESPNData(espnData, matchIndex);
         saveLiveData(true); // persist ESPN data immediately so Firebase listener can't wipe it

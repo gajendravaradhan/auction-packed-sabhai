@@ -132,6 +132,28 @@ Accuracy and data safety are higher priority than speed.
 4. UI-only changes still require explicit regression checks
 - Even when scoring logic is untouched, verify sorting, filtering, and sticky behavior under resize and tab switches.
 
+## v4.1 ESPN Integration Learnings (April 14, 2026)
+
+1. Never write hard-coded ESPN match IDs without a dynamic override path
+   - Hard-coded `espn_match_id` values in a schedule constant are only best-guesses until a match goes live
+   - Always pair hard-coded fallbacks with a Firebase-backed override map that gets populated from the live API
+   - Resolution must be one-time-per-match: fetch once when live, store permanently, use stored value thereafter
+
+2. ESPN liveScores response shape: `{ result: [...] }` — not `data`, not `matches`
+   - Each match object has `series` as a nested `{id, name, slug}` object, not a flat string field
+   - IPL filter must check `series.id === '1510719'`, not `series_name` or any flat field
+   - Match date is at `start_date`, not `date`; teams are in a `teams` array with `abbreviation` fields
+
+3. Persist resolved IDs via full `saveLiveData`, not child-path writes
+   - A child-path-only write (`_db.ref('live/espnMatchSlugMap').set(...)`) can be clobbered when a concurrent
+     `saveLiveData` call writes the full `live` object from an in-memory state that doesn't yet have the new key
+   - Writing the full object atomically ensures the new field survives listener-triggered re-reads
+
+4. Always verify dynamic resolution with a three-step console check
+   - Step 1: call `fetchAndStoreESPNLiveMatchIds()` and confirm the `[ESPN] Resolved match N` log appears
+   - Step 2: confirm `liveData.espnMatchSlugMap` has the expected key
+   - Step 3: confirm Firebase `live/espnMatchSlugMap` has the key (via `_db.ref(...).once('value')`)
+
 ## v4.0 UI/UX Learnings (April 14, 2026)
 
 1. DOM element selectors in toggle functions must be verified against the actual rendered markup
