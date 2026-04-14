@@ -2,54 +2,11 @@
 
 ---
 
-## v4.1 — April 14, 2026
-
-### Summary
-
-Dynamic ESPN match ID resolution. No scoring, UI, or Firebase write-path changes.
-
-### ESPN Match ID Resolution
-
-1. **Dynamic ESPN `match_id` + `slug` from liveScores API**
-   - Previously all ESPN `match_id` and `slug` values were hard-coded in `IPL_2026_SCHEDULE`
-   - Hard-coded values could be stale or incorrect; the real IDs are only confirmed once a match goes live
-   - New system fetches live match IDs from ESPN `live-scores` endpoint and stores them permanently in Firebase
-
-2. **`fetchAndStoreESPNLiveMatchIds()`**
-   - Calls `GET /api/v1/cricketinfo/live-scores`
-   - Filters to IPL matches via `series.id === '1510719'`
-   - Extracts `match_id` and `slug`, forms full slug as `slug-match_id`
-   - Matches back to `IPL_2026_SCHEDULE` entry by date + team abbreviations
-   - Stores resolved `{match_id, slug}` in `liveData.espnMatchSlugMap` (keyed by schedule match number)
-   - Persists via `saveLiveData(true)` to avoid race with Firebase listener
-
-3. **`resolveESPNMatchInfo(scheduleMatch)`**
-   - Single authority for what ESPN IDs to use for any schedule match
-   - Returns stored value from `espnMatchSlugMap` if available; falls back to hard-coded schedule values
-   - Used by all four ESPN data fetch call sites
-
-4. **`liveData.espnMatchSlugMap` — new Firebase field**
-   - Keyed by schedule match number (e.g. `"22"`)
-   - Value: `{match_id, slug}` — both as strings
-   - Hydrated on Firebase load via `ensureEspnMatchSlugMap()`
-   - Written atomically with full `liveData` save (not a child-path-only write)
-
-5. **Auto-sync integration**
-   - `syncEspnForScheduleMatchesAtomic()` calls `fetchAndStoreESPNLiveMatchIds()` first if any today-dated match is in the batch
-   - `fetchESPNDataManual()` also calls it before the fetch loop
-   - One API call per sync cycle; one-time-per-match storage — no repeat fetches once resolved
-
-6. **`getMatchesForESPNUpdate()` updated**
-   - Filter predicate now uses `resolveESPNMatchInfo()` instead of direct `espn_match_id`/`slug` field checks
-   - Matches with no hard-coded values but a stored override are now included correctly
-
----
-
 ## v4.0 — April 14, 2026
 
 ### Summary
 
-UI and Insights overhaul. No scoring, Firebase, or data pipeline changes.
+UI and Insights overhaul plus dynamic ESPN match ID resolution. No scoring changes.
 
 ### Board Tab
 
@@ -113,6 +70,31 @@ Full rewrite of the team ranking section:
 
 4. **Explanation text**
    - Added "Lower, larger, and further is better." before "Bubble size represents total accumulated points." in both scatter explain entries
+
+### ESPN Match ID Resolution
+
+1. **Dynamic ESPN `match_id` + `slug` from liveScores API**
+   - Previously all ESPN `match_id` and `slug` values were hard-coded in `IPL_2026_SCHEDULE`
+   - Hard-coded values could be stale; the real IDs are only confirmed once a match goes live
+   - New system fetches live match IDs from ESPN `live-scores` endpoint and stores them permanently in Firebase
+
+2. **`fetchAndStoreESPNLiveMatchIds()`**
+   - Calls `GET /api/v1/cricketinfo/live-scores`; filters to IPL via `series.id === '1510719'`
+   - Extracts `match_id` and `slug`, forms full slug as `slug-match_id`
+   - Matches back to `IPL_2026_SCHEDULE` by date + team abbreviations
+   - Stores resolved `{match_id, slug}` in `liveData.espnMatchSlugMap` keyed by schedule match number
+   - Persists via `saveLiveData(true)` to avoid race with Firebase listener
+
+3. **`resolveESPNMatchInfo(scheduleMatch)`**
+   - Single authority for ESPN IDs — returns Firebase-stored value if available, falls back to hard-coded schedule
+   - Used by all ESPN data fetch call sites
+
+4. **`liveData.espnMatchSlugMap` — new Firebase field**
+   - Keyed by schedule match number; hydrated on load; written atomically with full `liveData` save
+
+5. **Auto-sync integration**
+   - `syncEspnForScheduleMatchesAtomic()` and `fetchESPNDataManual()` both call `fetchAndStoreESPNLiveMatchIds()` before their fetch loops
+   - One API call per sync cycle; one-time-per-match storage once resolved
 
 ---
 

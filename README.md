@@ -1,6 +1,6 @@
 # Auction Packed · Live
 
-**Version:** 4.1  
+**Version:** 4.0  
 **Status:** Production Ready  
 **Last Updated:** April 14, 2026
 
@@ -234,14 +234,9 @@ firebase.initializeApp({
 
 ## 📈 Version History
 
-### v4.1 (April 14, 2026)
-- ✅ Dynamic ESPN match ID resolution via live-scores API
-- ✅ `fetchAndStoreESPNLiveMatchIds()` — fetches and stores correct `match_id` + `slug` per match when live
-- ✅ `resolveESPNMatchInfo()` — single authority for ESPN IDs; Firebase-stored values override hard-coded schedule
-- ✅ `liveData.espnMatchSlugMap` — new Firebase field persisting resolved IDs permanently
-- ✅ All ESPN fetch call sites updated to use resolved values
-
 ### v4.0 (April 14, 2026)
+- ✅ Dynamic ESPN match ID resolution — `fetchAndStoreESPNLiveMatchIds()` resolves correct `match_id`+`slug` from live-scores API and stores permanently in Firebase
+- ✅ `resolveESPNMatchInfo()` — single authority for ESPN IDs; Firebase-stored overrides take precedence over hard-coded schedule values
 - ✅ Team slugs on Leaderboard and Live tab (custom nicknames as primary heading, real name in red)
 - ✅ Expandable squad arrows (▶ collapsed / ▼ expanded) with fixed selector
 - ✅ Live player glow — pulsating green on players whose IPL team is in a live match

@@ -132,7 +132,7 @@ Accuracy and data safety are higher priority than speed.
 4. UI-only changes still require explicit regression checks
 - Even when scoring logic is untouched, verify sorting, filtering, and sticky behavior under resize and tab switches.
 
-## v4.1 ESPN Integration Learnings (April 14, 2026)
+## v4.0 ESPN Integration Learnings (April 14, 2026)
 
 1. Never write hard-coded ESPN match IDs without a dynamic override path
    - Hard-coded `espn_match_id` values in a schedule constant are only best-guesses until a match goes live
