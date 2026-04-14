@@ -66,6 +66,8 @@ input:focus{outline:none;border-color:var(--orange);}
 .app-header-logo .ahl-bot{display:block;font-size:28px;font-weight:900;letter-spacing:-1px;color:var(--orange);line-height:.95;text-shadow:0 0 20px #ff5c0060;}
 .app-header-logo .ahl-live{display:block;font-size:10px;font-weight:700;letter-spacing:4px;color:var(--red);margin-top:2px;line-height:1;animation:pulse-text 1.5s ease-in-out infinite;}
 @keyframes pulse-text{0%,100%{opacity:1;}50%{opacity:0.3;}}
+@keyframes pulse-live-glow{0%,100%{text-shadow:0 0 8px #00e67680,0 0 16px #00e67640;opacity:1;}50%{text-shadow:0 0 2px #00e67630;opacity:0.6;}}
+.player-live-glow{color:var(--green)!important;animation:pulse-live-glow 1.5s ease-in-out infinite;}
 .nav-tabs{display:flex;gap:4px;background:var(--bg);border-radius:10px;padding:4px;}
 .nav-tab{font-family:'Barlow Condensed',sans-serif;font-size:13px;font-weight:700;letter-spacing:2px;padding:6px 12px;border-radius:7px;border:none;background:transparent;color:var(--muted);cursor:pointer;transition:all 0.15s;text-transform:uppercase;white-space:nowrap;}
 .nav-tab.active{background:var(--surface2);color:var(--text);}
@@ -73,7 +75,8 @@ input:focus{outline:none;border-color:var(--orange);}
 .tab-content{display:none;}.tab-content.active{display:block;}
 .leaderboard-wrap{max-width:700px;margin:0 auto;padding:20px 16px;}
 .leaderboard-title{font-family:'Barlow Condensed',sans-serif;font-size:13px;letter-spacing:6px;color:var(--muted);text-transform:uppercase;margin-bottom:16px;text-align:center;}
-.lb-row{display:flex;align-items:center;gap:12px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:8px;transition:all 0.2s;}
+.lb-row{display:flex;align-items:center;gap:12px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px 16px;margin-bottom:8px;transition:border-color 0.2s;}
+.lb-row-header{-webkit-tap-highlight-color:transparent;}
 .lb-row.top1{border-color:var(--gold);background:linear-gradient(90deg,#0f2240,#1a2800 200%);}
 .lb-row.top2{border-color:#aaa;}
 .lb-row.top3{border-color:#cd7f32;}
@@ -559,6 +562,18 @@ const TEAMS = [
 ];
 
 const IPL_TEAM_MAP={'Shubman Gill':'Gujarat Titans','Varun Chakravarthy':'Kolkata Knight Riders','Tilak Varma':'Mumbai Indians','Hardik Pandya':'Mumbai Indians','Ryan Rickelton':'Mumbai Indians','Mohammed Siraj':'Gujarat Titans','Axar Patel':'Delhi Capitals','David Miller':'Delhi Capitals','Devdutt Padikkal':'Royal Challengers Bengaluru','Mitchell Starc':'Delhi Capitals','Tim Seifert':'Kolkata Knight Riders','Ishan Kishan':'Sunrisers Hyderabad','Ayush Mhatre':'Chennai Super Kings','Priyansh Arya':'Punjab Kings','Arshdeep Singh':'Punjab Kings','Prasidh Krishna':'Gujarat Titans','Digvesh Singh':'Lucknow Super Giants','Naman Dhir':'Mumbai Indians','Quinton de Kock':'Mumbai Indians','Harshit Rana':'Kolkata Knight Riders','Sam Curran':'Rajasthan Royals','Glenn Phillips':'Gujarat Titans','Yashasvi Jaiswal':'Rajasthan Royals','Jasprit Bumrah':'Mumbai Indians','Rishabh Pant':'Lucknow Super Giants','Yuzvendra Chahal':'Punjab Kings','Mitchell Marsh':'Lucknow Super Giants','Nitish Rana':'Delhi Capitals','Pat Cummins':'Sunrisers Bengaluru','Tim David':'Royal Challengers Bengaluru','Pathum Nissanka':'Delhi Capitals','Vaibhav Arora':'Kolkata Knight Riders','Shashank Singh':'Punjab Kings','Sanju Samson':'Chennai Super Kings','Suryakumar Yadav':'Mumbai Indians','Rajat Patidar':'Royal Challengers Bengaluru','Angkrish Raghuvanshi':'Kolkata Knight Riders','Jacob Bethell':'Royal Challengers Bengaluru','Cameron Green':'Kolkata Knight Riders','Josh Hazlewood':'Royal Challengers Bengaluru','Trent Boult':'Mumbai Indians','Jitesh Sharma':'Royal Challengers Bengaluru','Mohammed Shami':'Lucknow Super Giants','Aniket Verma':'Sunrisers Hyderabad','Phil Salt':'Royal Challengers Bengaluru','Vaibhav Suryavanshi':'Rajasthan Royals','Sunil Narine':'Kolkata Knight Riders','Shimron Hetmyer':'Rajasthan Royals','Khaleel Ahmed':'Chennai Super Kings','MS Dhoni':'Chennai Super Kings','Will Jacks':'Mumbai Indians','Sandeep Sharma':'Rajasthan Royals','Vipraj Nigam':'Delhi Capitals','T Natarajan':'Delhi Capitals','Deepak Chahar':'Mumbai Indians','Ruturaj Gaikwad':'Chennai Super Kings','Rohit Sharma':'Mumbai Indians','Aiden Markram':'Lucknow Super Giants','Kuldeep Yadav':'Delhi Capitals','Ravindra Jadeja':'Rajasthan Royals','Jos Buttler':'Gujarat Titans','Kagiso Rabada':'Gujarat Titans','Ravi Bishnoi':'Rajasthan Royals','Mitchell Santner':'Mumbai Indians','Venkatesh Iyer':'Royal Challengers Bengaluru','Abishek Porel':'Delhi Capitals','Abhishek Sharma':'Sunrisers Hyderabad','Nicholas Pooran':'Lucknow Super Giants','Travis Head':'Sunrisers Hyderabad','Prabhsimran Singh':'Punjab Kings','Ajinkya Rahane':'Kolkata Knight Riders','Jaydev Unadkat':'Sunrisers Hyderabad','Matt Henry':'Chennai Super Kings','Sal Kishore':'Gujarat Titans','Washington Sundar':'Gujarat Titans','Krunal Pandya':'Royal Challengers Bengaluru','Suyash Sharma':'Royal Challengers Bengaluru','Virat Kohli':'Royal Challengers Bengaluru','Sai Sudharsan':'Gujarat Titans','Rashid Khan':'Gujarat Titans','Heinrich Klaasen':'Sunrisers Hyderabad','Shivam Dube':'Chennai Super Kings','Bhuvneshwar Kumar':'Royal Challengers Bengaluru','Karthik Sharma':'Chennai Super Kings','Sarfaraz Khan':'Chennai Super Kings','Tristan Stubbs':'Delhi Capitals','Harshal Patel':'Sunrisers Hyderabad','Jofra Archer':'Rajasthan Royals','KL Rahul':'Delhi Capitals','Noor Ahmad':'Chennai Super Kings','Dewald Brevis':'Chennai Super Kings','Finn Allen':'Kolkata Knight Riders','Riyan Parag':'Rajasthan Royals','Shreyas Iyer':'Punjab Kings','Avesh Khan':'Lucknow Super Giants','Marco Jansen':'Punjab Kings','Harpreet Brar':'Punjab Kings','Zeeshan Ansari':'Sunrisers Hyderabad','Dhruv Jurel':'Rajasthan Royals'};
+
+const TEAM_SLUGS = {
+  'VATS':    'KKKKeKran meKran',
+  'ANIRUDH': 'Injured CC',
+  'ASVIN':   'Marsh Madness 2.0',
+  'GAJA':    'PatidharaPandi',
+  'MUKIL':   'Acha Hain',
+  'KARTHIK': 'Last Dhonse with Bacha he',
+  'SRIPAD':  'RunRisers2.0',
+  'ALVA':    'Hardik Choices',
+  'VINAY':   'Dhruvangal Pathinonnu',
+};
 
 const ADMIN_PASSWORD = 'auctionpacked2026';
 const CV_LOCK_DEADLINE = new Date('2026-03-29T13:30:00Z');
@@ -1093,6 +1108,7 @@ function renderLeaderboard() {
   const pt = getPlayerTotals();
   const cv = liveData.captains||{};
   const liveMatch = (liveData.matches||[]).find(m=>m.status==='live');
+  const liveMatchTeams = liveMatch ? getMatchTeamList(liveMatch) : [];
   const doneCount = (liveData.matches||[]).filter(m=>m.status==='done').length;
   const totalTeams = sorted.length;
 
@@ -1144,10 +1160,11 @@ function renderLeaderboard() {
           if (perf) matchPts=calcFantasyPoints({...perf,playerName:p.name,role:p.role},name,liveMatch.potm);
         }
         const ptsCls=tot.pts>0?'color:var(--green)':tot.pts<0?'color:var(--red)':'color:var(--muted)';
+        const isLivePlayer = liveMatch && isPlayerFromMatchTeams(p.name, liveMatchTeams);
         return `<div class="team-roster-row" onclick="openPlayerModal('${p.name.replace(/'/g,"\\'")}')">
           <div style="flex:1;min-width:0;">
             <div style="display:flex;align-items:center;gap:5px;">
-              <span class="roster-player-name">${p.name}</span>
+              <span class="roster-player-name${isLivePlayer?' player-live-glow':''}">${p.name}</span>
               ${isCap?'<span class="c-badge">C</span>':isVC?'<span class="vc-badge">VC</span>':''}
             </div>
             <div style="font-size:10px;color:var(--muted);letter-spacing:1px;">${p.role}</div>
@@ -1158,13 +1175,16 @@ function renderLeaderboard() {
       }).join('');
 
     const rowHtml = `<div class="lb-row ${cls}" style="flex-direction:column;align-items:stretch;padding:0;overflow:hidden;${bplStyle}">
-      <div style="display:flex;align-items:center;gap:12px;padding:14px 16px;cursor:pointer;" onclick="toggleRosterLB('lb-roster-${i}',this)">
+      <div class="lb-row-header" style="display:flex;align-items:center;gap:12px;padding:14px 16px;cursor:pointer;" data-team="${name}" data-bpl="${isBPL}" onclick="toggleRosterLB('lb-roster-${i}',this)">
         <div class="lb-rank">${i+1}</div>
         <div class="lb-team" style="flex:1;">
-          <div class="lb-team-name">${name}</div>
+          <div class="lb-team-name">${TEAM_SLUGS[name]||name}${isBPL?' \uD83E\uDD22':''}</div>
           <div class="lb-team-meta" style="display:flex;gap:10px;flex-wrap:wrap;">
+            <span style="color:var(--red);">${name}</span>
             <span style="color:var(--gold);">C: ${capName}</span>
             <span style="color:var(--muted);">VC: ${vcName}</span>
+          </div>
+          <div class="lb-team-meta" style="display:flex;gap:10px;flex-wrap:wrap;margin-top:2px;">
             <span>${doneCount} match${doneCount!==1?'es':''} played</span>
             <span>Last match: ${lastCompletedMatch ? (lastCompletedPointsByTeam[name] || 0) : '—'}</span>
           </div>
@@ -1173,7 +1193,7 @@ function renderLeaderboard() {
         <div style="text-align:right;">
           <div class="lb-pts">${pts}</div>
           <div class="lb-pts-label">PTS</div>
-          <div style="font-size:10px;color:var(--muted);margin-top:2px;">▼ SQUAD</div>
+          <div class="squad-arrow" style="font-size:10px;color:var(--muted);margin-top:2px;">▶ SQUAD</div>
           ${isBPL?'<div style="font-family:Barlow Condensed,sans-serif;font-size:9px;font-weight:700;letter-spacing:2px;color:var(--red);margin-top:1px;">BPL</div>':''}
         </div>
       </div>
@@ -1194,8 +1214,27 @@ function toggleRosterLB(id, headerEl) {
   const el = document.getElementById(id); if (!el) return;
   const isOpen = el.style.display!=='none';
   el.style.display = isOpen?'none':'block';
-  const lbl = headerEl.querySelector('[style*="SQUAD"]');
-  if (lbl) lbl.textContent = isOpen?'▼ SQUAD':'▲ SQUAD';
+  const lbl = headerEl.querySelector('.squad-arrow');
+  if (lbl) lbl.textContent = isOpen?'▶ SQUAD':'▼ SQUAD';
+  if (headerEl.getAttribute('data-bpl') === 'true') {
+    const slugEl = headerEl.querySelector('.lb-team-name');
+    if (slugEl) slugEl.textContent = isOpen
+      ? slugEl.textContent.replace('\uD83E\uDD2E', '\uD83E\uDD22')
+      : slugEl.textContent.replace('\uD83E\uDD22', '\uD83E\uDD2E');
+  }
+}
+function toggleRosterLive(id, headerEl) {
+  const el = document.getElementById(id); if (!el) return;
+  const isOpen = el.style.display!=='none';
+  el.style.display = isOpen?'none':'block';
+  const lbl = headerEl.querySelector('.squad-arrow');
+  if (lbl) lbl.textContent = isOpen?'▶ SQUAD':'▼ SQUAD';
+  if (headerEl.getAttribute('data-bpl') === 'true') {
+    const slugEl = headerEl.querySelector('.lb-team-name');
+    if (slugEl) slugEl.textContent = isOpen
+      ? slugEl.textContent.replace('\uD83E\uDD2E', '\uD83E\uDD22')
+      : slugEl.textContent.replace('\uD83E\uDD22', '\uD83E\uDD2E');
+  }
 }
 
 // ── MATCHES ──
@@ -1503,29 +1542,83 @@ function renderLive() {
     wrap.innerHTML='<div class="no-live">No match currently in progress</div>';
     return;
   }
-  const tp={};TEAMS.forEach(t=>{tp[t.name]=0;});
-  Object.entries(selectedMatch.performances||{}).forEach(([name,perf])=>{
-    const team=TEAMS.find(t=>t.players.some(p=>p.name===name));if(!team)return;
-    const role=(team.players.find(p=>p.name===name)||{}).role||'';
-    tp[team.name]=(tp[team.name]||0)+calcFantasyPoints({...perf,playerName:name,role},team.name,selectedMatch.potm);
+  // Aggregate per-player points across all today's scoring matches (+ any live match not dated today)
+  const playerTodayPts = {};
+  const activeScoringMatches = [...scoringToday];
+  liveMatches.forEach(m => { if (!activeScoringMatches.includes(m) && m.performances && Object.keys(m.performances).length > 0) activeScoringMatches.push(m); });
+  activeScoringMatches.forEach(match => {
+    Object.entries(match.performances || {}).forEach(([pName, perf]) => {
+      const t2 = TEAMS.find(t => t.players.some(p => p.name === pName)); if (!t2) return;
+      const role = (t2.players.find(p => p.name === pName) || {}).role || '';
+      playerTodayPts[pName] = (playerTodayPts[pName] || 0) + calcFantasyPoints({...perf, playerName: pName, role}, t2.name, match.potm);
+    });
   });
-  const sorted=Object.entries(tp).sort((a,b)=>b[1]-a[1]);
+  const tp = {};
+  TEAMS.forEach(t => { tp[t.name] = t.players.reduce((s, p) => s + (playerTodayPts[p.name] || 0), 0); });
+  const sorted = Object.entries(tp).sort((a, b) => b[1] - a[1]);
+  const totalTeams = sorted.length;
+  const allLiveMatchTeams = liveMatches.flatMap(m => getMatchTeamList(m));
+  const cv = liveData.captains || {};
   const isVerifiedLive = selectedMatch.status === 'live';
   const liveBadgeColor = 'var(--green)';
   const liveBadgeMarkup = isVerifiedLive
     ? `<div style="margin-bottom:8px"><span style="font-family:Barlow Condensed,sans-serif;font-size:10px;font-weight:700;letter-spacing:2px;color:${liveBadgeColor};border:1px solid #00e67640;border-radius:4px;padding:3px 8px;"><span style="display:inline-block;width:8px;height:8px;background:${liveBadgeColor};border-radius:50%;margin-right:5px;animation:pulse-text 1.5s infinite;"></span>LIVE</span></div>`
     : '';
+  const liveRows = sorted.map(([name, pts], i) => {
+    const cls = i===0&&pts>0?'top1':i===1&&pts>0?'top2':i===2&&pts>0?'top3':'';
+    const isBPL = i >= totalTeams - 3 && totalTeams >= 4;
+    const picks = cv[name];
+    const capName = picks ? picks.captain.split(' ').pop() : '—';
+    const vcName  = picks ? picks.viceCaptain.split(' ').pop() : '—';
+    const slug = TEAM_SLUGS[name] || name;
+    const team = TEAMS.find(t => t.name === name);
+    const rosterRows = (team ? [...team.players] : [])
+      .sort((a, b) => (playerTodayPts[b.name] || 0) - (playerTodayPts[a.name] || 0))
+      .map(p => {
+        const pPts = playerTodayPts[p.name] || 0;
+        const ptsCls = pPts > 0 ? 'color:var(--green)' : pPts < 0 ? 'color:var(--red)' : 'color:var(--muted)';
+        const isLivePlayer = allLiveMatchTeams.length > 0 && isPlayerFromMatchTeams(p.name, allLiveMatchTeams);
+        return `<div class="team-roster-row" onclick="openPlayerModal('${p.name.replace(/'/g,"\\'")}')">
+          <div style="flex:1;min-width:0;">
+            <div style="display:flex;align-items:center;gap:5px;">
+              <span class="roster-player-name${isLivePlayer?' player-live-glow':''}">${p.name}</span>
+            </div>
+            <div style="font-size:10px;color:var(--muted);letter-spacing:1px;">${p.role}</div>
+          </div>
+          <div class="roster-pts" style="${ptsCls}">${pPts>0?'+'+pPts:pPts}</div>
+        </div>`;
+      }).join('');
+    return `<div class="lb-row ${cls}" style="flex-direction:column;align-items:stretch;padding:0;overflow:hidden;${isBPL?'border-color:#ff2d5540;':''}">
+      <div class="lb-row-header" style="display:flex;align-items:center;gap:12px;padding:14px 16px;cursor:pointer;" data-bpl="${isBPL}" onclick="toggleRosterLive('live-roster-${i}',this)">
+        <div class="lb-rank">${i+1}</div>
+        <div class="lb-team" style="flex:1;">
+          <div class="lb-team-name">${slug}${isBPL?' \uD83E\uDD22':''}</div>
+          <div class="lb-team-meta" style="display:flex;gap:10px;flex-wrap:wrap;">
+            <span style="color:var(--red);">${name}</span>
+            <span style="color:var(--gold);">C: ${capName}</span>
+            <span style="color:var(--muted);">VC: ${vcName}</span>
+          </div>
+        </div>
+        <div style="text-align:right;">
+          <div class="lb-pts">${pts}</div>
+          <div class="lb-pts-label">PTS</div>
+          <div class="squad-arrow" style="font-size:10px;color:var(--muted);margin-top:2px;">▶ SQUAD</div>
+        </div>
+      </div>
+      <div id="live-roster-${i}" style="display:none;border-top:1px solid var(--border);">
+        <div style="display:flex;justify-content:flex-end;padding:4px 16px;background:#050e1d;"><span style="font-size:10px;color:var(--muted);letter-spacing:1px;min-width:44px;text-align:right;">TODAY PTS</span></div>
+        ${rosterRows}
+      </div>
+    </div>`;
+  }).join('');
   wrap.innerHTML=`
     <div class="live-match-header">
       ${liveBadgeMarkup}
       <div class="live-match-teams">${selectedMatch.label||'Match in Progress'}</div>
       <div class="live-match-score">${selectedMatch.date||''}${isVerifiedLive ? '' : ' · Showing latest scoring contributions'}</div>
     </div>
-    <div class="leaderboard-title" style="margin-top:20px">Fantasy Points This Match</div>
-    ${sorted.map(([name,pts],i)=>{
-      const cls=i===0?'top1':i===1?'top2':i===2?'top3':'';
-      return `<div class="lb-row ${cls}"><div class="lb-rank">${i+1}</div><div class="lb-team"><div class="lb-team-name">${name}</div></div><div><div class="lb-pts" style="${i===0?'color:var(--green)':''}">${pts}</div><div class="lb-pts-label">PTS</div></div></div>`;
-    }).join('')}`;
+    <div class="leaderboard-title" style="margin-top:20px">Fantasy Points Today</div>
+    ${liveRows}`;
 }
 
 function getRosterLookup() {
@@ -1747,7 +1840,11 @@ function getInsightExplainContent(key) {
     },
     scatter: {
       short: 'Consistency vs ceiling for players (X: average points, Y: sigma/volatility; bubble size: total points).',
-      full: 'Each bubble is a player. X-axis is average points per match. Y-axis is sigma (standard deviation), which measures volatility: lower sigma means more consistent output, higher sigma means boom-bust. Bubble size represents total accumulated points. Colors show role. Long-press or hover near a bubble to read player details.'
+      full: 'Each bubble is a player. X-axis is average points per match. Y-axis is sigma (standard deviation), which measures volatility: lower sigma means more consistent output, higher sigma means boom-bust. Lower, larger, and further is better. Bubble size represents total accumulated points. Colors show role. Long-press or hover near a bubble to read player details.'
+    },
+    scatterTeams: {
+      short: 'Consistency vs ceiling for fantasy teams (X: average points per match, Y: volatility; bubble size: total points).',
+      full: 'Each bubble is a fantasy team. X-axis is average points per match. Y-axis is sigma (standard deviation) — lower means more consistent match-to-match output. Lower, larger, and further is better. Bubble size represents total accumulated points. Long-press or hover near a bubble to read team details.'
     },
     dotEco: {
       short: 'Bowling value components by player (wickets, dot balls, economy bonus/penalty).',
@@ -2090,6 +2187,8 @@ function renderInsights() {
 let insightsMomentumVisibleTeams = null;
 let insightsRankFlowVisibleTeams = null;
 let insightsScatterVisibleRoles = null;
+let insightsScatterVisibleTeams = null;
+let insightsScatterMode = 'players';
 let insightsDotLegendVisible = null;
 let insightsRoleMode = 'batting';
 let insightsDotOrder = 'total';
@@ -2236,6 +2335,26 @@ function toggleScatterRole(role) {
 function setAllScatterRoles(val) {
   ensureInsightsScatterVisibleRoles();
   ['BAT', 'BOW', 'ALL', 'WIC'].forEach(r => { insightsScatterVisibleRoles[r] = !!val; });
+  renderInsights();
+}
+function switchScatterMode(mode) {
+  insightsScatterMode = mode;
+  renderInsights();
+}
+function ensureInsightsScatterVisibleTeams() {
+  if (!insightsScatterVisibleTeams) {
+    insightsScatterVisibleTeams = {};
+    TEAMS.forEach(t => { insightsScatterVisibleTeams[t.name] = true; });
+  }
+}
+function toggleScatterTeam(name) {
+  ensureInsightsScatterVisibleTeams();
+  insightsScatterVisibleTeams[name] = !insightsScatterVisibleTeams[name];
+  renderInsights();
+}
+function setAllScatterTeams(val) {
+  ensureInsightsScatterVisibleTeams();
+  TEAMS.forEach(t => { insightsScatterVisibleTeams[t.name] = !!val; });
   renderInsights();
 }
 
@@ -2636,6 +2755,80 @@ function renderInsightsRoleEfficiency() {
 
 function renderInsightsConsistencyScatter() {
   ensureInsightsScatterVisibleRoles();
+  const modeTabs = '<div style="display:flex;gap:6px;margin-bottom:12px;">'
+    + '<button class="insights-subtab' + (insightsScatterMode==='players'?' active':'') + '" onclick="switchScatterMode(\'players\')">Players</button>'
+    + '<button class="insights-subtab' + (insightsScatterMode==='teams'?' active':'') + '" onclick="switchScatterMode(\'teams\')">Teams</button>'
+    + '</div>';
+
+  if (insightsScatterMode === 'teams') {
+    ensureInsightsScatterVisibleTeams();
+    const rosterMap = getRosterLookup();
+    const matches = getScoringMatches();
+    const teamMatchPts = {};
+    TEAMS.forEach(t => { teamMatchPts[t.name] = []; });
+    matches.forEach(match => {
+      const mp = getTeamMatchPoints(match, rosterMap);
+      TEAMS.forEach(t => { if (mp[t.name] !== undefined) teamMatchPts[t.name].push(mp[t.name]); });
+    });
+    const allTeamData = TEAMS.map((t, idx) => {
+      const vals = teamMatchPts[t.name];
+      const total = vals.reduce((s, x) => s + x, 0);
+      const avg = vals.length ? total / vals.length : 0;
+      const variance = vals.length ? vals.reduce((s, x) => s + Math.pow(x - avg, 2), 0) / vals.length : 0;
+      return { name: t.name, avg, std: Math.sqrt(variance), total, color: insightPalette(idx) };
+    }).filter(d => d.total > 0);
+    if (!allTeamData.length) return '<div class="insight-card"><div class="insight-title">Consistency vs Ceiling</div>' + modeTabs + '<div style="font-size:12px;color:var(--muted);">No team data yet.</div></div>';
+    const data = allTeamData.filter(d => insightsScatterVisibleTeams[d.name]);
+    const selectedCount = allTeamData.filter(d => insightsScatterVisibleTeams[d.name]).length;
+    const controls = '<div class="insight-controls">'
+      + '<button class="insight-action-btn" onclick="setAllScatterTeams(true)">Select All</button>'
+      + '<button class="insight-action-btn" onclick="setAllScatterTeams(false)">Clear All</button>'
+      + selectedCount + ' selected</div>';
+    const legend = allTeamData.map(d => '<label class="insight-legend-item" style="opacity:' + (insightsScatterVisibleTeams[d.name] ? '1' : '.5') + '"><span class="insight-dot" style="background:' + d.color + '"></span><input type="checkbox" ' + (insightsScatterVisibleTeams[d.name] ? 'checked' : '') + ' onchange="toggleScatterTeam(\'' + d.name + '\')">' + (TEAM_SLUGS[d.name] || d.name) + '</label>').join('');
+    if (!data.length) {
+      registerInsightChartPoints('scatter', []);
+      return '<div class="insight-card"><div class="insight-title">Consistency vs Ceiling</div>' + modeTabs + controls + '<div class="insight-legend">' + legend + '</div><div style="font-size:12px;color:var(--muted);margin-top:8px;">Select at least one team to render points.</div>' + renderInsightExplain('scatterTeams') + '</div>';
+    }
+    const maxT = Math.max(...allTeamData.map(d => d.total), 1);
+    const w = 980, h = 420, pl = 62, pr = 24, ptp = 18, pb = 58;
+    const rawMinX = Math.min(...data.map(d => d.avg));
+    const rawMaxX = Math.max(...data.map(d => d.avg));
+    const padX = Math.max((rawMaxX - rawMinX) * 0.15, rawMaxX * 0.05, 1);
+    const minX = Math.max(0, rawMinX - padX), maxX = rawMaxX + padX;
+    const rawMinY = Math.min(...data.map(d => d.std));
+    const rawMaxY = Math.max(...data.map(d => d.std));
+    const padY = Math.max((rawMaxY - rawMinY) * 0.15, rawMaxY * 0.05, 1);
+    const minY = Math.max(0, rawMinY - padY), maxY = rawMaxY + padY;
+    const cx = v => pl + ((v - minX) / (maxX - minX)) * (w - pl - pr);
+    const cy = v => h - pb - ((v - minY) / (maxY - minY)) * (h - ptp - pb);
+    const xTicks = 6, yTicks = 6;
+    const xGrid = Array.from({ length: xTicks + 1 }, (_, i) => {
+      const val = minX + (maxX - minX) * i / xTicks, x = cx(val);
+      return '<line x1="' + x.toFixed(1) + '" y1="' + ptp + '" x2="' + x.toFixed(1) + '" y2="' + (h-pb) + '" stroke="#163555" />'
+        + '<text x="' + x.toFixed(1) + '" y="' + (h-pb+16) + '" fill="#9fb8d8" font-size="10" text-anchor="middle">' + Math.round(val) + '</text>';
+    }).join('');
+    const yGrid = Array.from({ length: yTicks + 1 }, (_, i) => {
+      const val = minY + (maxY - minY) * i / yTicks, y = cy(val);
+      return '<line x1="' + pl + '" y1="' + y.toFixed(1) + '" x2="' + (w-pr) + '" y2="' + y.toFixed(1) + '" stroke="#163555" />'
+        + '<text x="' + (pl-8) + '" y="' + (y+4).toFixed(1) + '" fill="#9fb8d8" font-size="11" text-anchor="end">' + Math.round(val) + '</text>';
+    }).join('');
+    const circles = data.map(d => '<circle cx="' + cx(d.avg).toFixed(1) + '" cy="' + cy(d.std).toFixed(1) + '" r="' + (5 + (d.total / maxT) * 14).toFixed(1) + '" fill="' + d.color + '" fill-opacity="0.75"><title>' + (TEAM_SLUGS[d.name] || d.name) + ' · Avg ' + Math.round(d.avg) + ' · Sigma ' + Math.round(d.std) + ' · Total ' + Math.round(d.total) + '</title></circle>').join('');
+    const hoverPoints = data.map(d => ({
+      x: cx(d.avg), y: cy(d.std),
+      label: (TEAM_SLUGS[d.name] || d.name) + ' · Avg ' + Math.round(d.avg) + ' · Sigma ' + Math.round(d.std) + ' · Total ' + Math.round(d.total)
+    }));
+    registerInsightChartPoints('scatter', hoverPoints);
+    return '<div class="insight-card"><div class="insight-title">Consistency vs Ceiling</div>' + modeTabs + controls
+      + '<svg id="insight-svg-scatter" viewBox="0 0 ' + w + ' ' + h + '" style="width:100%;height:auto;background:#071325;border:1px solid #123050;border-radius:8px;touch-action:manipulation;" onmousemove="handleInsightChartMove(event,\'scatter\')" onmouseleave="handleInsightChartLeave()" ontouchstart="handleInsightChartPressStart(event,\'scatter\')" ontouchmove="handleInsightChartPressMove(event,\'scatter\')" ontouchend="handleInsightChartPressEnd()" ontouchcancel="handleInsightChartPressEnd()">'
+      + xGrid + yGrid + circles
+      + '<line x1="' + pl + '" y1="' + (h-pb) + '" x2="' + (w-pr) + '" y2="' + (h-pb) + '" stroke="#2a5274" />'
+      + '<line x1="' + pl + '" y1="' + ptp + '" x2="' + pl + '" y2="' + (h-pb) + '" stroke="#2a5274" />'
+      + '<text x="' + ((pl+w-pr)/2) + '" y="' + (h-14) + '" fill="#c9d9eb" font-size="12" text-anchor="middle">Average Points per Match</text>'
+      + '<text x="18" y="' + ((ptp+h-pb)/2) + '" transform="rotate(-90 18 ' + ((ptp+h-pb)/2) + ')" fill="#c9d9eb" font-size="12" text-anchor="middle">Volatility (Std Dev)</text>'
+      + '</svg><div class="insight-legend">' + legend + '</div>' + renderInsightExplain('scatterTeams') + '</div>';
+  }
+
+  // Players mode (existing chart)
   const pt = getPlayerTotals();
   const allData = Object.entries(pt).map(([name, v]) => {
     const vals = (v.matchPts || []).map(m => m.pts);
@@ -2654,35 +2847,38 @@ function renderInsightsConsistencyScatter() {
   const legend = ['BAT','BOW','ALL','WIC'].map(role => '<label class="insight-legend-item" style="opacity:' + (insightsScatterVisibleRoles[role] ? '1' : '.5') + '"><span class="insight-dot" style="background:' + (colorByRole[role] || '#ccc') + '"></span><input type="checkbox" ' + (insightsScatterVisibleRoles[role] ? 'checked' : '') + ' onchange="toggleScatterRole(\'' + role + '\')">' + role + '</label>').join('');
   if (!data.length) {
     registerInsightChartPoints('scatter', []);
-    return '<div class="insight-card"><div class="insight-title">Consistency vs Ceiling</div>' + controls + '<div class="insight-legend">' + legend + '</div><div style="font-size:12px;color:var(--muted);margin-top:8px;">Select at least one role to render points.</div>' + renderInsightExplain('scatter') + '</div>';
+    return '<div class="insight-card"><div class="insight-title">Consistency vs Ceiling</div>' + modeTabs + controls + '<div class="insight-legend">' + legend + '</div><div style="font-size:12px;color:var(--muted);margin-top:8px;">Select at least one role to render points.</div>' + renderInsightExplain('scatter') + '</div>';
   }
-  const maxX = Math.max(...data.map(d => d.avg), 1);
-  const maxY = Math.max(...data.map(d => d.std), 1);
   const maxT = Math.max(...data.map(d => d.total), 1);
   const w = 980, h = 420, pl = 62, pr = 24, ptp = 18, pb = 58;
-  const cx = v => pl + (v / maxX) * (w - pl - pr);
-  const cy = v => h - pb - (v / maxY) * (h - ptp - pb);
+  const rawMinX = Math.min(...data.map(d => d.avg));
+  const rawMaxX = Math.max(...data.map(d => d.avg));
+  const padX = Math.max((rawMaxX - rawMinX) * 0.15, rawMaxX * 0.05, 1);
+  const minX = Math.max(0, rawMinX - padX), maxX = rawMaxX + padX;
+  const rawMinY = Math.min(...data.map(d => d.std));
+  const rawMaxY = Math.max(...data.map(d => d.std));
+  const padY = Math.max((rawMaxY - rawMinY) * 0.15, rawMaxY * 0.05, 1);
+  const minY = Math.max(0, rawMinY - padY), maxY = rawMaxY + padY;
+  const cx = v => pl + ((v - minX) / (maxX - minX)) * (w - pl - pr);
+  const cy = v => h - pb - ((v - minY) / (maxY - minY)) * (h - ptp - pb);
   const xTicks = 6, yTicks = 6;
   const xGrid = Array.from({ length: xTicks + 1 }, (_, i) => {
-    const val = maxX * i / xTicks;
-    const x = cx(val);
+    const val = minX + (maxX - minX) * i / xTicks, x = cx(val);
     return '<line x1="' + x.toFixed(1) + '" y1="' + ptp + '" x2="' + x.toFixed(1) + '" y2="' + (h-pb) + '" stroke="#163555" />'
       + '<text x="' + x.toFixed(1) + '" y="' + (h - pb + 16) + '" fill="#9fb8d8" font-size="10" text-anchor="middle">' + Math.round(val) + '</text>';
   }).join('');
   const yGrid = Array.from({ length: yTicks + 1 }, (_, i) => {
-    const val = maxY * i / yTicks;
-    const y = cy(val);
+    const val = minY + (maxY - minY) * i / yTicks, y = cy(val);
     return '<line x1="' + pl + '" y1="' + y.toFixed(1) + '" x2="' + (w-pr) + '" y2="' + y.toFixed(1) + '" stroke="#163555" />'
       + '<text x="' + (pl - 8) + '" y="' + (y + 4).toFixed(1) + '" fill="#9fb8d8" font-size="11" text-anchor="end">' + Math.round(val) + '</text>';
   }).join('');
   const circles = data.map(d => '<circle cx="' + cx(d.avg).toFixed(1) + '" cy="' + cy(d.std).toFixed(1) + '" r="' + (3 + (d.total / maxT) * 7).toFixed(1) + '" fill="' + (colorByRole[d.role] || '#cccccc') + '" fill-opacity="0.75"><title>' + d.name + ' · avg ' + Math.round(d.avg) + ' · sigma ' + Math.round(d.std) + '</title></circle>').join('');
   const hoverPoints = data.map(d => ({
-    x: cx(d.avg),
-    y: cy(d.std),
+    x: cx(d.avg), y: cy(d.std),
     label: d.name + ' · ' + d.role + ' · Avg ' + Math.round(d.avg) + ' · Sigma ' + Math.round(d.std) + ' · Total ' + Math.round(d.total)
   }));
   registerInsightChartPoints('scatter', hoverPoints);
-  return '<div class="insight-card"><div class="insight-title">Consistency vs Ceiling</div>' + controls + '<svg id="insight-svg-scatter" viewBox="0 0 ' + w + ' ' + h + '" style="width:100%;height:auto;background:#071325;border:1px solid #123050;border-radius:8px;touch-action:manipulation;" onmousemove="handleInsightChartMove(event,\'scatter\')" onmouseleave="handleInsightChartLeave()" ontouchstart="handleInsightChartPressStart(event,\'scatter\')" ontouchmove="handleInsightChartPressMove(event,\'scatter\')" ontouchend="handleInsightChartPressEnd()" ontouchcancel="handleInsightChartPressEnd()">'
+  return '<div class="insight-card"><div class="insight-title">Consistency vs Ceiling</div>' + modeTabs + controls + '<svg id="insight-svg-scatter" viewBox="0 0 ' + w + ' ' + h + '" style="width:100%;height:auto;background:#071325;border:1px solid #123050;border-radius:8px;touch-action:manipulation;" onmousemove="handleInsightChartMove(event,\'scatter\')" onmouseleave="handleInsightChartLeave()" ontouchstart="handleInsightChartPressStart(event,\'scatter\')" ontouchmove="handleInsightChartPressMove(event,\'scatter\')" ontouchend="handleInsightChartPressEnd()" ontouchcancel="handleInsightChartPressEnd()">'
     + xGrid + yGrid + circles
     + '<line x1="' + pl + '" y1="' + (h-pb) + '" x2="' + (w-pr) + '" y2="' + (h-pb) + '" stroke="#2a5274" />'
     + '<line x1="' + pl + '" y1="' + ptp + '" x2="' + pl + '" y2="' + (h-pb) + '" stroke="#2a5274" />'
@@ -4366,7 +4562,7 @@ function openPlayerModal(playerName){
       const pts=calcFantasyPoints(pf,info.teamName,match.potm);
       const lines=getPointsBreakdown(pf,info.teamName,match.potm);
       return `<div class="match-breakdown-card">
-        <div class="match-breakdown-title"><span>${match.label||'Match'}</span><span style="${pts>0?'color:var(--green)':pts<0?'color:var(--red)':'color:var(--muted)'};font-family:Barlow Condensed,sans-serif;font-size:18px;font-weight:900;">${pts>0?'+'+pts:pts} pts</span></div>
+        <div class="match-breakdown-title"><span>${match.label||'Match'}</span><span style="${pts>0?'color:var(--green)':pts<0?'color:var(--red)':'color:var(--muted)'};font-family:Barlow Condensed,sans-serif;font-size:18px;font-weight:900;">${pts>0?'+'+pts:pts}</span></div>
         ${lines.map(l=>`<div class="stat-breakdown-row"><span>${l.label}</span><span class="val ${l.pts>0?'stat-val-pos':l.pts<0?'stat-val-neg':'stat-val-neu'}">${l.pts>0?'+':''}${l.pts}</span></div>`).join('')}
       </div>`;
     }).join('');
@@ -4523,8 +4719,8 @@ function getPointsBreakdown(p, teamName, matchPotm) {
   const finalTotal=isCap2?Math.round(totalBeforeMultiplier*2):isVC2?Math.floor(totalBeforeMultiplier*1.5):totalBeforeMultiplier;
   const multiplierAdjustment=finalTotal-totalBeforeMultiplier;
 
-  if(isCap2){lines.push({label:'Captain 2× adjustment ('+(multiplierAdjustment>=0?'+':'')+multiplierAdjustment+')',pts:multiplierAdjustment});}
-  else if(isVC2){lines.push({label:'Vice Captain 1.5× adjustment ('+(multiplierAdjustment>=0?'+':'')+multiplierAdjustment+')',pts:multiplierAdjustment});}
+  if(isCap2){lines.push({label:'Captain 2× ('+(multiplierAdjustment>=0?'+':'')+multiplierAdjustment+')',pts:multiplierAdjustment});}
+  else if(isVC2){lines.push({label:'Vice Captain 1.5× ('+(multiplierAdjustment>=0?'+':'')+multiplierAdjustment+')',pts:multiplierAdjustment});}
 
   return lines;
 }

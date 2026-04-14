@@ -132,6 +132,32 @@ Accuracy and data safety are higher priority than speed.
 4. UI-only changes still require explicit regression checks
 - Even when scoring logic is untouched, verify sorting, filtering, and sticky behavior under resize and tab switches.
 
+## v4.0 UI/UX Learnings (April 14, 2026)
+
+1. DOM element selectors in toggle functions must be verified against the actual rendered markup
+- `querySelector('[style*="TEXT"]')` fails silently when TEXT is content, not a style attribute value.
+- Always use a dedicated class or data attribute as the toggle target to guarantee reliable selection.
+
+2. CSS `transition:all` causes visual flashes on expand/collapse in dark-theme apps
+- `transition:all` captures background repaints triggered by child DOM changes (e.g., display:none → block).
+- Scope transitions to specific properties (e.g., `border-color`) to eliminate unintended flash.
+- On mobile, `-webkit-tap-highlight-color` is a separate flash source — suppress it only on the specific interactive elements that need it, not globally.
+
+3. Scatter chart axes must pad around actual data range on both axes, not anchor to zero
+- Anchoring Y to 0 wastes space when all values sit between e.g. 88–140 sigma.
+- Use `axisMin = max(0, dataMin − padding)` and `axisMax = dataMax + padding` for both X and Y.
+- Padding = `max(dataRange × 15%, dataMax × 5%, 1)` gives stable breathing room without cutting data.
+- Always update tick generation to span `[axisMin, axisMax]`, not `[0, axisMax]`.
+
+4. Live tab today-points scope requires explicit match aggregation
+- A single `selectedMatch` reference is insufficient when two matches occur on the same day.
+- Aggregate from all matches whose date equals today, plus any live match regardless of date.
+- Keep the single `selectedMatch` reference only for the header/badge display.
+
+5. State-based sub-tab toggles inside chart cards should use a dedicated state variable
+- Reusing the parent tab key (e.g., `insightsSubTab`) conflates chart-level and card-level navigation.
+- A separate variable (e.g., `insightsScatterMode`) isolates the card's state and survives parent tab switches.
+
 ## Points Accuracy Verification Protocol
 
 Run this protocol for any change touching scoring, parsing, enrichment, sync ordering, or imports.

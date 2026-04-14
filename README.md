@@ -1,8 +1,8 @@
 # Auction Packed · Live
 
-**Version:** 1.0  
+**Version:** 4.0  
 **Status:** Production Ready  
-**Last Updated:** April 10, 2026
+**Last Updated:** April 14, 2026
 
 A comprehensive fantasy cricket scoring platform for the IPL 2026 season. Real-time match tracking, live fantasy points calculation, and team management all in one beautifully designed application.
 
@@ -12,9 +12,11 @@ A comprehensive fantasy cricket scoring platform for the IPL 2026 season. Real-t
 
 ### 📊 **Leaderboard & Scoring**
 - **Live Fantasy Points Leaderboard**: Real-time ranking of all participating teams with instant point updates
-- **Team Roster View**: Expandable squad display showing individual player contributions
+- **Team Slugs**: Each fantasy team displays a custom nickname as the primary heading with the real team name in red below
+- **Team Roster View**: Expandable squad display (▶ collapsed / ▼ expanded) showing individual player contributions
+- **Live Player Glow**: Players actively participating in a live match pulse in green across all fantasy team rosters
 - **Captain/Vice-Captain Multipliers**: 2x for Captain, 1.5x for Vice-Captain (applied to all innings including current match)
-- **BPL Indicator**: Automatic marking of bottom-performing teams for better visibility
+- **BPL Indicator**: Bottom 3 ranked teams marked with 🤢 (nauseated) when collapsed, 🤮 (vomiting) when expanded
 - **Dynamic Sorting**: Auto-sorting by total points with consistent ranking display
 
 ### 🏏 **Live Match Tracking**
@@ -33,7 +35,8 @@ A comprehensive fantasy cricket scoring platform for the IPL 2026 season. Real-t
 
 ### 🎙️ **Live Match Commentary**
 - **Ball-by-Ball Updates**: Real-time commentary during live matches
-- **Live Scoring Panel**: Current match scoring and team performance
+- **Live Scoring Panel**: Fantasy team leaderboard showing today's match points only, with expandable squad rosters and live player glow
+- **Team Slugs in Live Tab**: Same slug/red-name layout as the Board, scoped to today's accumulated points
 - **Performance Tracking**: Real-time fantasy points for players in the current match
 - **Multi-Source Integration**: Data from CricAPI and ESPN RapidAPI for comprehensive coverage
 
@@ -230,6 +233,28 @@ firebase.initializeApp({
 ---
 
 ## 📈 Version History
+
+### v4.0 (April 14, 2026)
+- ✅ Team slugs on Leaderboard and Live tab (custom nicknames as primary heading, real name in red)
+- ✅ Expandable squad arrows (▶ collapsed / ▼ expanded) with fixed selector
+- ✅ Live player glow — pulsating green on players whose IPL team is in a live match
+- ✅ BPL emoji indicator — bottom 3 ranks show 🤢 collapsed / 🤮 expanded
+- ✅ Live tab rewritten — today's match points, expandable squads, slugs, live glow
+- ✅ Insights Consistency chart — Players/Teams sub-tabs with per-item legend checkboxes and Select All/Clear All
+- ✅ Insights Consistency — dynamic axis auto-scaling: both X and Y pad around actual data range for maximum chart fill
+- ✅ "Lower, larger, and further is better." guidance added to consistency chart explanations
+- ✅ Removed white flash on mobile tap for leaderboard rows (scoped -webkit-tap-highlight-color)
+- ✅ Player modal: removed redundant "pts" suffix and "adjustment" label from C/VC breakdown lines
+
+### v3.2 (April 11, 2026)
+- ✅ Players sticky columns overflow-aware
+- ✅ Compact filter controls aligned with header density
+- ✅ Multi-sort layout modernised
+
+### v3.0 (April 11, 2026)
+- ✅ Insights batting-position cache auto-invalidation
+- ✅ Safe in-flight refresh handling
+- ✅ Discrepancy-prevention framework and release gates added to LEARNINGS.md
 
 ### v1.0 (April 10, 2026)
 - ✅ Full fantasy cricket scoring system
