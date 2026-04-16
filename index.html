@@ -3660,18 +3660,18 @@ async function fetchCricapiJson(path, params = {}, options = {}) {
     qp.set('apikey', apiKey);
 
     try {
+      incrementApiCalls(1); // Count every outgoing attempt — CricAPI meters failed/retried requests too
       const response = await fetch(API_BASE + path + '?' + qp.toString(), {
         signal: options.signal || AbortSignal.timeout(12000)
       });
       const data = await response.json();
-      incrementApiCalls(1);
 
       const reason = data && data.reason ? data.reason : '';
       const isBlocked = data && data.status === 'failure' && isCricapiBlockedReason(reason);
 
       if (isBlocked && i < keys.length - 1) {
         console.warn('[AP] CricAPI key blocked, retrying with backup key');
-        continue;
+        continue; // retry is counted separately on next iteration
       }
 
       return data;
