@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Auction Packed — API Call Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #070f1c;
+    color: #e8eaf0;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    padding: 32px 24px;
+    min-height: 100vh;
+  }
+
+  /* ── header ── */
+  .header { display: flex; align-items: flex-start; justify-content: space-between; flex-wrap: wrap; gap: 16px; margin-bottom: 32px; }
+  h1 { font-size: 22px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; color: #fff; margin-bottom: 4px; }
+  .subtitle { font-size: 13px; color: #6b7a99; letter-spacing: 1px; }
+
+  /* ── before/after toggle ── */
+  .toggle-wrap { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+  .toggle-btns { display: flex; background: #0d1829; border: 1px solid #1a2540; border-radius: 10px; overflow: hidden; }
+  .toggle-btn {
+    padding: 10px 28px;
+    font-size: 13px; font-weight: 700; letter-spacing: 2px; text-transform: uppercase;
+    cursor: pointer; border: none; background: transparent; color: #6b7a99;
+    transition: all 0.2s;
+  }
+  .toggle-btn.active { background: #1a2e50; color: #fff; }
+  .toggle-btn.active.before { color: #ff7b2f; }
+  .toggle-btn.active.after  { color: #00e676; }
+  .toggle-label {
+    font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase;
+    padding: 4px 12px; border-radius: 6px; font-weight: 700;
+    transition: all 0.3s;
+  }
+  .toggle-label.before { background: #ff7b2f22; color: #ff7b2f; border: 1px solid #ff7b2f44; }
+  .toggle-label.after  { background: #00e67622; color: #00e676; border: 1px solid #00e67644; }
+
+  /* ── reduction banner (only in AFTER mode) ── */
+  .reduction-banner {
+    display: none;
+    background: linear-gradient(135deg, #00e67610, #4fc3f710);
+    border: 1px solid #00e67630;
+    border-radius: 12px;
+    padding: 16px 24px;
+    margin-bottom: 24px;
+    display: flex; flex-wrap: wrap; gap: 24px; align-items: center;
+    transition: opacity 0.3s;
+  }
+  .reduction-banner.hidden { display: none !important; }
+  .red-stat { text-align: center; }
+  .red-stat-value { font-size: 28px; font-weight: 800; line-height: 1; }
+  .red-stat-label { font-size: 10px; letter-spacing: 1.5px; text-transform: uppercase; color: #6b7a99; margin-top: 4px; }
+  .red-divider { width: 1px; height: 48px; background: #1a2540; }
+
+  /* ── KPIs ── */
+  .kpi-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 20px; }
+  .kpi {
+    background: #0d1829; border: 1px solid #1a2540; border-radius: 10px;
+    padding: 18px 20px; text-align: center; transition: border-color 0.3s;
+    position: relative; overflow: hidden;
+  }
+  .kpi-value { font-size: 32px; font-weight: 800; line-height: 1; margin-bottom: 6px; transition: color 0.3s; }
+  .kpi-label { font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; color: #6b7a99; }
+  .kpi-delta {
+    font-size: 11px; font-weight: 700; letter-spacing: 1px; margin-top: 6px;
+    transition: opacity 0.3s; opacity: 0; height: 0; overflow: hidden;
+  }
+  .kpi-delta.show { opacity: 1; height: auto; }
+  .kpi-delta.down { color: #00e676; }
+  .kpi-delta.up   { color: #ff3a5c; }
+
+  /* ── layout ── */
+  .section-title { font-size: 11px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; color: #6b7a99; margin-bottom: 16px; padding-left: 2px; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+  .grid-1 { display: grid; grid-template-columns: 1fr; gap: 20px; margin-bottom: 20px; }
+  .card { background: #0d1829; border: 1px solid #1a2540; border-radius: 12px; padding: 20px 24px; }
+  .card-title { font-size: 12px; font-weight: 600; letter-spacing: 2px; text-transform: uppercase; color: #6b7a99; margin-bottom: 16px; }
+
+  canvas { max-height: 280px; }
+  .chart-tall canvas { max-height: 340px; }
+
+  /* ── budget bars ── */
+  .budget-bar-wrap { margin-top: 4px; }
+  .budget-bar-label { display: flex; justify-content: space-between; font-size: 11px; color: #6b7a99; margin-bottom: 4px; }
+  .budget-bar { height: 10px; background: #1a2540; border-radius: 5px; overflow: hidden; margin-bottom: 12px; }
+  .budget-bar-fill { height: 100%; border-radius: 5px; transition: width 0.6s ease, background 0.3s; }
+  .budget-total { font-size: 12px; color: #6b7a99; border-top: 1px solid #1a2540; padding-top: 10px; margin-top: 4px; }
+
+  /* ── waste list ── */
+  .waste-list { list-style: none; }
+  .waste-item { display: flex; align-items: flex-start; gap: 12px; padding: 12px 0; border-bottom: 1px solid #1a2540; }
+  .waste-item:last-child { border-bottom: none; }
+  .waste-badge { flex-shrink: 0; font-size: 10px; font-weight: 700; letter-spacing: 1px; padding: 3px 8px; border-radius: 4px; text-transform: uppercase; margin-top: 2px; }
+  .waste-badge.high   { background: #ff3a5c22; color: #ff3a5c; border: 1px solid #ff3a5c44; }
+  .waste-badge.med    { background: #ffb80022; color: #ffb800; border: 1px solid #ffb80044; }
+  .waste-badge.low    { background: #00e67622; color: #00e676; border: 1px solid #00e67644; }
+  .waste-badge.fixed  { background: #00e67622; color: #00e676; border: 1px solid #00e67644; }
+  .waste-badge.partial{ background: #4fc3f722; color: #4fc3f7; border: 1px solid #4fc3f744; }
+  .waste-text { font-size: 13px; color: #c8d0e0; line-height: 1.5; }
+  .waste-text strong { color: #fff; }
+  .waste-savings { font-size: 11px; color: #6b7a99; margin-top: 3px; }
+  .waste-savings.green { color: #00e676; }
+  .waste-savings.blue  { color: #4fc3f7; }
+
+  @media (max-width: 900px) {
+    .grid-2, .grid-3 { grid-template-columns: 1fr; }
+    .kpi-row { grid-template-columns: repeat(2, 1fr); }
+    .reduction-banner { flex-direction: column; align-items: flex-start; }
+    .red-divider { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- Header + Toggle -->
+<div class="header">
+  <div>
+    <h1>API Call Metrics</h1>
+    <p class="subtitle">Auction Packed · IPL 2026 · CricAPI + ESPN RapidAPI · Per match day</p>
+  </div>
+  <div class="toggle-wrap">
+    <div class="toggle-btns">
+      <button class="toggle-btn before active" onclick="setMode('before')">Before</button>
+      <button class="toggle-btn after"         onclick="setMode('after')">After</button>
+    </div>
+    <div class="toggle-label before" id="modeLabel">Unoptimised baseline</div>
+  </div>
+</div>
+
+<!-- Reduction banner (After only) -->
+<div class="reduction-banner hidden" id="reductionBanner">
+  <div class="red-stat">
+    <div class="red-stat-value" style="color:#00e676;">−70%</div>
+    <div class="red-stat-label">CricAPI calls saved</div>
+  </div>
+  <div class="red-divider"></div>
+  <div class="red-stat">
+    <div class="red-stat-value" style="color:#4fc3f7;">−48%</div>
+    <div class="red-stat-label">ESPN calls saved</div>
+  </div>
+  <div class="red-divider"></div>
+  <div class="red-stat">
+    <div class="red-stat-value" style="color:#ffb800;">~184</div>
+    <div class="red-stat-label">CricAPI calls freed/day</div>
+  </div>
+  <div class="red-divider"></div>
+  <div class="red-stat">
+    <div class="red-stat-value" style="color:#ffb800;">~72</div>
+    <div class="red-stat-label">ESPN calls freed/day</div>
+  </div>
+  <div class="red-divider"></div>
+  <div class="red-stat">
+    <div class="red-stat-value" style="color:#fff;">3</div>
+    <div class="red-stat-label">optimisations shipped</div>
+  </div>
+</div>
+
+<!-- KPIs -->
+<div class="kpi-row">
+  <div class="kpi" id="kpi0">
+    <div class="kpi-value" style="color:#ff3a5c;" id="kv0">187</div>
+    <div class="kpi-label">/currentMatches<br>calls / day</div>
+    <div class="kpi-delta down" id="kd0">↓ 153 saved (−82%)</div>
+  </div>
+  <div class="kpi" id="kpi1">
+    <div class="kpi-value" style="color:#ff7b2f;" id="kv1">26</div>
+    <div class="kpi-label">Redundant scorecard<br>fetches per full sync</div>
+    <div class="kpi-delta down" id="kd1">↓ 24 saved (−92%)</div>
+  </div>
+  <div class="kpi" id="kpi2">
+    <div class="kpi-value" style="color:#ff3a5c;" id="kv2">~96</div>
+    <div class="kpi-label">ESPN calls per<br>Insights session</div>
+    <div class="kpi-delta down" id="kd2">↓ ~96 saved (cached)</div>
+  </div>
+  <div class="kpi" id="kpi3">
+    <div class="kpi-value" style="color:#ffb800;" id="kv3">~265</div>
+    <div class="kpi-label">Total CricAPI calls<br>per match day</div>
+    <div class="kpi-delta down" id="kd3">↓ 184 saved → ~81</div>
+  </div>
+</div>
+
+<!-- Row 1: calls per action -->
+<div class="grid-2">
+  <div class="card chart-tall">
+    <div class="card-title" id="cricapiBarTitle">CricAPI Calls Per Action · Before</div>
+    <canvas id="cricapiBar"></canvas>
+  </div>
+  <div class="card chart-tall">
+    <div class="card-title" id="espnBarTitle">ESPN Calls Per Action · Before</div>
+    <canvas id="espnBar"></canvas>
+  </div>
+</div>
+
+<!-- Row 2: daily budget + sync flow -->
+<div class="grid-2">
+  <div class="card">
+    <div class="card-title" id="budgetTitle">Daily CricAPI Budget Burn · Before</div>
+    <div class="budget-bar-wrap" id="budgetBars"></div>
+    <canvas id="budgetDonut" style="max-height:180px;margin-top:16px;"></canvas>
+  </div>
+  <div class="card">
+    <div class="card-title" id="syncFlowTitle">Calls Per Auto-Sync Cycle · Before (17 cycles/day)</div>
+    <canvas id="syncFlow" style="max-height:260px;"></canvas>
+  </div>
+</div>
+
+<!-- Row 3: endpoint breakdown + waste analysis -->
+<div class="grid-2">
+  <div class="card">
+    <div class="card-title">CricAPI Calls by Endpoint (per day)</div>
+    <canvas id="endpointPie"></canvas>
+  </div>
+  <div class="card">
+    <div class="card-title" id="wasteTitle">Waste Analysis</div>
+    <ul class="waste-list" id="wasteList"></ul>
+  </div>
+</div>
+
+<script>
+/* ─────────────────────────────────────────────
+   PALETTE
+───────────────────────────────────────────── */
+const ORANGE = '#ff7b2f';
+const RED    = '#ff3a5c';
+const GREEN  = '#00e676';
+const GOLD   = '#ffb800';
+const BLUE   = '#4fc3f7';
+const PURPLE = '#b39ddb';
+const MUTED  = '#2a3a5a';
+const TEXT   = '#8899bb';
+
+Chart.defaults.color = TEXT;
+Chart.defaults.borderColor = '#1a2540';
+Chart.defaults.font.family = "'Segoe UI', system-ui, sans-serif";
+
+/* ─────────────────────────────────────────────
+   DATA MODEL — before / after per metric
+   All numbers per match day (17 auto-sync cycles + 1 fetchCricapiResults)
+───────────────────────────────────────────── */
+const DATA = {
+  before: {
+    // KPIs
+    kpis: ['187', '26', '~96', '~265'],
+
+    // CricAPI calls per action
+    // Actions: Auto-Sync/cycle, Fetch CricAPI Results, Daily Final, Refresh All, Import UUID, Reimport
+    cricapi: {
+      currentMatches: [11,  11, 11, 0, 0, 0],
+      scorecard:      [ 2,  24, 24, 22, 1, 1],
+      seriesInfo:     [ 0,   1,  1,  0, 0, 0],
+    },
+
+    // ESPN calls per action
+    // Actions: Auto-Sync/cycle, Fetch ESPN (admin), Insights tab open, fetchCricapiResults, Daily Final
+    espn: {
+      liveScores:   [1, 1, 0, 1, 1],
+      matchDetails: [2, 3, 24, 2, 2],
+    },
+
+    // Budget bars  [label, calls, color]
+    budget: [
+      ['Auto-sync /currentMatches (17×11)',       187, RED],
+      ['Auto-sync /match_scorecard (17×~2)',        34, ORANGE],
+      ['fetchCricapiResults /currentMatches (×11)', 11, RED],
+      ['fetchCricapiResults /match_scorecard (~24)',24, ORANGE],
+      ['/series_info',                               1, GOLD],
+      ['Manual admin',                               8, MUTED],
+    ],
+
+    // Sync flow per cycle: [currentMatches, scorecard, liveScores, matchDetails]
+    syncCycle: [11, 2, 1, 2],
+
+    // Endpoint pie [currentMatches, scorecard, seriesInfo]
+    endpointPie: [198, 58, 1],
+  },
+
+  after: {
+    // KPIs
+    kpis: ['34', '2', '~0', '~81'],
+
+    // /currentMatches stops at first empty page → avg ~2 offsets instead of 11
+    // /match_scorecard skips done → only ~2 non-done per run
+    cricapi: {
+      currentMatches: [2,  2, 2, 0, 0, 0],
+      scorecard:      [2,  2, 2, 22, 1, 1],
+      seriesInfo:     [0,  1, 1,  0, 0, 0],
+    },
+
+    // ESPN: Insights cache means 0 calls after first load; others unchanged
+    espn: {
+      liveScores:   [1, 1, 0, 1, 1],
+      matchDetails: [2, 3,  0, 2, 2],
+    },
+
+    budget: [
+      ['Auto-sync /currentMatches (17×~2)',          34, GREEN],
+      ['Auto-sync /match_scorecard (17×~2)',          34, ORANGE],
+      ['fetchCricapiResults /currentMatches (~×2)',    2, GREEN],
+      ['fetchCricapiResults /match_scorecard (~2)',    2, GREEN],
+      ['/series_info',                                 1, GOLD],
+      ['Manual admin',                                 8, MUTED],
+    ],
+
+    syncCycle: [2, 2, 1, 2],
+
+    endpointPie: [36, 46, 1],
+  }
+};
+
+const WASTE_ITEMS = [
+  {
+    badge: 'high', badgeAfter: 'fixed',
+    title: '/currentMatches × 11 offsets',
+    desc: 'Called on every auto-sync AND every fetchCricapiResults, even when only 1–2 IPL matches exist.',
+    savingBefore: '187 calls/day wasted',
+    savingAfter: 'Now stops at first empty page → avg ~2 pages · saved ~153 CricAPI/day',
+    colorAfter: 'green',
+  },
+  {
+    badge: 'high', badgeAfter: 'fixed',
+    title: 'fetchCricapiResults refetches all done scorecards',
+    desc: 'Iterates every schedule match up to today (grows to 70+) and called /match_scorecard even for done matches already in Firebase.',
+    savingBefore: '24–70 redundant calls per run',
+    savingAfter: 'Now skips status=done matches → only 2 non-done remain per run · saved ~24 CricAPI/day',
+    colorAfter: 'green',
+  },
+  {
+    badge: 'high', badgeAfter: 'fixed',
+    title: 'Insights tab fetches ESPN for every past match on every load',
+    desc: 'loadBattingPositionBuckets called fetchESPNMatchDetails for all matches up to today, no persistent cache.',
+    savingBefore: '24+ ESPN calls per tab open · ~96/day (4 opens)',
+    savingAfter: 'Now cached in localStorage by match-set signature · 0 ESPN calls on repeat opens',
+    colorAfter: 'blue',
+  },
+  {
+    badge: 'med', badgeAfter: 'partial',
+    title: 'ESPN calls counted against CricAPI quota',
+    desc: 'fetchESPNMatchDetails and fetchAndStoreESPNLiveMatchIds both called incrementApiCalls() (CricAPI counter) instead of ESPN counter.',
+    savingBefore: 'Inflated CricAPI counter; ESPN calls invisible in tracking',
+    savingAfter: 'ESPN now uses separate incrementEspnCalls() · both counters accurate',
+    colorAfter: 'blue',
+  },
+  {
+    badge: 'med', badgeAfter: 'partial',
+    title: 'No server-side quota visibility',
+    desc: 'CricAPI calls were estimated from localStorage only — diverges from server-side metered count.',
+    savingBefore: 'Risk of hitting limit without warning',
+    savingAfter: '↻ Fetch server quota button in Admin uses /match_info info object for real remaining count',
+    colorAfter: 'blue',
+  },
+];
+
+/* ─────────────────────────────────────────────
+   CHART INSTANCES
+───────────────────────────────────────────── */
+let currentMode = 'before';
+
+// Chart 1 — CricAPI per action
+const cricapiChart = new Chart(document.getElementById('cricapiBar'), {
+  type: 'bar',
+  data: {
+    labels: ['Auto-Sync\n(per cycle)', 'Fetch CricAPI\nResults', 'Daily Final\nSync', 'Refresh\nAll', 'Import\nUUID', 'Reimport\nSingle'],
+    datasets: [
+      { label: '/currentMatches', data: [...DATA.before.cricapi.currentMatches], backgroundColor: RED },
+      { label: '/match_scorecard', data: [...DATA.before.cricapi.scorecard],     backgroundColor: ORANGE },
+      { label: '/series_info',     data: [...DATA.before.cricapi.seriesInfo],    backgroundColor: GOLD },
+    ]
+  },
+  options: {
+    responsive: true,
+    plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, padding: 16 } } },
+    scales: {
+      x: { stacked: true, grid: { color: '#1a2540' } },
+      y: { stacked: true, grid: { color: '#1a2540' }, ticks: { stepSize: 5 },
+           max: 36 }
+    }
+  }
+});
+
+// Chart 2 — ESPN per action
+const espnChart = new Chart(document.getElementById('espnBar'), {
+  type: 'bar',
+  data: {
+    labels: ['Auto-Sync\n(per cycle)', 'Fetch ESPN\n(admin)', 'Insights\nTab Open', 'fetchCricapi\nResults', 'Daily Final\nSync'],
+    datasets: [
+      { label: 'live-scores',   data: [...DATA.before.espn.liveScores],   backgroundColor: PURPLE },
+      { label: 'match-details', data: [...DATA.before.espn.matchDetails], backgroundColor: BLUE },
+    ]
+  },
+  options: {
+    responsive: true,
+    plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, padding: 16 } } },
+    scales: {
+      x: { stacked: true, grid: { color: '#1a2540' } },
+      y: { stacked: true, grid: { color: '#1a2540' }, max: 30 }
+    }
+  }
+});
+
+// Chart 3 — Budget donut
+const budgetDonut = new Chart(document.getElementById('budgetDonut'), {
+  type: 'doughnut',
+  data: {
+    labels: ['Used (est.)', 'Remaining'],
+    datasets: [{
+      data: [265, 2000 - 265],
+      backgroundColor: [ORANGE, '#1a2540'],
+      borderWidth: 0
+    }]
+  },
+  options: {
+    responsive: true, cutout: '72%',
+    plugins: {
+      legend: { position: 'bottom', labels: { boxWidth: 12 } },
+      tooltip: { callbacks: { label: ctx => ` ${ctx.raw} calls` } }
+    }
+  }
+});
+
+// Chart 4 — Endpoint pie
+const endpointPie = new Chart(document.getElementById('endpointPie'), {
+  type: 'doughnut',
+  data: {
+    labels: ['/currentMatches', '/match_scorecard', '/series_info'],
+    datasets: [{
+      data: [...DATA.before.endpointPie],
+      backgroundColor: [RED, ORANGE, GOLD],
+      borderWidth: 0
+    }]
+  },
+  options: {
+    responsive: true, cutout: '60%',
+    plugins: {
+      legend: { position: 'bottom', labels: { boxWidth: 12, padding: 14 } },
+      tooltip: { callbacks: { label: ctx => ` ${ctx.raw} calls/day` } }
+    }
+  }
+});
+
+// Chart 5 — Sync flow (grouped, before vs after side-by-side)
+const syncLabels = Array.from({length:17}, (_,i) => `C${i+1}`);
+const syncChart = new Chart(document.getElementById('syncFlow'), {
+  type: 'bar',
+  data: {
+    labels: syncLabels,
+    datasets: [
+      { label: '/currentMatches', data: Array(17).fill(DATA.before.syncCycle[0]), backgroundColor: RED },
+      { label: '/match_scorecard', data: Array(17).fill(DATA.before.syncCycle[1]), backgroundColor: ORANGE },
+      { label: 'ESPN live-scores', data: Array(17).fill(DATA.before.syncCycle[2]), backgroundColor: PURPLE },
+      { label: 'ESPN match-details', data: Array(17).fill(DATA.before.syncCycle[3]), backgroundColor: BLUE },
+    ]
+  },
+  options: {
+    responsive: true,
+    plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, padding: 12 } } },
+    scales: {
+      x: { stacked: true, grid: { color: '#1a2540' } },
+      y: { stacked: true, grid: { color: '#1a2540' },
+           title: { display: true, text: 'calls / cycle', color: TEXT },
+           max: 18 }
+    }
+  }
+});
+
+/* ─────────────────────────────────────────────
+   BUDGET BARS renderer
+───────────────────────────────────────────── */
+function renderBudgetBars(mode) {
+  const items = DATA[mode].budget;
+  const total = items.reduce((s, i) => s + i[1], 0);
+  const wrap = document.getElementById('budgetBars');
+  wrap.innerHTML = items.map(([label, calls, color]) => {
+    const pct = (calls / 2000 * 100).toFixed(1);
+    return `
+      <div class="budget-bar-label">
+        <span>${label}</span>
+        <span style="color:${color};font-weight:700;">${calls} (${pct}%)</span>
+      </div>
+      <div class="budget-bar">
+        <div class="budget-bar-fill" style="width:${pct}%;background:${color};"></div>
+      </div>`;
+  }).join('') + `
+    <div class="budget-total">
+      Total estimated: <span style="color:#fff;font-weight:700;">${total} / 2000</span>
+      ${mode === 'after' ? `<span style="color:#00e676;font-weight:700;margin-left:8px;">↓ ${265 - total} saved vs before</span>` : ''}
+    </div>`;
+}
+
+/* ─────────────────────────────────────────────
+   WASTE LIST renderer
+───────────────────────────────────────────── */
+function renderWasteList(mode) {
+  const ul = document.getElementById('wasteList');
+  ul.innerHTML = WASTE_ITEMS.map(item => {
+    const badge = mode === 'after' ? item.badgeAfter : item.badge;
+    const savingText = mode === 'after' ? item.savingAfter : item.savingBefore;
+    const savingClass = mode === 'after' ? ('waste-savings ' + item.colorAfter) : 'waste-savings';
+    const badgeLabel = mode === 'after'
+      ? (badge === 'fixed' ? 'FIXED' : badge === 'partial' ? 'IMPROVED' : badge.toUpperCase())
+      : badge.toUpperCase();
+    return `
+      <li class="waste-item">
+        <span class="waste-badge ${badge}">${badgeLabel}</span>
+        <div>
+          <div class="waste-text"><strong>${item.title}</strong> — ${item.desc}</div>
+          <div class="${savingClass}">${savingText}</div>
+        </div>
+      </li>`;
+  }).join('');
+}
+
+/* ─────────────────────────────────────────────
+   MODE SWITCHER
+───────────────────────────────────────────── */
+function setMode(mode) {
+  currentMode = mode;
+  const d = DATA[mode];
+
+  // toggle buttons
+  document.querySelectorAll('.toggle-btn').forEach(b => {
+    b.classList.toggle('active', b.classList.contains(mode));
+  });
+
+  // mode label
+  const lbl = document.getElementById('modeLabel');
+  lbl.className = 'toggle-label ' + mode;
+  lbl.textContent = mode === 'before' ? 'Unoptimised baseline' : 'Post-optimisation';
+
+  // reduction banner
+  document.getElementById('reductionBanner').classList.toggle('hidden', mode === 'before');
+
+  // KPIs
+  const kpiValues = ['187','26','~96','~265'];
+  const kpiAfter  = ['34','2','~0','~81'];
+  const kpiDeltas = ['↓ 153 saved (−82%)', '↓ 24 saved (−92%)', '↓ ~96 saved (cached)', '↓ 184 saved → ~81'];
+  const kpiColors = { before: ['#ff3a5c','#ff7b2f','#ff3a5c','#ffb800'], after: ['#00e676','#00e676','#00e676','#00e676'] };
+  [0,1,2,3].forEach(i => {
+    document.getElementById('kv'+i).textContent = mode === 'before' ? kpiValues[i] : kpiAfter[i];
+    document.getElementById('kv'+i).style.color   = kpiColors[mode][i];
+    const delta = document.getElementById('kd'+i);
+    delta.classList.toggle('show', mode === 'after');
+  });
+
+  // chart titles
+  const suffix = mode === 'before' ? '· Before' : '· After';
+  document.getElementById('cricapiBarTitle').textContent = 'CricAPI Calls Per Action ' + suffix;
+  document.getElementById('espnBarTitle').textContent    = 'ESPN Calls Per Action ' + suffix;
+  document.getElementById('budgetTitle').textContent     = 'Daily CricAPI Budget Burn ' + suffix;
+  document.getElementById('syncFlowTitle').textContent   = 'Calls Per Auto-Sync Cycle ' + suffix + ' (17 cycles/day)';
+
+  // update cricapiChart
+  cricapiChart.data.datasets[0].data = [...d.cricapi.currentMatches];
+  cricapiChart.data.datasets[1].data = [...d.cricapi.scorecard];
+  cricapiChart.data.datasets[2].data = [...d.cricapi.seriesInfo];
+  cricapiChart.data.datasets[0].backgroundColor = mode === 'after' ? GREEN : RED;
+  cricapiChart.update('active');
+
+  // update espnChart
+  espnChart.data.datasets[0].data = [...d.espn.liveScores];
+  espnChart.data.datasets[1].data = [...d.espn.matchDetails];
+  espnChart.update('active');
+
+  // update syncChart
+  syncChart.data.datasets[0].data = Array(17).fill(d.syncCycle[0]);
+  syncChart.data.datasets[1].data = Array(17).fill(d.syncCycle[1]);
+  syncChart.data.datasets[2].data = Array(17).fill(d.syncCycle[2]);
+  syncChart.data.datasets[3].data = Array(17).fill(d.syncCycle[3]);
+  syncChart.data.datasets[0].backgroundColor = mode === 'after' ? GREEN : RED;
+  syncChart.update('active');
+
+  // update donut
+  const total = d.budget.reduce((s, i) => s + i[1], 0);
+  budgetDonut.data.datasets[0].data = [total, 2000 - total];
+  budgetDonut.data.datasets[0].backgroundColor[0] = mode === 'after' ? GREEN : ORANGE;
+  budgetDonut.update('active');
+
+  // update endpoint pie
+  endpointPie.data.datasets[0].data = [...d.endpointPie];
+  endpointPie.data.datasets[0].backgroundColor[0] = mode === 'after' ? GREEN : RED;
+  endpointPie.update('active');
+
+  // budget bars
+  renderBudgetBars(mode);
+
+  // waste list
+  renderWasteList(mode);
+}
+
+/* ─────────────────────────────────────────────
+   INIT
+───────────────────────────────────────────── */
+renderBudgetBars('before');
+renderWasteList('before');
+</script>
+</body>
+</html>
