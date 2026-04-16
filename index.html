@@ -773,6 +773,9 @@ const POLL_INTERVAL_SLOW   = 30 * 60 * 1000;
 const DAILY_LIMIT          = 2000;
 const DAILY_LIMIT_SLOW_AT  = 1800;
 const LS_API_CALLS_KEY     = 'ap_live_api_calls';
+const LS_ESPN_CALLS_KEY    = 'ap_live_espn_calls';
+const ESPN_DAILY_LIMIT     = 500;
+const LS_BATPOS_CACHE_KEY  = 'ap_batpos_cache';
 let _pollTimer = null;
 let _autoPolling = false;
 let _lastSyncTime = null;
@@ -794,6 +797,45 @@ function incrementApiCalls(n=1) {
   try { const t=new Date().toISOString().slice(0,10); const c=getApiCallsToday()+n; localStorage.setItem(LS_API_CALLS_KEY,JSON.stringify({date:t,count:c})); return c; } catch(e){return 0;}
 }
 function apiCallsRemaining() { return Math.max(0, DAILY_LIMIT - getApiCallsToday()); }
+function getEspnCallsToday() {
+  try { const s=JSON.parse(localStorage.getItem(LS_ESPN_CALLS_KEY)||'{}'); const t=new Date().toISOString().slice(0,10); if(s.date!==t) return 0; return s.count||0; } catch(e){return 0;}
+}
+function incrementEspnCalls(n=1) {
+  try { const t=new Date().toISOString().slice(0,10); const c=getEspnCallsToday()+n; localStorage.setItem(LS_ESPN_CALLS_KEY,JSON.stringify({date:t,count:c})); return c; } catch(e){return 0;}
+}
+
+// Fetches real server-side quota from CricAPI /match_info info object.
+// Stores result in memory so admin panel can display it.
+let _cricapiQuotaCache = null; // { remaining, hitsToday, fetchedAt }
+async function refreshCricapiQuotaFromServer() {
+  try {
+    const knownId = (() => {
+      if (liveData && liveData.matches) {
+        const m = (liveData.matches).find(x => x && x.apiId);
+        if (m) return m.apiId;
+      }
+      if (liveData && liveData.cricapiIdMap) {
+        const vals = Object.values(liveData.cricapiIdMap);
+        if (vals.length) return vals[0];
+      }
+      return null;
+    })();
+    if (!knownId) return;
+    const d = await fetchCricapiJson('/match_info', { id: knownId });
+    if (d && d.info) {
+      const hits = parseInt(d.info.hitsToday || d.info.hits_today || 0);
+      const limit = parseInt(d.info.hitsLimit || d.info.hits_limit || DAILY_LIMIT);
+      _cricapiQuotaCache = {
+        hitsToday: hits,
+        remaining: Math.max(0, limit - hits),
+        limit,
+        fetchedAt: Date.now()
+      };
+    }
+  } catch (e) {
+    console.warn('[AP] quota refresh failed', e.message);
+  }
+}
 
 function getETDateTimeParts(date = new Date()) {
   const parts = new Intl.DateTimeFormat('en-US', {
@@ -967,7 +1009,7 @@ async function fetchAndStoreESPNLiveMatchIds() {
     });
     if (!response.ok) return;
     const data = await response.json();
-    incrementApiCalls(1);
+    incrementEspnCalls(1);
 
     // Response shape: { result: [ ...matches ] }
     const matchList = Array.isArray(data.result) ? data.result : [];
@@ -1278,21 +1320,20 @@ function renderLeaderboard() {
         <div class="lb-rank">${i+1}</div>
         <div class="lb-team" style="flex:1;">
           <div class="lb-team-name">${TEAM_SLUGS[name]||name}${isBPL?' \uD83E\uDD22':''}</div>
-          <div class="lb-team-meta" style="display:flex;gap:10px;flex-wrap:wrap;">
+          <div class="lb-team-meta" style="display:flex;gap:10px;flex-wrap:wrap;margin-top:2px;">
             <span style="color:var(--red);">${name}</span>
-            <span style="color:var(--gold);">C: ${capName}</span>
-            <span style="color:var(--muted);">VC: ${vcName}</span>
+            <span style="color:var(--muted);">Last Match: ${lastCompletedMatch ? (lastCompletedPointsByTeam[name] || 0) : '—'}</span>
           </div>
           <div class="lb-team-meta" style="display:flex;gap:10px;flex-wrap:wrap;margin-top:2px;">
-            <span>${doneCount} match${doneCount!==1?'es':''} played</span>
-            <span>Last match: ${lastCompletedMatch ? (lastCompletedPointsByTeam[name] || 0) : '—'}</span>
+            <span style="color:var(--gold);">C: ${capName}</span>
+            <span style="color:var(--muted);">VC: ${vcName}</span>
           </div>
           <div class="lb-sparkbar"><div class="lb-sparkfill" style="width:${pct}%;background:${i===0&&pts>0?'var(--gold)':'var(--orange)'}"></div></div>
         </div>
         <div style="text-align:right;">
           <div class="lb-pts">${pts}</div>
           <div class="lb-pts-label">PTS</div>
-          <div class="squad-arrow" style="font-size:10px;color:var(--muted);margin-top:2px;">▶ SQUAD</div>
+          <div class="squad-arrow" style="font-size:10px;color:var(--muted);margin-top:2px;"><span class="squad-arrow-icon" style="display:inline-block;transition:transform 0.15s;">▶&#xFE0E;</span> SQUAD</div>
           ${isBPL?'<div style="font-family:Barlow Condensed,sans-serif;font-size:9px;font-weight:700;letter-spacing:2px;color:var(--red);margin-top:1px;">BPL</div>':''}
         </div>
       </div>
@@ -1314,7 +1355,10 @@ function toggleRosterLB(id, headerEl) {
   const isOpen = el.style.display!=='none';
   el.style.display = isOpen?'none':'block';
   const lbl = headerEl.querySelector('.squad-arrow');
-  if (lbl) lbl.textContent = isOpen?'▶ SQUAD':'▼ SQUAD';
+  if (lbl) {
+    const icon = lbl.querySelector('.squad-arrow-icon');
+    if (icon) icon.style.transform = isOpen ? '' : 'rotate(90deg)';
+  }
   if (headerEl.getAttribute('data-bpl') === 'true') {
     const slugEl = headerEl.querySelector('.lb-team-name');
     if (slugEl) slugEl.textContent = isOpen
@@ -1327,7 +1371,10 @@ function toggleRosterLive(id, headerEl) {
   const isOpen = el.style.display!=='none';
   el.style.display = isOpen?'none':'block';
   const lbl = headerEl.querySelector('.squad-arrow');
-  if (lbl) lbl.textContent = isOpen?'▶ SQUAD':'▼ SQUAD';
+  if (lbl) {
+    const icon = lbl.querySelector('.squad-arrow-icon');
+    if (icon) icon.style.transform = isOpen ? '' : 'rotate(90deg)';
+  }
   if (headerEl.getAttribute('data-bpl') === 'true') {
     const slugEl = headerEl.querySelector('.lb-team-name');
     if (slugEl) slugEl.textContent = isOpen
@@ -1701,7 +1748,7 @@ function renderLive() {
         <div style="text-align:right;">
           <div class="lb-pts">${pts}</div>
           <div class="lb-pts-label">PTS</div>
-          <div class="squad-arrow" style="font-size:10px;color:var(--muted);margin-top:2px;">▶ SQUAD</div>
+          <div class="squad-arrow" style="font-size:10px;color:var(--muted);margin-top:2px;"><span class="squad-arrow-icon" style="display:inline-block;transition:transform 0.15s;">▶&#xFE0E;</span> SQUAD</div>
         </div>
       </div>
       <div id="live-roster-${i}" style="display:none;border-top:1px solid var(--border);">
@@ -2490,6 +2537,22 @@ async function loadBattingPositionBuckets() {
   insightsBatPosLoading = true;
   insightsBatPosReloadRequested = false;
   const targetSignature = getCompletedMatchesSignature();
+
+  // Use localStorage cache when the completed-match set hasn't changed — avoids ESPN calls on every tab open.
+  try {
+    const cached = JSON.parse(localStorage.getItem(LS_BATPOS_CACHE_KEY) || '{}');
+    if (cached.sig === targetSignature && cached.byPlayer && cached.events) {
+      Object.assign(insightsBatPosByPlayer, cached.byPlayer);
+      insightsBatPosEvents = cached.events;
+      insightsBatPosCoveredMatches = cached.coveredMatches || {};
+      insightsBatPosLoadedSignature = targetSignature;
+      insightsBatPosLoaded = true;
+      insightsBatPosLoading = false;
+      if (currentTab === 'insights' && insightsSubTab === 'roleEfficiency') renderInsights();
+      return;
+    }
+  } catch (e) { /* cache miss — proceed to fetch */ }
+
   const acc = {};
   const events = [];
   const coveredMatches = {};
@@ -2588,6 +2651,15 @@ async function loadBattingPositionBuckets() {
   insightsBatPosLoadedSignature = targetSignature;
   insightsBatPosLoaded = true;
   insightsBatPosLoading = false;
+  // Persist computed results so future loads skip ESPN calls when the match set is unchanged.
+  try {
+    localStorage.setItem(LS_BATPOS_CACHE_KEY, JSON.stringify({
+      sig: targetSignature,
+      byPlayer: insightsBatPosByPlayer,
+      events,
+      coveredMatches
+    }));
+  } catch (e) { /* storage full — not critical */ }
   if (insightsBatPosReloadRequested || getCompletedMatchesSignature() !== insightsBatPosLoadedSignature) {
     insightsBatPosReloadRequested = false;
     resetInsightsBatPosCache();
@@ -3171,6 +3243,12 @@ function renderAdmin() {
   const isSlowing=used>=DAILY_LIMIT_SLOW_AT, isStopped=remaining===0;
   const inSyncWindow = isWithinAutoSyncWindowET();
   const sc=isStopped?'var(--red)':isSlowing?'var(--gold)':'var(--green)';
+  const espnUsed=getEspnCallsToday();
+  const espnSc=espnUsed>=ESPN_DAILY_LIMIT*0.8?'var(--gold)':'var(--green)';
+  const serverQuota=_cricapiQuotaCache;
+  const serverQuotaHtml=serverQuota
+    ?`<div style="font-size:11px;color:var(--muted);letter-spacing:1px;margin-top:2px;">Server: ${serverQuota.hitsToday} used · ${serverQuota.remaining} remaining (as of ${new Date(serverQuota.fetchedAt).toLocaleTimeString()})</div>`
+    :`<div style="font-size:11px;color:var(--muted);letter-spacing:1px;margin-top:2px;"><button onclick="refreshCricapiQuotaFromServer().then(renderAdmin)" style="background:none;border:none;color:var(--blue);cursor:pointer;font-size:11px;letter-spacing:1px;padding:0;">↻ Fetch server quota</button></div>`;
 
   wrap.innerHTML=`
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
@@ -3186,8 +3264,10 @@ function renderAdmin() {
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:14px;">
         <div>
           <div style="font-family:Barlow Condensed,sans-serif;font-size:22px;font-weight:800;letter-spacing:2px;color:${sc};">${_autoPolling?'<span style="animation:pulse-text 1.5s infinite;">● SYNCING</span>':(inSyncWindow?'○ PAUSED':'○ SUSPENDED')}</div>
-          <div style="font-size:12px;color:var(--muted);letter-spacing:1px;margin-top:3px;">${used} / ${DAILY_LIMIT} calls used · ${remaining} remaining</div>
-          <div style="font-size:11px;color:var(--muted);letter-spacing:1px;margin-top:2px;">Window: 6:00 AM - 2:30 PM ET</div>
+          <div style="font-size:12px;color:var(--muted);letter-spacing:1px;margin-top:3px;">CricAPI: ${used} local · ${remaining} remaining (est.)</div>
+          ${serverQuotaHtml}
+          <div style="font-size:12px;color:${espnSc};letter-spacing:1px;margin-top:3px;">ESPN: ${espnUsed} calls today</div>
+          <div style="font-size:11px;color:var(--muted);letter-spacing:1px;margin-top:2px;">Sync window: 6:00 AM - 2:30 PM ET</div>
           <div style="font-size:13px;color:var(--gold);letter-spacing:1px;margin-top:4px;" id="syncCountdown"></div>
         </div>
         <div style="display:flex;gap:8px;">
@@ -3198,7 +3278,10 @@ function renderAdmin() {
           <button onclick="runSyncNow()" style="background:var(--surface2);border:1px solid var(--border);color:var(--gold);border-radius:7px;padding:8px 14px;cursor:pointer;font-family:Barlow Condensed,sans-serif;font-size:14px;font-weight:700;letter-spacing:2px;">SYNC NOW</button>
         </div>
       </div>
-      <div style="background:var(--bg);border-radius:6px;height:6px;width:100%;overflow:hidden;"><div style="height:100%;border-radius:6px;background:${sc};width:${Math.min(100,Math.round((used/DAILY_LIMIT)*100))}%;transition:width 0.5s;"></div></div>
+      <div style="margin-bottom:4px;font-size:10px;color:var(--muted);letter-spacing:1px;">CRICAPI</div>
+      <div style="background:var(--bg);border-radius:6px;height:6px;width:100%;overflow:hidden;margin-bottom:8px;"><div style="height:100%;border-radius:6px;background:${sc};width:${Math.min(100,Math.round((used/DAILY_LIMIT)*100))}%;transition:width 0.5s;"></div></div>
+      <div style="margin-bottom:4px;font-size:10px;color:var(--muted);letter-spacing:1px;">ESPN</div>
+      <div style="background:var(--bg);border-radius:6px;height:6px;width:100%;overflow:hidden;"><div style="height:100%;border-radius:6px;background:${espnSc};width:${Math.min(100,Math.round((espnUsed/ESPN_DAILY_LIMIT)*100))}%;transition:width 0.5s;"></div></div>
       ${isStopped?'<p style="color:var(--red);font-size:12px;letter-spacing:1px;margin-top:8px;">Daily limit reached. Resets at midnight.</p>':''}
     </div>
 
@@ -3685,7 +3768,7 @@ async function fetchESPNMatchDetails(matchId, slug) {
     });
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const data = await response.json();
-    incrementApiCalls(1);
+    incrementEspnCalls(1);
     return data;
   } catch (error) {
     console.warn('[ESPN] Failed to fetch match details:', matchId, error.message);
@@ -3838,7 +3921,9 @@ async function runSyncNow() {
         if(d&&d.status==='failure'&&d.reason){
           currentMatchesFailureReason=d.reason;
         }
-        (d.data||[]).filter(m=>isIPLMatch(m)&&!seen.has(m.id)).forEach(m=>{seen.add(m.id);iplMatches.push(m);});
+        const page = (d.data||[]);
+        page.filter(m=>isIPLMatch(m)&&!seen.has(m.id)).forEach(m=>{seen.add(m.id);iplMatches.push(m);});
+        if(!page.length) break; // no more pages
       }catch(e){console.warn('[AP] offset='+offset,e.message);}
     }
     if(iplMatches.length===0){
@@ -4904,7 +4989,9 @@ async function fetchCricapiResults(options = {}) {
       for (let offset = 0; offset <= 10; offset++) {
         try {
           const d = await fetchCricapiJson('/currentMatches', { offset });
-          (d.data || []).filter(m => isIPLMatch(m) && (m.matchStarted || m.matchEnded)).forEach(m => startedOrEndedIds.add(m.id));
+          const page = (d.data || []);
+          page.filter(m => isIPLMatch(m) && (m.matchStarted || m.matchEnded)).forEach(m => startedOrEndedIds.add(m.id));
+          if (!page.length) break; // no more pages
         } catch (e) {
           console.warn('[AP] currentMatches offset=' + offset, e.message);
         }
@@ -4944,6 +5031,10 @@ async function fetchCricapiResults(options = {}) {
         if (processed % 5 === 0) refreshImportAllScheduledStatusUI();
         continue;
       }
+
+      // Skip scorecard fetch for matches already confirmed done — no new data expected.
+      const alreadyDone = (liveData.matches || []).some(m => m && m.apiId === scheduleMatch.cricapi_match_id && m.status === 'done');
+      if (alreadyDone) { refreshed++; continue; }
 
       try {
         const d = await fetchCricapiJson('/match_scorecard', { id: scheduleMatch.cricapi_match_id });
