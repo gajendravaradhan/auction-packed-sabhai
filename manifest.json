@@ -1,0 +1,25 @@
+{
+  "name": "Auction Packed",
+  "short_name": "Auction Packed",
+  "description": "IPL 2026 Fantasy Cricket League — Live scores, leaderboard & stats",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#070f1c",
+  "theme_color": "#070f1c",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}
