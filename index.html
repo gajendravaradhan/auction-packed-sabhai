@@ -755,6 +755,9 @@ let liveData = { matches: [] };
 let isAdmin = false;
 let currentTab = 'leaderboard';
 let insightsSubTab = 'momentum';
+let _adminSubTab = 'settings';
+let _monitoringMode = 'before';
+let _monCharts = {};
 let insightsRankMode = 'bump';
 let insightsTreemapTeam = 'VATS';
 let insightsH2HTeamA = 'VATS';
@@ -3235,24 +3238,47 @@ function renderCaptainsView() {
 }
 
 // ── ADMIN ──
+function switchAdminSubTab(tab) {
+  _adminSubTab = tab;
+  // Destroy any live charts before re-rendering
+  Object.values(_monCharts).forEach(c => { try { c.destroy(); } catch(e){} });
+  _monCharts = {};
+  renderAdmin();
+}
+
 function renderAdmin() {
   if (!isAdmin) return;
-  const wrap=document.getElementById('adminWrap'); if(!wrap)return;
-  const matches=liveData.matches||[];
-  const used=getApiCallsToday(), remaining=apiCallsRemaining();
-  const isSlowing=used>=DAILY_LIMIT_SLOW_AT, isStopped=remaining===0;
-  const inSyncWindow = isWithinAutoSyncWindowET();
-  const sc=isStopped?'var(--red)':isSlowing?'var(--gold)':'var(--green)';
-  const espnUsed=getEspnCallsToday();
-  const espnSc=espnUsed>=ESPN_DAILY_LIMIT*0.8?'var(--gold)':'var(--green)';
-  const serverQuota=_cricapiQuotaCache;
-  const serverQuotaHtml=serverQuota
-    ?`<div style="font-size:11px;color:var(--muted);letter-spacing:1px;margin-top:2px;">Server: ${serverQuota.hitsToday} used · ${serverQuota.remaining} remaining (as of ${new Date(serverQuota.fetchedAt).toLocaleTimeString()})</div>`
-    :`<div style="font-size:11px;color:var(--muted);letter-spacing:1px;margin-top:2px;"><button onclick="refreshCricapiQuotaFromServer().then(renderAdmin)" style="background:none;border:none;color:var(--blue);cursor:pointer;font-size:11px;letter-spacing:1px;padding:0;">↻ Fetch server quota</button></div>`;
+  const wrap = document.getElementById('adminWrap'); if (!wrap) return;
+  wrap.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
+      <div class="admin-section-title" style="margin:0;">Fantasy League Admin</div>
+      <div class="insights-subtabs" style="margin:0;padding:0;">
+        <button class="insights-subtab ${_adminSubTab==='settings'?'active':''}" onclick="switchAdminSubTab('settings')">Settings</button>
+        <button class="insights-subtab ${_adminSubTab==='monitoring'?'active':''}" onclick="switchAdminSubTab('monitoring')">Monitoring</button>
+      </div>
+    </div>
+    <div id="adminSubContent"></div>
+  `;
+  if (_adminSubTab === 'settings') renderAdminSettings();
+  else renderAdminMonitoring();
+}
 
-  wrap.innerHTML=`
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
-      <div class="admin-section-title" style="margin-bottom:0;">Fantasy League Admin</div>
+function renderAdminSettings() {
+  const el = document.getElementById('adminSubContent'); if (!el) return;
+  const matches = liveData.matches || [];
+  const used = getApiCallsToday(), remaining = apiCallsRemaining();
+  const isSlowing = used >= DAILY_LIMIT_SLOW_AT, isStopped = remaining === 0;
+  const inSyncWindow = isWithinAutoSyncWindowET();
+  const sc = isStopped ? 'var(--red)' : isSlowing ? 'var(--gold)' : 'var(--green)';
+  const espnUsed = getEspnCallsToday();
+  const espnSc = espnUsed >= ESPN_DAILY_LIMIT * 0.8 ? 'var(--gold)' : 'var(--green)';
+  const serverQuota = _cricapiQuotaCache;
+  const serverQuotaHtml = serverQuota
+    ? `<div style="font-size:11px;color:var(--muted);letter-spacing:1px;margin-top:2px;">Server: ${serverQuota.hitsToday} used · ${serverQuota.remaining} remaining (as of ${new Date(serverQuota.fetchedAt).toLocaleTimeString()})</div>`
+    : `<div style="font-size:11px;color:var(--muted);letter-spacing:1px;margin-top:2px;"><button onclick="refreshCricapiQuotaFromServer().then(renderAdmin)" style="background:none;border:none;color:var(--blue);cursor:pointer;font-size:11px;letter-spacing:1px;padding:0;">↻ Fetch server quota</button></div>`;
+
+  el.innerHTML = `
+    <div style="display:flex;justify-content:flex-end;margin-bottom:12px;">
       <button onclick="resetAllCVPicks()" style="background:var(--red);color:#fff;border:none;border-radius:7px;padding:7px 14px;cursor:pointer;font-family:Barlow Condensed,sans-serif;font-size:13px;font-weight:700;letter-spacing:2px;">RESET ALL C/VC PICKS</button>
     </div>
 
@@ -3263,7 +3289,7 @@ function renderAdmin() {
     <div class="match-input-card" style="margin-bottom:16px;">
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:14px;">
         <div>
-          <div style="font-family:Barlow Condensed,sans-serif;font-size:22px;font-weight:800;letter-spacing:2px;color:${sc};">${_autoPolling?'<span style="animation:pulse-text 1.5s infinite;">● SYNCING</span>':(inSyncWindow?'○ PAUSED':'○ SUSPENDED')}</div>
+          <div style="font-family:Barlow Condensed,sans-serif;font-size:22px;font-weight:800;letter-spacing:2px;color:${sc};">${_autoPolling ? '<span style="animation:pulse-text 1.5s infinite;">● SYNCING</span>' : (inSyncWindow ? '○ PAUSED' : '○ SUSPENDED')}</div>
           <div style="font-size:12px;color:var(--muted);letter-spacing:1px;margin-top:3px;">CricAPI: ${used} local · ${remaining} remaining (est.)</div>
           ${serverQuotaHtml}
           <div style="font-size:12px;color:${espnSc};letter-spacing:1px;margin-top:3px;">ESPN: ${espnUsed} calls today</div>
@@ -3272,17 +3298,17 @@ function renderAdmin() {
         </div>
         <div style="display:flex;gap:8px;">
           ${_autoPolling
-            ?'<button onclick="stopAutoSync()" style="background:none;border:1px solid var(--border);color:var(--muted);border-radius:7px;padding:8px 16px;cursor:pointer;font-family:Barlow Condensed,sans-serif;font-size:14px;font-weight:700;letter-spacing:2px;">PAUSE</button>'
-            :`<button onclick="startAutoSync()" style="background:var(--orange);color:#fff;border:none;border-radius:7px;padding:8px 16px;cursor:pointer;font-family:Barlow Condensed,sans-serif;font-size:14px;font-weight:700;letter-spacing:2px;"${(isStopped||!inSyncWindow)?' disabled':''}>START</button>`
+            ? '<button onclick="stopAutoSync()" style="background:none;border:1px solid var(--border);color:var(--muted);border-radius:7px;padding:8px 16px;cursor:pointer;font-family:Barlow Condensed,sans-serif;font-size:14px;font-weight:700;letter-spacing:2px;">PAUSE</button>'
+            : `<button onclick="startAutoSync()" style="background:var(--orange);color:#fff;border:none;border-radius:7px;padding:8px 16px;cursor:pointer;font-family:Barlow Condensed,sans-serif;font-size:14px;font-weight:700;letter-spacing:2px;"${(isStopped || !inSyncWindow) ? ' disabled' : ''}>START</button>`
           }
           <button onclick="runSyncNow()" style="background:var(--surface2);border:1px solid var(--border);color:var(--gold);border-radius:7px;padding:8px 14px;cursor:pointer;font-family:Barlow Condensed,sans-serif;font-size:14px;font-weight:700;letter-spacing:2px;">SYNC NOW</button>
         </div>
       </div>
       <div style="margin-bottom:4px;font-size:10px;color:var(--muted);letter-spacing:1px;">CRICAPI</div>
-      <div style="background:var(--bg);border-radius:6px;height:6px;width:100%;overflow:hidden;margin-bottom:8px;"><div style="height:100%;border-radius:6px;background:${sc};width:${Math.min(100,Math.round((used/DAILY_LIMIT)*100))}%;transition:width 0.5s;"></div></div>
+      <div style="background:var(--bg);border-radius:6px;height:6px;width:100%;overflow:hidden;margin-bottom:8px;"><div style="height:100%;border-radius:6px;background:${sc};width:${Math.min(100, Math.round((used / DAILY_LIMIT) * 100))}%;transition:width 0.5s;"></div></div>
       <div style="margin-bottom:4px;font-size:10px;color:var(--muted);letter-spacing:1px;">ESPN</div>
-      <div style="background:var(--bg);border-radius:6px;height:6px;width:100%;overflow:hidden;"><div style="height:100%;border-radius:6px;background:${espnSc};width:${Math.min(100,Math.round((espnUsed/ESPN_DAILY_LIMIT)*100))}%;transition:width 0.5s;"></div></div>
-      ${isStopped?'<p style="color:var(--red);font-size:12px;letter-spacing:1px;margin-top:8px;">Daily limit reached. Resets at midnight.</p>':''}
+      <div style="background:var(--bg);border-radius:6px;height:6px;width:100%;overflow:hidden;"><div style="height:100%;border-radius:6px;background:${espnSc};width:${Math.min(100, Math.round((espnUsed / ESPN_DAILY_LIMIT) * 100))}%;transition:width 0.5s;"></div></div>
+      ${isStopped ? '<p style="color:var(--red);font-size:12px;letter-spacing:1px;margin-top:8px;">Daily limit reached. Resets at midnight.</p>' : ''}
     </div>
 
     <div class="admin-section-title">IPL 2026 Schedule</div>
@@ -3316,20 +3342,246 @@ function renderAdmin() {
       </div>
     </div>
 
-    ${matches.length>0?`
+    ${matches.length > 0 ? `
       <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
         <button onclick="collapseAllMatches(true)" style="background:none;border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:5px 12px;cursor:pointer;font-family:Barlow Condensed,sans-serif;font-size:12px;font-weight:700;letter-spacing:2px;">COLLAPSE ALL</button>
         <button onclick="collapseSectionToLatestMatch()" style="background:none;border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:5px 12px;cursor:pointer;font-family:Barlow Condensed,sans-serif;font-size:12px;font-weight:700;letter-spacing:2px;">COLLAPSE SECTION</button>
         <button onclick="collapseAllMatches(false)" style="background:none;border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:5px 12px;cursor:pointer;font-family:Barlow Condensed,sans-serif;font-size:12px;font-weight:700;letter-spacing:2px;">EXPAND ALL</button>
         <button id="refreshAllBtn" onclick="refreshAllMatches()" style="background:none;border:1px solid var(--gold);color:var(--gold);border-radius:6px;padding:5px 12px;cursor:pointer;font-family:Barlow Condensed,sans-serif;font-size:12px;font-weight:700;letter-spacing:2px;">REFRESH ALL</button>
       </div>
-      ${[...matches].reverse().map((m,i)=>renderAdminMatch(m,matches.length-1-i)).join('')}
-    `:'<p style="color:var(--muted);font-size:13px;letter-spacing:1px;">No matches imported yet.</p>'}
+      ${[...matches].reverse().map((m, i) => renderAdminMatch(m, matches.length - 1 - i)).join('')}
+    ` : '<p style="color:var(--muted);font-size:13px;letter-spacing:1px;">No matches imported yet.</p>'}
   `;
   setTimeout(startCountdown, 50);
-  // Render admin C/VC override UI
   renderAdminCVOverride();
+}
 
+// ── ADMIN MONITORING TAB ──────────────────────────────────────────────────────
+
+function ensureChartJs(cb) {
+  if (window.Chart) { cb(); return; }
+  const s = document.createElement('script');
+  s.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js';
+  s.onload = cb;
+  s.onerror = () => console.warn('[AP] Chart.js failed to load');
+  document.head.appendChild(s);
+}
+
+function setMonitoringMode(mode) {
+  _monitoringMode = mode;
+  Object.values(_monCharts).forEach(c => { try { c.destroy(); } catch(e){} });
+  _monCharts = {};
+  renderAdminMonitoring();
+}
+
+function renderAdminMonitoring() {
+  const el = document.getElementById('adminSubContent'); if (!el) return;
+
+  const used     = getApiCallsToday();
+  const espnUsed = getEspnCallsToday();
+  const sq       = _cricapiQuotaCache;
+  const mode     = _monitoringMode;
+
+  // ── live call counters (always current) ──────────────────────
+  const cricSc   = used >= DAILY_LIMIT ? 'var(--red)' : used >= DAILY_LIMIT_SLOW_AT ? 'var(--gold)' : 'var(--green)';
+  const espnSc   = espnUsed >= ESPN_DAILY_LIMIT * 0.8 ? 'var(--gold)' : 'var(--green)';
+  const sqHtml   = sq
+    ? `<span style="color:var(--muted);font-size:11px;">Server: ${sq.hitsToday} used · ${sq.remaining} remaining · ${new Date(sq.fetchedAt).toLocaleTimeString()}</span>`
+    : `<button onclick="refreshCricapiQuotaFromServer().then(()=>switchAdminSubTab('monitoring'))" style="background:none;border:none;color:var(--blue);cursor:pointer;font-size:11px;letter-spacing:1px;padding:0;">↻ Fetch server quota</button>`;
+
+  // ── mode-specific data ────────────────────────────────────────
+  const DATA = {
+    before: {
+      kpis: ['187','26','~96','~265'],
+      kpiColors: ['var(--red)','var(--orange)','var(--red)','var(--gold)'],
+      cricapi: { cm:[11,11,11,0,0,0], sc:[2,24,24,22,1,1], si:[0,1,1,0,0,0] },
+      espn:    { ls:[1,1,0,1,1],       md:[2,3,24,2,2] },
+      budget:  [['Auto-sync /currentMatches (17×11)',187,'#ff3a5c'],['Auto-sync /match_scorecard (17×~2)',34,'#ff7b2f'],['fetchCricapiResults /currentMatches (×11)',11,'#ff3a5c'],['fetchCricapiResults /match_scorecard (~24)',24,'#ff7b2f'],['/series_info',1,'#ffb800'],['Manual admin',8,'#2a3a5a']],
+      syncCycle:[11,2,1,2], endpointPie:[198,58,1], total:265,
+    },
+    after: {
+      kpis: ['34','2','~0','~81'],
+      kpiColors: ['var(--green)','var(--green)','var(--green)','var(--green)'],
+      cricapi: { cm:[2,2,2,0,0,0], sc:[2,2,2,22,1,1], si:[0,1,1,0,0,0] },
+      espn:    { ls:[1,1,0,1,1],    md:[2,3,0,2,2] },
+      budget:  [['Auto-sync /currentMatches (17×~2)',34,'#00e676'],['Auto-sync /match_scorecard (17×~2)',34,'#ff7b2f'],['fetchCricapiResults /currentMatches (~×2)',2,'#00e676'],['fetchCricapiResults /match_scorecard (~2)',2,'#00e676'],['/series_info',1,'#ffb800'],['Manual admin',8,'#2a3a5a']],
+      syncCycle:[2,2,1,2], endpointPie:[36,46,1], total:81,
+    }
+  };
+  const d = DATA[mode];
+
+  const kpiDeltas = ['↓ 153 saved (−82%)','↓ 24 saved (−92%)','↓ ~96 saved (cached)','↓ 184 saved → ~81'];
+
+  const budgetRows = d.budget.map(([lbl,n,col]) => {
+    const pct = (n/2000*100).toFixed(1);
+    return `<div style="display:flex;justify-content:space-between;font-size:11px;color:#6b7a99;margin-bottom:3px;"><span>${lbl}</span><span style="color:${col};font-weight:700;">${n} (${pct}%)</span></div>
+            <div style="height:7px;background:#1a2540;border-radius:4px;overflow:hidden;margin-bottom:10px;"><div style="height:100%;border-radius:4px;background:${col};width:${pct}%;"></div></div>`;
+  }).join('');
+
+  el.innerHTML = `
+    <style>
+      .mon-card{background:#0d1829;border:1px solid #1a2540;border-radius:12px;padding:18px 20px;margin-bottom:16px;}
+      .mon-card-title{font-size:11px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:#6b7a99;margin-bottom:14px;}
+      .mon-kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px;}
+      .mon-kpi{background:#0d1829;border:1px solid #1a2540;border-radius:10px;padding:14px 16px;text-align:center;}
+      .mon-kpi-val{font-size:28px;font-weight:800;line-height:1;margin-bottom:4px;}
+      .mon-kpi-lbl{font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:#6b7a99;}
+      .mon-kpi-delta{font-size:10px;font-weight:700;color:#00e676;margin-top:5px;}
+      .mon-charts-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;}
+      .mon-chart-wrap canvas{max-height:240px;}
+      .mon-toggle{display:flex;background:#070f1c;border:1px solid #1a2540;border-radius:8px;overflow:hidden;}
+      .mon-toggle-btn{padding:8px 22px;font-size:12px;font-weight:700;letter-spacing:2px;text-transform:uppercase;cursor:pointer;border:none;background:transparent;color:#6b7a99;transition:all 0.2s;}
+      .mon-toggle-btn.active-before{background:#1a2e50;color:#ff7b2f;}
+      .mon-toggle-btn.active-after {background:#1a2e50;color:#00e676;}
+      @media(max-width:700px){.mon-kpi-grid{grid-template-columns:1fr 1fr;}.mon-charts-grid{grid-template-columns:1fr;}}
+    </style>
+
+    <!-- Live counters header -->
+    <div class="mon-card" style="margin-bottom:16px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+        <div>
+          <div style="font-size:12px;color:${cricSc};letter-spacing:1px;font-weight:700;">CricAPI: ${used} local calls today · ${Math.max(0,DAILY_LIMIT-used)} remaining (est.)</div>
+          <div style="margin-top:4px;">${sqHtml}</div>
+          <div style="font-size:12px;color:${espnSc};letter-spacing:1px;font-weight:700;margin-top:4px;">ESPN: ${espnUsed} calls today</div>
+        </div>
+        <div class="mon-toggle">
+          <button class="mon-toggle-btn ${mode==='before'?'active-before':''}" onclick="setMonitoringMode('before')">Before</button>
+          <button class="mon-toggle-btn ${mode==='after'?'active-after':''}" onclick="setMonitoringMode('after')">After</button>
+        </div>
+      </div>
+      ${mode==='after'?`
+      <div style="display:flex;gap:20px;flex-wrap:wrap;margin-top:14px;padding-top:14px;border-top:1px solid #1a2540;">
+        <div style="text-align:center;"><div style="font-size:22px;font-weight:800;color:#00e676;">−70%</div><div style="font-size:10px;color:#6b7a99;letter-spacing:1px;text-transform:uppercase;">CricAPI saved</div></div>
+        <div style="text-align:center;"><div style="font-size:22px;font-weight:800;color:#4fc3f7;">−48%</div><div style="font-size:10px;color:#6b7a99;letter-spacing:1px;text-transform:uppercase;">ESPN saved</div></div>
+        <div style="text-align:center;"><div style="font-size:22px;font-weight:800;color:#ffb800;">~184</div><div style="font-size:10px;color:#6b7a99;letter-spacing:1px;text-transform:uppercase;">CricAPI freed/day</div></div>
+        <div style="text-align:center;"><div style="font-size:22px;font-weight:800;color:#ffb800;">~72</div><div style="font-size:10px;color:#6b7a99;letter-spacing:1px;text-transform:uppercase;">ESPN freed/day</div></div>
+      </div>`:''}
+    </div>
+
+    <!-- KPIs -->
+    <div class="mon-kpi-grid">
+      ${d.kpis.map((v,i)=>{
+        const lbls=['CricAPI /currentMatches calls/day','Redundant scorecards per sync','ESPN calls per Insights session','Total CricAPI calls / match day'];
+        return `<div class="mon-kpi">
+          <div class="mon-kpi-val" style="color:${d.kpiColors[i]};">${v}</div>
+          <div class="mon-kpi-lbl">${lbls[i]}</div>
+          ${mode==='after'?`<div class="mon-kpi-delta">${kpiDeltas[i]}</div>`:''}
+        </div>`;
+      }).join('')}
+    </div>
+
+    <!-- Charts row 1 -->
+    <div class="mon-charts-grid">
+      <div class="mon-card mon-chart-wrap">
+        <div class="mon-card-title">CricAPI Calls Per Action</div>
+        <canvas id="monCricapiBar"></canvas>
+      </div>
+      <div class="mon-card mon-chart-wrap">
+        <div class="mon-card-title">ESPN Calls Per Action</div>
+        <canvas id="monEspnBar"></canvas>
+      </div>
+    </div>
+
+    <!-- Charts row 2 -->
+    <div class="mon-charts-grid">
+      <div class="mon-card">
+        <div class="mon-card-title">Daily CricAPI Budget Burn (2000 limit)</div>
+        ${budgetRows}
+        <div style="font-size:12px;color:#6b7a99;border-top:1px solid #1a2540;padding-top:10px;margin-top:4px;">
+          Total: <span style="color:#fff;font-weight:700;">${d.total} / 2000</span>
+          ${mode==='after'?`<span style="color:#00e676;font-weight:700;margin-left:8px;">↓ ${265-d.total} saved</span>`:''}
+        </div>
+        <canvas id="monBudgetDonut" style="max-height:160px;margin-top:14px;"></canvas>
+      </div>
+      <div class="mon-card mon-chart-wrap">
+        <div class="mon-card-title">Calls Per Auto-Sync Cycle (17 cycles/day)</div>
+        <canvas id="monSyncFlow"></canvas>
+      </div>
+    </div>
+  `;
+
+  ensureChartJs(() => _initMonitoringCharts(d, mode));
+}
+
+function _initMonitoringCharts(d, mode) {
+  const ORANGE='#ff7b2f', RED='#ff3a5c', GREEN='#00e676', GOLD='#ffb800', BLUE='#4fc3f7', PURPLE='#b39ddb';
+  const TEXT='#8899bb';
+  if (window.Chart) {
+    Chart.defaults.color = TEXT;
+    Chart.defaults.borderColor = '#1a2540';
+    Chart.defaults.font.family = "'Barlow Condensed', 'Segoe UI', sans-serif";
+  }
+  const cmColor = mode==='after' ? GREEN : RED;
+  const opts = stacked => ({
+    responsive:true,
+    plugins:{legend:{position:'bottom',labels:{boxWidth:10,padding:12,font:{size:11}}}},
+    scales:{
+      x:{stacked,grid:{color:'#1a2540'},ticks:{font:{size:10}}},
+      y:{stacked,grid:{color:'#1a2540'},ticks:{font:{size:10}}}
+    }
+  });
+
+  const c1 = document.getElementById('monCricapiBar');
+  const c2 = document.getElementById('monEspnBar');
+  const c3 = document.getElementById('monBudgetDonut');
+  const c4 = document.getElementById('monSyncFlow');
+  if (!c1||!c2||!c3||!c4) return;
+
+  _monCharts.cricapi = new Chart(c1, {
+    type:'bar',
+    data:{
+      labels:['Auto-Sync\n/cycle','Fetch\nCricAPI','Daily\nFinal','Refresh\nAll','Import\nUUID','Reimport'],
+      datasets:[
+        {label:'/currentMatches', data:d.cricapi.cm, backgroundColor:cmColor},
+        {label:'/match_scorecard', data:d.cricapi.sc, backgroundColor:ORANGE},
+        {label:'/series_info',     data:d.cricapi.si, backgroundColor:GOLD},
+      ]
+    },
+    options:opts(true)
+  });
+
+  _monCharts.espn = new Chart(c2, {
+    type:'bar',
+    data:{
+      labels:['Auto-Sync\n/cycle','Fetch\nESPN','Insights\nTab','fetchCricapi\nResults','Daily\nFinal'],
+      datasets:[
+        {label:'live-scores',   data:d.espn.ls, backgroundColor:PURPLE},
+        {label:'match-details', data:d.espn.md, backgroundColor:BLUE},
+      ]
+    },
+    options:opts(true)
+  });
+
+  _monCharts.donut = new Chart(c3, {
+    type:'doughnut',
+    data:{
+      labels:['Used (est.)','Remaining'],
+      datasets:[{data:[d.total, 2000-d.total], backgroundColor:[mode==='after'?GREEN:ORANGE,'#1a2540'], borderWidth:0}]
+    },
+    options:{responsive:true,cutout:'72%',plugins:{legend:{position:'bottom',labels:{boxWidth:10}},tooltip:{callbacks:{label:ctx=>` ${ctx.raw} calls`}}}}
+  });
+
+  const syncLabels = Array.from({length:17},(_,i)=>`C${i+1}`);
+  _monCharts.sync = new Chart(c4, {
+    type:'bar',
+    data:{
+      labels:syncLabels,
+      datasets:[
+        {label:'/currentMatches', data:Array(17).fill(d.syncCycle[0]), backgroundColor:cmColor},
+        {label:'/match_scorecard',data:Array(17).fill(d.syncCycle[1]), backgroundColor:ORANGE},
+        {label:'ESPN live-scores', data:Array(17).fill(d.syncCycle[2]), backgroundColor:PURPLE},
+        {label:'ESPN match-details',data:Array(17).fill(d.syncCycle[3]),backgroundColor:BLUE},
+      ]
+    },
+    options:{
+      responsive:true,
+      plugins:{legend:{position:'bottom',labels:{boxWidth:10,padding:10,font:{size:10}}}},
+      scales:{
+        x:{stacked:true,grid:{color:'#1a2540'},ticks:{font:{size:9}}},
+        y:{stacked:true,grid:{color:'#1a2540'},max:18,title:{display:true,text:'calls',color:TEXT,font:{size:10}}}
+      }
+    }
+  });
 }
 
 // Admin C/VC override UI and logic
