@@ -1,0 +1,21 @@
+# Netlify configuration for Auction Packed PWA
+
+# Service worker must be served uncached and with broad scope permission
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "no-cache, no-store, must-revalidate"
+    Service-Worker-Allowed = "/"
+
+# Prevent the browser from caching the HTML shell
+[[headers]]
+  for = "/index.html"
+  [headers.values]
+    Cache-Control = "no-cache, no-store, must-revalidate"
+
+# All other assets (fonts etc) can be cached normally
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
