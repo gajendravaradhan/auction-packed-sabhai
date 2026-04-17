@@ -809,7 +809,7 @@ let isAdmin = false;
 let currentTab = 'leaderboard';
 let insightsSubTab = 'momentum';
 let _adminSubTab = 'settings';
-let _monitoringMode = 'before';
+let _monitoringMode = 'after';
 let _monCharts = {};
 let insightsRankMode = 'bump';
 let insightsTreemapTeam = 'VATS';
@@ -3328,7 +3328,7 @@ function renderAdminSettings() {
   const serverQuota = _cricapiQuotaCache;
   const serverQuotaHtml = serverQuota
     ? `<div style="font-size:11px;color:var(--muted);letter-spacing:1px;margin-top:2px;">Server: ${serverQuota.hitsToday} used · ${serverQuota.remaining} remaining (as of ${new Date(serverQuota.fetchedAt).toLocaleTimeString()})</div>`
-    : `<div style="font-size:11px;color:var(--muted);letter-spacing:1px;margin-top:2px;"><button onclick="refreshCricapiQuotaFromServer().then(renderAdmin)" style="background:none;border:none;color:var(--blue);cursor:pointer;font-size:11px;letter-spacing:1px;padding:0;">↻ Fetch server quota</button></div>`;
+    : `<div style="font-size:11px;color:var(--muted);letter-spacing:1px;margin-top:2px;">Server quota updates automatically on next API call</div>`;
 
   el.innerHTML = `
     <div style="display:flex;justify-content:flex-end;margin-bottom:12px;">
@@ -3440,9 +3440,24 @@ function renderAdminMonitoring() {
   const espnSc   = espnUsed >= ESPN_DAILY_LIMIT * 0.8 ? 'var(--gold)' : 'var(--green)';
   const sqHtml   = sq
     ? `<span style="color:var(--muted);font-size:11px;">Server: ${sq.hitsToday} used · ${sq.remaining} remaining · ${new Date(sq.fetchedAt).toLocaleTimeString()}</span>`
-    : `<button onclick="refreshCricapiQuotaFromServer().then(()=>switchAdminSubTab('monitoring'))" style="background:none;border:none;color:var(--blue);cursor:pointer;font-size:11px;letter-spacing:1px;padding:0;">↻ Fetch server quota</button>`;
+    : `<span style="color:var(--muted);font-size:11px;">Server quota updates automatically on next API call</span>`;
 
   // ── mode-specific data ────────────────────────────────────────
+  // After tab: real current data from localStorage + server cache
+  const serverHits = sq ? sq.hitsToday : null;
+  const afterKpis = [
+    String(used),
+    serverHits !== null ? String(serverHits) : '—',
+    String(espnUsed),
+    String(Math.max(0, DAILY_LIMIT - used))
+  ];
+  const afterKpiColors = [
+    used >= DAILY_LIMIT ? 'var(--red)' : used >= DAILY_LIMIT_SLOW_AT ? 'var(--gold)' : 'var(--green)',
+    serverHits !== null ? (serverHits >= DAILY_LIMIT ? 'var(--red)' : serverHits >= DAILY_LIMIT_SLOW_AT ? 'var(--gold)' : 'var(--green)') : 'var(--muted)',
+    espnUsed >= ESPN_DAILY_LIMIT * 0.8 ? 'var(--gold)' : 'var(--green)',
+    used >= DAILY_LIMIT_SLOW_AT ? 'var(--gold)' : 'var(--green)'
+  ];
+
   const DATA = {
     before: {
       kpis: ['187','26','~96','~265'],
@@ -3453,8 +3468,8 @@ function renderAdminMonitoring() {
       syncCycle:[11,2,1,2], endpointPie:[198,58,1], total:265,
     },
     after: {
-      kpis: ['34','2','~0','~81'],
-      kpiColors: ['var(--green)','var(--green)','var(--green)','var(--green)'],
+      kpis: afterKpis,
+      kpiColors: afterKpiColors,
       cricapi: { cm:[2,2,2,0,0,0], sc:[2,2,2,22,1,1], si:[0,1,1,0,0,0] },
       espn:    { ls:[1,1,0,1,1],    md:[2,3,0,2,2] },
       budget:  [['Auto-sync /currentMatches (17×~2)',34,'#00e676'],['Auto-sync /match_scorecard (17×~2)',34,'#ff7b2f'],['fetchCricapiResults /currentMatches (~×2)',2,'#00e676'],['fetchCricapiResults /match_scorecard (~2)',2,'#00e676'],['/series_info',1,'#ffb800'],['Manual admin',8,'#2a3a5a']],
@@ -3514,11 +3529,13 @@ function renderAdminMonitoring() {
     <!-- KPIs -->
     <div class="mon-kpi-grid">
       ${d.kpis.map((v,i)=>{
-        const lbls=['CricAPI /currentMatches calls/day','Redundant scorecards per sync','ESPN calls per Insights session','Total CricAPI calls / match day'];
+        const lbls = mode === 'after'
+          ? ['CricAPI local calls today','Server-verified calls today','ESPN calls today','CricAPI remaining (est.)']
+          : ['CricAPI /currentMatches calls/day','Redundant scorecards per sync','ESPN calls per Insights session','Total CricAPI calls / match day'];
         return `<div class="mon-kpi">
           <div class="mon-kpi-val" style="color:${d.kpiColors[i]};">${v}</div>
           <div class="mon-kpi-lbl">${lbls[i]}</div>
-          ${mode==='after'?`<div class="mon-kpi-delta">${kpiDeltas[i]}</div>`:''}
+
         </div>`;
       }).join('')}
     </div>
@@ -3979,6 +3996,14 @@ async function fetchCricapiJson(path, params = {}, options = {}) {
         continue; // retry is counted separately on next iteration
       }
 
+      // Passively update server-side quota from any CricAPI response that includes info object
+      if (data && data.info && (data.info.hitsToday !== undefined || data.info.hits_today !== undefined)) {
+        try {
+          const hits = parseInt(data.info.hitsToday || data.info.hits_today || 0);
+          const limit = parseInt(data.info.hitsLimit || data.info.hits_limit || DAILY_LIMIT);
+          _cricapiQuotaCache = { hitsToday: hits, remaining: Math.max(0, limit - hits), limit, fetchedAt: Date.now() };
+        } catch(_e) {}
+      }
       return data;
     } catch (error) {
       lastError = error;
