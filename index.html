@@ -4739,7 +4739,19 @@ async function fetchESPNDataManual() {
       statusEl.textContent += `\nFetching data for ${scheduleMatch.home} vs ${scheduleMatch.away}...`;
 
       if (i > 0) await new Promise(r => setTimeout(r, 400)); // rate-limit guard
-      const espnData = await fetchESPNMatchDetails(espnInfo.match_id, espnInfo.slug);
+
+      // Try resolved match_id first; if it fails, fall back to hardcoded espn_match_id
+      let espnData = await fetchESPNMatchDetails(espnInfo.match_id, espnInfo.slug);
+      if (espnData && espnData._error && scheduleMatch.espn_match_id && String(scheduleMatch.espn_match_id) !== String(espnInfo.match_id)) {
+        console.warn(`[ESPN] Resolved match_id ${espnInfo.match_id} failed — retrying with hardcoded id ${scheduleMatch.espn_match_id}`);
+        await new Promise(r => setTimeout(r, 500));
+        espnData = await fetchESPNMatchDetails(String(scheduleMatch.espn_match_id), scheduleMatch.slug);
+        // If hardcoded succeeds, evict the bad slug-map entry
+        if (espnData && !espnData._error) {
+          const smKey = String(scheduleMatch.match);
+          if (liveData.espnMatchSlugMap) delete liveData.espnMatchSlugMap[smKey];
+        }
+      }
       const espnFetchError = espnData && espnData._error ? espnData._error : null;
       if (espnData && !espnFetchError) {
         parseESPNData(espnData, matchIndex);
