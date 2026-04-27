@@ -4084,7 +4084,7 @@ function getMatchesForToday() {
   }
 }
 
-async function fetchESPNMatchDetails(matchId, slug) {
+async function fetchESPNMatchDetails(matchId, slug, _retry = true) {
   const url = `https://espncricinfo-api.p.rapidapi.com/api/v1/cricketinfo/match-details?series_slug=ipl-2026-1510719&match_id=${matchId}&match_slug=${slug}`;
   try {
     const response = await fetch(url, {
@@ -4094,15 +4094,23 @@ async function fetchESPNMatchDetails(matchId, slug) {
         'x-rapidapi-host': 'espncricinfo-api.p.rapidapi.com',
         'x-rapidapi-key': 'ab1d0f5e94mshbb65ad32bc5b28ep12a94fjsn11d3ec803de9'
       },
-      signal: AbortSignal.timeout(12000)
+      signal: AbortSignal.timeout(15000)
     });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    if (!response.ok) {
+      const errText = `HTTP ${response.status}`;
+      if (_retry && (response.status === 429 || response.status >= 500)) {
+        console.warn(`[ESPN] ${errText} for ${matchId} — retrying in 2s`);
+        await new Promise(r => setTimeout(r, 2000));
+        return fetchESPNMatchDetails(matchId, slug, false);
+      }
+      throw new Error(errText);
+    }
     const data = await response.json();
     incrementEspnCalls(1);
     return data;
   } catch (error) {
     console.warn('[ESPN] Failed to fetch match details:', matchId, error.message);
-    return null;
+    return { _error: error.message };
   }
 }
 
@@ -4707,8 +4715,10 @@ async function fetchESPNDataManual() {
       renderESPNVerificationBody(verificationEntries, `Verifying ${matchesToUpdate.length} match${matchesToUpdate.length !== 1 ? 'es' : ''}...`);
       statusEl.textContent += `\nFetching data for ${scheduleMatch.home} vs ${scheduleMatch.away}...`;
 
+      if (i > 0) await new Promise(r => setTimeout(r, 400)); // rate-limit guard
       const espnData = await fetchESPNMatchDetails(espnInfo.match_id, espnInfo.slug);
-      if (espnData) {
+      const espnFetchError = espnData && espnData._error ? espnData._error : null;
+      if (espnData && !espnFetchError) {
         parseESPNData(espnData, matchIndex);
         saveLiveData(true); // persist ESPN data immediately so Firebase listener can't wipe it
 
@@ -4742,9 +4752,9 @@ async function fetchESPNDataManual() {
       } else {
         entry.statusText = 'Failed';
         entry.statusColor = 'var(--red)';
-        entry.note = 'ESPN response unavailable.';
+        entry.note = espnFetchError ? `ESPN error: ${espnFetchError}` : 'ESPN response unavailable.';
         renderESPNVerificationBody(verificationEntries, `Verifying ${matchesToUpdate.length} match${matchesToUpdate.length !== 1 ? 'es' : ''}...`);
-        statusEl.textContent += ' ✗ (no data)';
+        statusEl.textContent += ` ✗ (${espnFetchError || 'no data'})`;
       }
     }
 
