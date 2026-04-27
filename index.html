@@ -2652,7 +2652,7 @@ async function loadBattingPositionBuckets() {
       const espnInfo = resolveESPNMatchInfo(sm);
       if (!espnInfo.match_id || !espnInfo.slug) continue;
       const data = await fetchESPNMatchDetails(espnInfo.match_id, espnInfo.slug);
-      if (!data) continue;
+      if (!data || data._error) continue;
       const match = resolveLiveMatchForSchedule(sm);
       const innings = getESPNInnings(data) || [];
       if (match && innings.length) {
@@ -4084,8 +4084,13 @@ function getMatchesForToday() {
   }
 }
 
-async function fetchESPNMatchDetails(matchId, slug, _retry = true) {
-  const url = `https://espncricinfo-api.p.rapidapi.com/api/v1/cricketinfo/match-details?series_slug=ipl-2026-1510719&match_id=${matchId}&match_slug=${slug}`;
+async function fetchESPNMatchDetails(matchId, slug, _attempt = 1) {
+  // attempt 1: full URL with slug; attempt 2: 429/5xx retry with slug; attempt 3: slug-free fallback
+  const baseUrl = 'https://espncricinfo-api.p.rapidapi.com/api/v1/cricketinfo/match-details';
+  const useSlug = _attempt <= 2;
+  const url = useSlug
+    ? `${baseUrl}?series_slug=ipl-2026-1510719&match_id=${matchId}&match_slug=${slug}`
+    : `${baseUrl}?series_slug=ipl-2026-1510719&match_id=${matchId}`;
   try {
     const response = await fetch(url, {
       method: 'GET',
@@ -4098,18 +4103,36 @@ async function fetchESPNMatchDetails(matchId, slug, _retry = true) {
     });
     if (!response.ok) {
       const errText = `HTTP ${response.status}`;
-      if (_retry && (response.status === 429 || response.status >= 500)) {
+      if (_attempt === 1 && (response.status === 429 || response.status >= 500)) {
         console.warn(`[ESPN] ${errText} for ${matchId} — retrying in 2s`);
         await new Promise(r => setTimeout(r, 2000));
-        return fetchESPNMatchDetails(matchId, slug, false);
+        return fetchESPNMatchDetails(matchId, slug, 2);
+      }
+      if (_attempt <= 2) {
+        // Slug-based URL failed — try without slug
+        console.warn(`[ESPN] ${errText} for ${matchId} with slug — retrying without slug`);
+        await new Promise(r => setTimeout(r, 500));
+        return fetchESPNMatchDetails(matchId, slug, 3);
       }
       throw new Error(errText);
     }
     const data = await response.json();
+    // Verify it's not an API-level error response
+    if (data && data.status === 'error' && useSlug) {
+      console.warn(`[ESPN] API error for ${matchId} with slug — retrying without slug`);
+      await new Promise(r => setTimeout(r, 500));
+      return fetchESPNMatchDetails(matchId, slug, 3);
+    }
     incrementEspnCalls(1);
+    if (_attempt === 3) console.log(`[ESPN] Slug-free fallback succeeded for ${matchId}`);
     return data;
   } catch (error) {
-    console.warn('[ESPN] Failed to fetch match details:', matchId, error.message);
+    if (_attempt <= 2) {
+      console.warn(`[ESPN] Fetch error for ${matchId} (attempt ${_attempt}) — trying without slug`);
+      await new Promise(r => setTimeout(r, 500));
+      return fetchESPNMatchDetails(matchId, slug, 3);
+    }
+    console.warn('[ESPN] All attempts failed for', matchId, error.message);
     return { _error: error.message };
   }
 }
@@ -4586,7 +4609,7 @@ async function syncEspnForScheduleMatchesAtomic(scheduleMatches, options = {}) {
     if (matchIndex === -1) continue;
 
     const espnData = await fetchESPNMatchDetails(espnInfo.match_id, espnInfo.slug);
-    if (!espnData) continue;
+    if (!espnData || espnData._error) continue;
 
     parseESPNData(espnData, matchIndex);
     liveData.espnLastUpdate = new Date().toISOString();
