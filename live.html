@@ -1107,6 +1107,11 @@ async function fetchAndStoreESPNLiveMatchIds() {
       const existing = liveData.espnMatchSlugMap[key];
       if (!existing || existing.match_id !== rawMatchId || existing.slug !== fullSlug) {
         liveData.espnMatchSlugMap[key] = { match_id: rawMatchId, slug: fullSlug };
+        // Clear pending flag — now we have a real ID from live-scores
+        if (liveData.espnPendingIds) {
+          delete liveData.espnPendingIds[String(scheduleEntry.espn_match_id)];
+          delete liveData.espnPendingIds[rawMatchId];
+        }
         changed = true;
         console.log(`[ESPN] Resolved match ${scheduleEntry.match} (${scheduleEntry.home} vs ${scheduleEntry.away}): id=${rawMatchId} slug=${fullSlug}`);
       }
@@ -2652,7 +2657,7 @@ async function loadBattingPositionBuckets() {
       const espnInfo = resolveESPNMatchInfo(sm);
       if (!espnInfo.match_id || !espnInfo.slug) continue;
       const data = await fetchESPNMatchDetails(espnInfo.match_id, espnInfo.slug);
-      if (!data || data._error) continue;
+      if (!data || data._error || data._notFound) continue;
       const match = resolveLiveMatchForSchedule(sm);
       const innings = getESPNInnings(data) || [];
       if (match && innings.length) {
@@ -4085,7 +4090,6 @@ function getMatchesForToday() {
 }
 
 async function fetchESPNMatchDetails(matchId, slug, _attempt = 1) {
-  // attempt 1: full URL with slug; attempt 2: 429/5xx retry with slug; attempt 3: slug-free fallback
   const baseUrl = 'https://espncricinfo-api.p.rapidapi.com/api/v1/cricketinfo/match-details';
   const useSlug = _attempt <= 2;
   const url = useSlug
@@ -4102,37 +4106,34 @@ async function fetchESPNMatchDetails(matchId, slug, _attempt = 1) {
       signal: AbortSignal.timeout(15000)
     });
     if (!response.ok) {
-      const errText = `HTTP ${response.status}`;
+      // 404/400 = ESPN doesn't know this match ID yet (pre-assigned ID, match not published)
+      if (response.status === 404 || response.status === 400) {
+        if (_attempt <= 2) {
+          // Try once without slug — if that also 404/400, ID is definitively wrong
+          if (_attempt === 1) {
+            await new Promise(r => setTimeout(r, 300));
+            return fetchESPNMatchDetails(matchId, slug, 3);
+          }
+        }
+        console.warn(`[ESPN] Match ID ${matchId} not found on ESPN (${response.status}) — ID likely not yet published`);
+        return { _notFound: true, matchId };
+      }
       if (_attempt === 1 && (response.status === 429 || response.status >= 500)) {
-        console.warn(`[ESPN] ${errText} for ${matchId} — retrying in 2s`);
+        console.warn(`[ESPN] HTTP ${response.status} for ${matchId} — retrying in 2s`);
         await new Promise(r => setTimeout(r, 2000));
         return fetchESPNMatchDetails(matchId, slug, 2);
       }
-      if (_attempt <= 2) {
-        // Slug-based URL failed — try without slug
-        console.warn(`[ESPN] ${errText} for ${matchId} with slug — retrying without slug`);
-        await new Promise(r => setTimeout(r, 500));
-        return fetchESPNMatchDetails(matchId, slug, 3);
-      }
-      throw new Error(errText);
+      throw new Error(`HTTP ${response.status}`);
     }
     const data = await response.json();
-    // Verify it's not an API-level error response
     if (data && data.status === 'error' && useSlug) {
-      console.warn(`[ESPN] API error for ${matchId} with slug — retrying without slug`);
-      await new Promise(r => setTimeout(r, 500));
+      await new Promise(r => setTimeout(r, 300));
       return fetchESPNMatchDetails(matchId, slug, 3);
     }
     incrementEspnCalls(1);
-    if (_attempt === 3) console.log(`[ESPN] Slug-free fallback succeeded for ${matchId}`);
     return data;
   } catch (error) {
-    if (_attempt <= 2) {
-      console.warn(`[ESPN] Fetch error for ${matchId} (attempt ${_attempt}) — trying without slug`);
-      await new Promise(r => setTimeout(r, 500));
-      return fetchESPNMatchDetails(matchId, slug, 3);
-    }
-    console.warn('[ESPN] All attempts failed for', matchId, error.message);
+    console.warn('[ESPN] Fetch error for', matchId, error.message);
     return { _error: error.message };
   }
 }
@@ -4517,9 +4518,15 @@ function getMatchesForESPNUpdate() {
     return !!(info.match_id && info.slug);
   }
 
+  const pendingIds = liveData.espnPendingIds || {};
+  function isNotPending(m) {
+    const info = resolveESPNMatchInfo(m);
+    return !pendingIds[String(info.match_id)] && !pendingIds[String(m.espn_match_id)];
+  }
+
   // If no checkpoint exists, get all matches up to today
   if (!lastUpdate) {
-    return IPL_2026_SCHEDULE.filter(m => m.date <= today && hasESPNInfo(m));
+    return IPL_2026_SCHEDULE.filter(m => m.date <= today && hasESPNInfo(m) && isNotPending(m));
   }
 
   // Get matches from the day after last update up to today
@@ -4528,7 +4535,7 @@ function getMatchesForESPNUpdate() {
   nextDay.setDate(nextDay.getDate() + 1);
   const nextDayStr = nextDay.toISOString().slice(0, 10);
 
-  return IPL_2026_SCHEDULE.filter(m => m.date >= nextDayStr && m.date <= today && hasESPNInfo(m));
+  return IPL_2026_SCHEDULE.filter(m => m.date >= nextDayStr && m.date <= today && hasESPNInfo(m) && isNotPending(m));
 }
 
 const ESPN_TEAM_MAP = {
@@ -4609,7 +4616,7 @@ async function syncEspnForScheduleMatchesAtomic(scheduleMatches, options = {}) {
     if (matchIndex === -1) continue;
 
     const espnData = await fetchESPNMatchDetails(espnInfo.match_id, espnInfo.slug);
-    if (!espnData || espnData._error) continue;
+    if (!espnData || espnData._error || espnData._notFound) continue;
 
     parseESPNData(espnData, matchIndex);
     liveData.espnLastUpdate = new Date().toISOString();
@@ -4741,16 +4748,17 @@ async function fetchESPNDataManual() {
       if (i > 0) await new Promise(r => setTimeout(r, 400)); // rate-limit guard
 
       // Try resolved match_id first; if it fails, fall back to hardcoded espn_match_id
-      let espnData = await fetchESPNMatchDetails(espnInfo.match_id, espnInfo.slug);
-      if (espnData && espnData._error && scheduleMatch.espn_match_id && String(scheduleMatch.espn_match_id) !== String(espnInfo.match_id)) {
-        console.warn(`[ESPN] Resolved match_id ${espnInfo.match_id} failed — retrying with hardcoded id ${scheduleMatch.espn_match_id}`);
-        await new Promise(r => setTimeout(r, 500));
-        espnData = await fetchESPNMatchDetails(String(scheduleMatch.espn_match_id), scheduleMatch.slug);
-        // If hardcoded succeeds, evict the bad slug-map entry
-        if (espnData && !espnData._error) {
-          const smKey = String(scheduleMatch.match);
-          if (liveData.espnMatchSlugMap) delete liveData.espnMatchSlugMap[smKey];
-        }
+      const espnData = await fetchESPNMatchDetails(espnInfo.match_id, espnInfo.slug);
+      if (espnData && espnData._notFound) {
+        // ESPN hasn't published this match ID yet — store it so we skip next time
+        if (!liveData.espnPendingIds) liveData.espnPendingIds = {};
+        liveData.espnPendingIds[String(espnInfo.match_id)] = true;
+        entry.statusText = 'Pending';
+        entry.statusColor = 'var(--muted)';
+        entry.note = 'ESPN ID not yet published — will resolve once match goes live.';
+        renderESPNVerificationBody(verificationEntries, `Verifying ${matchesToUpdate.length} match${matchesToUpdate.length !== 1 ? 'es' : ''}...`);
+        statusEl.textContent += ' — (ESPN ID pending)';
+        continue;
       }
       const espnFetchError = espnData && espnData._error ? espnData._error : null;
       if (espnData && !espnFetchError) {
