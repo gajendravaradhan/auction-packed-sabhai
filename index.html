@@ -1037,16 +1037,48 @@ function persistEspnMatchSlugMapSilently() {
 }
 
 // Returns the best-known {match_id, slug} for a schedule match.
-// Prefers dynamically-resolved values stored in Firebase; falls back to hard-coded schedule values.
+// Priority: 1) hardcoded schedule (user-maintained), 2) slug map cache (live-scores discovered)
 function resolveESPNMatchInfo(scheduleMatch) {
   if (!scheduleMatch) return { match_id: null, slug: null };
   ensureEspnMatchSlugMap();
-  const key = String(scheduleMatch.match);
-  const stored = liveData.espnMatchSlugMap[key];
+  // Schedule ID is primary — user keeps these correct
+  if (scheduleMatch.espn_match_id && scheduleMatch.slug) {
+    return { match_id: String(scheduleMatch.espn_match_id), slug: scheduleMatch.slug };
+  }
+  // Fallback: dynamically-discovered ID from live-scores cache
+  const stored = liveData.espnMatchSlugMap[String(scheduleMatch.match)];
   if (stored && stored.match_id && stored.slug) {
     return { match_id: stored.match_id, slug: stored.slug };
   }
-  return { match_id: scheduleMatch.espn_match_id || null, slug: scheduleMatch.slug || null };
+  return { match_id: null, slug: null };
+}
+
+// Removes espnMatchSlugMap entries that have DIFFERENT match_id from the hardcoded schedule.
+// This lets updated schedule values take effect without Firebase cache winning.
+function reconcileESPNSlugMap() {
+  ensureEspnMatchSlugMap();
+  let changed = false;
+  for (const sm of IPL_2026_SCHEDULE) {
+    if (!sm || !sm.espn_match_id) continue;
+    const key = String(sm.match);
+    const stored = liveData.espnMatchSlugMap[key];
+    if (stored && String(stored.match_id) !== String(sm.espn_match_id)) {
+      console.log(`[ESPN] Slug map mismatch for match ${sm.match}: cached ${stored.match_id} != schedule ${sm.espn_match_id} — clearing cache entry`);
+      delete liveData.espnMatchSlugMap[key];
+      changed = true;
+    }
+  }
+  if (changed) saveLiveData(true);
+  return changed;
+}
+
+function resetESPNSlugMap() {
+  if (!confirm('Clear ESPN ID cache? Correct IDs from the schedule will be used instead. Dynamic IDs from live-scores will be re-discovered next time matches go live.')) return;
+  liveData.espnMatchSlugMap = {};
+  liveData.espnPendingIds = {};
+  saveLiveData();
+  renderAdmin();
+  showToast('ESPN ID cache cleared', 'success');
 }
 
 // Calls the ESPN liveScores endpoint, finds IPL matches, resolves their match_id+slug,
@@ -1114,6 +1146,23 @@ async function fetchAndStoreESPNLiveMatchIds() {
         }
         changed = true;
         console.log(`[ESPN] Resolved match ${scheduleEntry.match} (${scheduleEntry.home} vs ${scheduleEntry.away}): id=${rawMatchId} slug=${fullSlug}`);
+        // Sequential fill: upcoming matches with no schedule ID get IDs rawMatchId+1, +2, etc.
+        const resolvedMatchNum = scheduleEntry.match;
+        let seqId = parseInt(rawMatchId);
+        const istToday = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
+        const upcoming = IPL_2026_SCHEDULE
+          .filter(sm => sm && sm.match > resolvedMatchNum && !sm.espn_match_id && sm.date >= istToday)
+          .sort((a, b) => a.match - b.match);
+        for (const um of upcoming) {
+          seqId++;
+          const uKey = String(um.match);
+          const ordinal = um.slug ? um.slug.split('-match-')[0] : '';
+          const seqSlug = ordinal ? `${ordinal}-match-${seqId}` : String(seqId);
+          if (!liveData.espnMatchSlugMap[uKey]) {
+            liveData.espnMatchSlugMap[uKey] = { match_id: String(seqId), slug: seqSlug };
+            console.log(`[ESPN] Sequential fill match ${um.match}: id=${seqId}`);
+          }
+        }
       }
     }
 
@@ -3387,6 +3436,7 @@ function renderAdminSettings() {
       <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
         <button onclick="fetchESPNDataManual()" id="fetchESPNBtn" style="background:var(--surface2);border:1px solid var(--blue);color:var(--blue);border-radius:8px;padding:12px 16px;cursor:pointer;font-family:Barlow Condensed,sans-serif;font-size:15px;font-weight:700;letter-spacing:2px;text-transform:uppercase;">Fetch ESPN Data</button>
         <button onclick="resetESPNCheckpoint()" style="background:none;border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:12px 16px;cursor:pointer;font-family:Barlow Condensed,sans-serif;font-size:13px;font-weight:700;letter-spacing:2px;">Reset Checkpoint</button>
+        <button onclick="resetESPNSlugMap()" style="background:none;border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:12px 16px;cursor:pointer;font-family:Barlow Condensed,sans-serif;font-size:13px;font-weight:700;letter-spacing:2px;">Clear ID Cache</button>
       </div>
       <div id="espnStatus" style="margin-top:8px;font-size:12px;color:var(--muted);letter-spacing:1px;"></div>
     </div>
@@ -4723,6 +4773,8 @@ async function fetchESPNDataManual() {
     statusEl.textContent = `Found ${matchesToUpdate.length} match${matchesToUpdate.length !== 1 ? 'es' : ''} to update. Fetching ESPN data...`;
     let synced = 0;
 
+    // Reconcile slug map: remove entries that conflict with updated schedule IDs
+    reconcileESPNSlugMap();
     // Resolve live match IDs before iterating so today's matches get correct ESPN IDs
     await fetchAndStoreESPNLiveMatchIds();
 
