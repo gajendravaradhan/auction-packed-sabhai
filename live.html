@@ -4510,7 +4510,8 @@ async function reimportScorecard(idx,matchId) {
 }
 
 function getMatchesForESPNUpdate() {
-  const today = new Date().toISOString().slice(0, 10);
+  // Use IST date — match schedule dates are in IST (UTC+5:30)
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
   const lastUpdate = liveData.espnLastUpdate;
 
   function hasESPNInfo(m) {
