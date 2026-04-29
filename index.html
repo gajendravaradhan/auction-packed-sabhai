@@ -5409,14 +5409,22 @@ async function fetchCricapiResults(options = {}) {
         continue;
       }
 
-      // For matches scheduled today, only fetch if CricAPI reports started or ended.
+      // For matches scheduled today, only fetch if CricAPI reports started/ended OR match time has passed (>4h buffer in IST).
       if (scheduleMatch.date === today && !startedOrEndedIds.has(scheduleMatch.cricapi_match_id)) {
-        skippedUpcoming++;
-        liveData.importAllScheduledStatus.processed = processed;
-        liveData.importAllScheduledStatus.skippedNoId = skippedNoId;
-        liveData.importAllScheduledStatus.skippedUpcoming = skippedUpcoming;
-        if (processed % 5 === 0) refreshImportAllScheduledStatusUI();
-        continue;
+        const matchTimePassed = (() => {
+          if (!scheduleMatch.time) return false;
+          const [h, m] = scheduleMatch.time.split(':').map(Number);
+          const nowIST = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+          return (nowIST.getHours() * 60 + nowIST.getMinutes()) > (h * 60 + m + 240); // 4h after start
+        })();
+        if (!matchTimePassed) {
+          skippedUpcoming++;
+          liveData.importAllScheduledStatus.processed = processed;
+          liveData.importAllScheduledStatus.skippedNoId = skippedNoId;
+          liveData.importAllScheduledStatus.skippedUpcoming = skippedUpcoming;
+          if (processed % 5 === 0) refreshImportAllScheduledStatusUI();
+          continue;
+        }
       }
 
       // Skip scorecard fetch for matches already confirmed done — no new data expected.
