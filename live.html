@@ -593,10 +593,10 @@ const IPL_2026_SCHEDULE = [
   {match:68,espn_match_id:1529311,date:'2026-05-21',home:'RCB',away:'KKR',venue:'Bengaluru',time:'19:30',slug:'kolkata-knight-riders-vs-royal-challengers-bengaluru-68th-match-1529311',cricapi_match_id:null},
   {match:69,espn_match_id:1529312,date:'2026-05-22',home:'MI',away:'RR',venue:'Mumbai',time:'15:30',slug:'mumbai-indians-vs-rajasthan-royals-69th-match-1529312',cricapi_match_id:null},
   {match:70,espn_match_id:1529313,date:'2026-05-22',home:'SRH',away:'RCB',venue:'Bengaluru',time:'19:30',slug:'royal-challengers-bengaluru-vs-sunrisers-hyderabad-70th-match-1529313',cricapi_match_id:null},
-  {match:'Q1',espn_match_id:1527744,date:'2026-05-27',home:'TBD',away:'TBD',venue:'TBD',time:'19:30',slug:'',cricapi_match_id:null},
-  {match:'EL',espn_match_id:1527745,date:'2026-05-28',home:'TBD',away:'TBD',venue:'TBD',time:'19:30',slug:'',cricapi_match_id:null},
-  {match:'Q2',espn_match_id:1527746,date:'2026-05-29',home:'TBD',away:'TBD',venue:'TBD',time:'19:30',slug:'',cricapi_match_id:null},
-  {match:'F',espn_match_id:1527747,date:'2026-05-31',home:'TBD',away:'TBD',venue:'Bengaluru',time:'19:30',slug:'',cricapi_match_id:null}
+  {match:'Q1',espn_match_id:1529314,date:'2026-05-27',home:'TBD',away:'TBD',venue:'TBD',time:'19:30',slug:'',cricapi_match_id:null},
+  {match:'EL',espn_match_id:1529315,date:'2026-05-28',home:'TBD',away:'TBD',venue:'TBD',time:'19:30',slug:'',cricapi_match_id:null},
+  {match:'Q2',espn_match_id:1529316,date:'2026-05-29',home:'TBD',away:'TBD',venue:'TBD',time:'19:30',slug:'',cricapi_match_id:null},
+  {match:'F',espn_match_id:1529317,date:'2026-05-31',home:'TBD',away:'TBD',venue:'Bengaluru',time:'19:30',slug:'',cricapi_match_id:null}
 ];
 
 // ═══════════════════════════════════════════════════════
@@ -1037,48 +1037,16 @@ function persistEspnMatchSlugMapSilently() {
 }
 
 // Returns the best-known {match_id, slug} for a schedule match.
-// Priority: 1) hardcoded schedule (user-maintained), 2) slug map cache (live-scores discovered)
+// Prefers dynamically-resolved values stored in Firebase; falls back to hard-coded schedule values.
 function resolveESPNMatchInfo(scheduleMatch) {
   if (!scheduleMatch) return { match_id: null, slug: null };
   ensureEspnMatchSlugMap();
-  // Schedule ID is primary — user keeps these correct
-  if (scheduleMatch.espn_match_id && scheduleMatch.slug) {
-    return { match_id: String(scheduleMatch.espn_match_id), slug: scheduleMatch.slug };
-  }
-  // Fallback: dynamically-discovered ID from live-scores cache
-  const stored = liveData.espnMatchSlugMap[String(scheduleMatch.match)];
+  const key = String(scheduleMatch.match);
+  const stored = liveData.espnMatchSlugMap[key];
   if (stored && stored.match_id && stored.slug) {
     return { match_id: stored.match_id, slug: stored.slug };
   }
-  return { match_id: null, slug: null };
-}
-
-// Removes espnMatchSlugMap entries that have DIFFERENT match_id from the hardcoded schedule.
-// This lets updated schedule values take effect without Firebase cache winning.
-function reconcileESPNSlugMap() {
-  ensureEspnMatchSlugMap();
-  let changed = false;
-  for (const sm of IPL_2026_SCHEDULE) {
-    if (!sm || !sm.espn_match_id) continue;
-    const key = String(sm.match);
-    const stored = liveData.espnMatchSlugMap[key];
-    if (stored && String(stored.match_id) !== String(sm.espn_match_id)) {
-      console.log(`[ESPN] Slug map mismatch for match ${sm.match}: cached ${stored.match_id} != schedule ${sm.espn_match_id} — clearing cache entry`);
-      delete liveData.espnMatchSlugMap[key];
-      changed = true;
-    }
-  }
-  if (changed) saveLiveData(true);
-  return changed;
-}
-
-function resetESPNSlugMap() {
-  if (!confirm('Clear ESPN ID cache? Correct IDs from the schedule will be used instead. Dynamic IDs from live-scores will be re-discovered next time matches go live.')) return;
-  liveData.espnMatchSlugMap = {};
-  liveData.espnPendingIds = {};
-  saveLiveData();
-  renderAdmin();
-  showToast('ESPN ID cache cleared', 'success');
+  return { match_id: scheduleMatch.espn_match_id || null, slug: scheduleMatch.slug || null };
 }
 
 // Calls the ESPN liveScores endpoint, finds IPL matches, resolves their match_id+slug,
@@ -1146,23 +1114,6 @@ async function fetchAndStoreESPNLiveMatchIds() {
         }
         changed = true;
         console.log(`[ESPN] Resolved match ${scheduleEntry.match} (${scheduleEntry.home} vs ${scheduleEntry.away}): id=${rawMatchId} slug=${fullSlug}`);
-        // Sequential fill: upcoming matches with no schedule ID get IDs rawMatchId+1, +2, etc.
-        const resolvedMatchNum = scheduleEntry.match;
-        let seqId = parseInt(rawMatchId);
-        const istToday = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
-        const upcoming = IPL_2026_SCHEDULE
-          .filter(sm => sm && sm.match > resolvedMatchNum && !sm.espn_match_id && sm.date >= istToday)
-          .sort((a, b) => a.match - b.match);
-        for (const um of upcoming) {
-          seqId++;
-          const uKey = String(um.match);
-          const ordinal = um.slug ? um.slug.split('-match-')[0] : '';
-          const seqSlug = ordinal ? `${ordinal}-match-${seqId}` : String(seqId);
-          if (!liveData.espnMatchSlugMap[uKey]) {
-            liveData.espnMatchSlugMap[uKey] = { match_id: String(seqId), slug: seqSlug };
-            console.log(`[ESPN] Sequential fill match ${um.match}: id=${seqId}`);
-          }
-        }
       }
     }
 
@@ -3436,7 +3387,6 @@ function renderAdminSettings() {
       <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
         <button onclick="fetchESPNDataManual()" id="fetchESPNBtn" style="background:var(--surface2);border:1px solid var(--blue);color:var(--blue);border-radius:8px;padding:12px 16px;cursor:pointer;font-family:Barlow Condensed,sans-serif;font-size:15px;font-weight:700;letter-spacing:2px;text-transform:uppercase;">Fetch ESPN Data</button>
         <button onclick="resetESPNCheckpoint()" style="background:none;border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:12px 16px;cursor:pointer;font-family:Barlow Condensed,sans-serif;font-size:13px;font-weight:700;letter-spacing:2px;">Reset Checkpoint</button>
-        <button onclick="resetESPNSlugMap()" style="background:none;border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:12px 16px;cursor:pointer;font-family:Barlow Condensed,sans-serif;font-size:13px;font-weight:700;letter-spacing:2px;">Clear ID Cache</button>
       </div>
       <div id="espnStatus" style="margin-top:8px;font-size:12px;color:var(--muted);letter-spacing:1px;"></div>
     </div>
@@ -4139,14 +4089,12 @@ function getMatchesForToday() {
   }
 }
 
-async function _fetchESPNMatchDetailsInner(matchId, slug, _attempt) {
+async function fetchESPNMatchDetails(matchId, slug, _attempt = 1) {
   const baseUrl = 'https://espncricinfo-api.p.rapidapi.com/api/v1/cricketinfo/match-details';
   const useSlug = _attempt <= 2;
   const url = useSlug
     ? `${baseUrl}?series_slug=ipl-2026-1510719&match_id=${matchId}&match_slug=${slug}`
     : `${baseUrl}?series_slug=ipl-2026-1510719&match_id=${matchId}`;
-  const ac = new AbortController();
-  const timer = setTimeout(() => ac.abort(), 18000); // hard 18s abort covers fetch+body
   try {
     const response = await fetch(url, {
       method: 'GET',
@@ -4155,42 +4103,35 @@ async function _fetchESPNMatchDetailsInner(matchId, slug, _attempt) {
         'x-rapidapi-host': 'espncricinfo-api.p.rapidapi.com',
         'x-rapidapi-key': 'ab1d0f5e94mshbb65ad32bc5b28ep12a94fjsn11d3ec803de9'
       },
-      signal: ac.signal
+      signal: AbortSignal.timeout(15000)
     });
     if (!response.ok) {
-      clearTimeout(timer);
+      // 404/400 = ESPN doesn't know this match ID yet (pre-assigned ID, match not published)
       if (response.status === 404 || response.status === 400) {
-        if (_attempt === 1) {
-          await new Promise(r => setTimeout(r, 300));
-          return _fetchESPNMatchDetailsInner(matchId, slug, 3);
+        if (_attempt <= 2) {
+          // Try once without slug — if that also 404/400, ID is definitively wrong
+          if (_attempt === 1) {
+            await new Promise(r => setTimeout(r, 300));
+            return fetchESPNMatchDetails(matchId, slug, 3);
+          }
         }
-        console.warn(`[ESPN] Match ID ${matchId} not found (${response.status}) — ID not yet published`);
+        console.warn(`[ESPN] Match ID ${matchId} not found on ESPN (${response.status}) — ID likely not yet published`);
         return { _notFound: true, matchId };
       }
       if (_attempt === 1 && (response.status === 429 || response.status >= 500)) {
         console.warn(`[ESPN] HTTP ${response.status} for ${matchId} — retrying in 2s`);
         await new Promise(r => setTimeout(r, 2000));
-        return _fetchESPNMatchDetailsInner(matchId, slug, 2);
+        return fetchESPNMatchDetails(matchId, slug, 2);
       }
       throw new Error(`HTTP ${response.status}`);
     }
     const data = await response.json();
-    clearTimeout(timer);
     if (data && data.status === 'error' && useSlug) {
       await new Promise(r => setTimeout(r, 300));
-      return _fetchESPNMatchDetailsInner(matchId, slug, 3);
+      return fetchESPNMatchDetails(matchId, slug, 3);
     }
     incrementEspnCalls(1);
     return data;
-  } catch (error) {
-    clearTimeout(timer);
-    throw error;
-  }
-}
-
-async function fetchESPNMatchDetails(matchId, slug, _attempt = 1) {
-  try {
-    return await _fetchESPNMatchDetailsInner(matchId, slug, _attempt);
   } catch (error) {
     console.warn('[ESPN] Fetch error for', matchId, error.message);
     return { _error: error.message };
@@ -4510,7 +4451,7 @@ async function importMatch(matchId,matchName,matchDate) {
   showToast('Importing...','');
   try{
     const d=await fetchCricapiJson('/match_scorecard',{id:matchId});
-    if(d&&d.data){
+    if(d&&d.data&&typeof d.data==='object'){
       upsertMatch(matchId,matchName,matchDate,d.data);
       const scheduleMatch = findScheduleMatchForCricapiMatch({ id: matchId, name: d.data.name || matchName || '', date: d.data.date || matchDate || '' });
       let espnNote = '';
@@ -4533,7 +4474,7 @@ async function refreshAllMatches() {
     if(!m.apiId||m.apiId.startsWith('manual-'))continue;
     try{
       const d=await fetchCricapiJson('/match_scorecard',{id:m.apiId});
-      if(d&&d.data){
+      if(d&&d.data&&typeof d.data==='object'){
         upsertMatch(m.apiId,d.data.name||m.label||'',d.data.date||m.date||'',d.data);
         done++;
         const scheduleMatch = findScheduleMatchForCricapiMatch({ id: m.apiId, name: d.data.name || m.label || '', date: d.data.date || m.date || '' });
@@ -4554,7 +4495,7 @@ async function reimportScorecard(idx,matchId) {
   showToast('Refreshing...','');
   try{
     const d=await fetchCricapiJson('/match_scorecard',{id:matchId});
-    if(!d.data){showToast('No scorecard yet','error');return;}
+    if(!d.data||typeof d.data!=='object'){showToast(d&&typeof d.data==='string'?d.data:'No scorecard yet','error');return;}
     const old=liveData.matches[idx]||{};
     upsertMatch(matchId,d.data.name||old.label||'',d.data.date||old.date||'',d.data);
     const scheduleMatch = findScheduleMatchForCricapiMatch({ id: matchId, name: d.data.name || old.label || '', date: d.data.date || old.date || '' });
@@ -4743,9 +4684,7 @@ async function fetchESPNDataManual() {
   const statusEl = document.getElementById('espnStatus');
   if (!btn || !statusEl) return;
 
-  let _espnFetchCancelled = false;
-  window._cancelESPNFetch = () => { _espnFetchCancelled = true; };
-  if (btn) { btn.textContent = 'Cancel'; btn.disabled = false; btn.onclick = () => { window._cancelESPNFetch(); btn.textContent = 'Cancelling...'; btn.disabled = true; }; }
+  if (btn) { btn.textContent = 'Fetching...'; btn.disabled = true; }
   statusEl.textContent = 'Checking matches to update...';
 
   try {
@@ -4753,7 +4692,7 @@ async function fetchESPNDataManual() {
     const matchesToUpdate = getMatchesForESPNUpdate();
     if (matchesToUpdate.length === 0) {
       statusEl.textContent = 'All matches are up to date with ESPN data.';
-      if (btn) { btn.textContent = 'Fetch ESPN Data'; btn.disabled = false; btn.onclick = () => fetchESPNDataManual(); }
+      if (btn) { btn.textContent = 'Fetch ESPN Data'; btn.disabled = false; }
       return;
     }
 
@@ -4773,8 +4712,6 @@ async function fetchESPNDataManual() {
     statusEl.textContent = `Found ${matchesToUpdate.length} match${matchesToUpdate.length !== 1 ? 'es' : ''} to update. Fetching ESPN data...`;
     let synced = 0;
 
-    // Reconcile slug map: remove entries that conflict with updated schedule IDs
-    reconcileESPNSlugMap();
     // Resolve live match IDs before iterating so today's matches get correct ESPN IDs
     await fetchAndStoreESPNLiveMatchIds();
 
@@ -4812,7 +4749,6 @@ async function fetchESPNDataManual() {
       renderESPNVerificationBody(verificationEntries, `Verifying ${matchesToUpdate.length} match${matchesToUpdate.length !== 1 ? 'es' : ''}...`);
       statusEl.textContent += `\nFetching data for ${scheduleMatch.home} vs ${scheduleMatch.away}...`;
 
-      if (_espnFetchCancelled) break;
       if (i > 0) await new Promise(r => setTimeout(r, 400)); // rate-limit guard
 
       // Try resolved match_id first; if it fails, fall back to hardcoded espn_match_id
@@ -5489,7 +5425,7 @@ async function fetchCricapiResults(options = {}) {
 
       try {
         const d = await fetchCricapiJson('/match_scorecard', { id: scheduleMatch.cricapi_match_id });
-        if (d && d.data) {
+        if (d && d.data && typeof d.data === 'object') {
           const existed = (liveData.matches || []).some(m => m.apiId === scheduleMatch.cricapi_match_id);
           upsertMatch(
             scheduleMatch.cricapi_match_id,
