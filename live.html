@@ -4519,7 +4519,10 @@ function getMatchesForESPNUpdate() {
   }
 
   const pendingIds = liveData.espnPendingIds || {};
+  // Only skip pending for future/today matches — past matches always retry
+  // (IDs that 404'd earlier may now be published once the match was played)
   function isNotPending(m) {
+    if (m.date < today) return true; // past match: always retry
     const info = resolveESPNMatchInfo(m);
     return !pendingIds[String(info.match_id)] && !pendingIds[String(m.espn_match_id)];
   }
