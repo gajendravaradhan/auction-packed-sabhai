@@ -860,38 +860,7 @@ function incrementEspnCalls(n=1) {
   try { const t=new Date().toISOString().slice(0,10); const c=getEspnCallsToday()+n; localStorage.setItem(LS_ESPN_CALLS_KEY,JSON.stringify({date:t,count:c})); return c; } catch(e){return 0;}
 }
 
-// Fetches real server-side quota from CricAPI /match_info info object.
-// Stores result in memory so admin panel can display it.
-let _cricapiQuotaCache = null; // { remaining, hitsToday, fetchedAt }
-async function refreshCricapiQuotaFromServer() {
-  try {
-    const knownId = (() => {
-      if (liveData && liveData.matches) {
-        const m = (liveData.matches).find(x => x && x.apiId);
-        if (m) return m.apiId;
-      }
-      if (liveData && liveData.cricapiIdMap) {
-        const vals = Object.values(liveData.cricapiIdMap);
-        if (vals.length) return vals[0];
-      }
-      return null;
-    })();
-    if (!knownId) return;
-    const d = await fetchCricapiJson('/match_info', { id: knownId });
-    if (d && d.info) {
-      const hits = parseInt(d.info.hitsToday || d.info.hits_today || 0);
-      const limit = parseInt(d.info.hitsLimit || d.info.hits_limit || DAILY_LIMIT);
-      _cricapiQuotaCache = {
-        hitsToday: hits,
-        remaining: Math.max(0, limit - hits),
-        limit,
-        fetchedAt: Date.now()
-      };
-    }
-  } catch (e) {
-    console.warn('[AP] quota refresh failed', e.message);
-  }
-}
+let _cricapiQuotaCache = null; // { remaining, hitsToday, fetchedAt } — populated passively from any CricAPI response
 
 function getETDateTimeParts(date = new Date()) {
   const parts = new Intl.DateTimeFormat('en-US', {
