@@ -3993,9 +3993,6 @@ function initMatchDayWatcher() {
   });
 }
 
-function isCricapiBlockedReason(reason) {
-  return /blocked/i.test(String(reason || ''));
-}
 
 function getCricapiKeyCandidates() {
   return [CRICKETDATA_API_KEY, CRICKETDATA_API_KEY_BACKUP].filter(Boolean);
@@ -4022,10 +4019,10 @@ async function fetchCricapiJson(path, params = {}, options = {}) {
       const data = await response.json();
 
       const reason = data && data.reason ? data.reason : '';
-      const isBlocked = data && data.status === 'failure' && isCricapiBlockedReason(reason);
+      const isKeyFailure = data && data.status === 'failure' && !/not found/i.test(reason) && !/No score card/i.test(reason);
 
-      if (isBlocked && i < keys.length - 1) {
-        console.warn('[AP] CricAPI key blocked, retrying with backup key');
+      if (isKeyFailure && i < keys.length - 1) {
+        console.warn('[AP] CricAPI key failed (' + reason + '), retrying with backup key');
         continue; // retry is counted separately on next iteration
       }
 
