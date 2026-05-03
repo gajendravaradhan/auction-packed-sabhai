@@ -1278,8 +1278,15 @@ function renderLeaderboard() {
   if (!list) return;
   const pt = getPlayerTotals();
   const cv = liveData.captains||{};
-  const liveMatch = (liveData.matches||[]).find(m=>m.status==='live');
-  const liveMatchTeams = liveMatch ? getMatchTeamList(liveMatch) : [];
+  const allMatches = (liveData.matches||[]).filter(Boolean);
+  const liveMatch = allMatches.find(m=>m.status==='live');
+  const todayIST = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
+  const todayActiveScoringMatches = allMatches.filter(m => {
+    const perfCount = m && m.performances ? Object.keys(m.performances).length : 0;
+    return perfCount > 0 && String(m.date || '').slice(0,10) === todayIST;
+  });
+  const todayMatchTeams = todayActiveScoringMatches.flatMap(m => getMatchTeamList(m));
+  const hasTodayMatches = todayActiveScoringMatches.length > 0;
   const doneCount = (liveData.matches||[]).filter(m=>m.status==='done').length;
   const totalTeams = sorted.length;
 
@@ -1326,12 +1333,14 @@ function renderLeaderboard() {
         const isCap=picks&&picks.captain===p.name;
         const isVC=picks&&picks.viceCaptain===p.name;
         let matchPts=0;
-        if (liveMatch) {
-          const perf=(liveMatch.performances||{})[p.name];
-          if (perf) matchPts=calcFantasyPoints({...perf,playerName:p.name,role:p.role},name,liveMatch.potm);
+        if (hasTodayMatches) {
+          todayActiveScoringMatches.forEach(tm => {
+            const perf=(tm.performances||{})[p.name];
+            if (perf) matchPts+=calcFantasyPoints({...perf,playerName:p.name,role:p.role},name,tm.potm);
+          });
         }
         const ptsCls=tot.pts>0?'color:var(--green)':tot.pts<0?'color:var(--red)':'color:var(--muted)';
-        const isLivePlayer = liveMatch && isPlayerFromMatchTeams(p.name, liveMatchTeams);
+        const isLivePlayer = hasTodayMatches && isPlayerFromMatchTeams(p.name, todayMatchTeams);
         return `<div class="team-roster-row" onclick="openPlayerModal('${p.name.replace(/'/g,"\\'")}')">
           <div style="flex:1;min-width:0;">
             <div style="display:flex;align-items:center;gap:5px;">
@@ -1340,7 +1349,7 @@ function renderLeaderboard() {
             </div>
             <div style="font-size:10px;color:var(--muted);letter-spacing:1px;">${p.role}</div>
           </div>
-          ${liveMatch?`<div class="roster-match-pts">${matchPts>0?'+'+matchPts:matchPts}</div>`:''}
+          ${hasTodayMatches?`<div class="roster-match-pts">${matchPts>0?'+'+matchPts:matchPts}</div>`:''}
           <div class="roster-pts" style="${ptsCls}">${tot.pts}</div>
         </div>`;
       }).join('');
@@ -1352,7 +1361,7 @@ function renderLeaderboard() {
           <div class="lb-team-name">${TEAM_SLUGS[name]||name}${isBPL?' \uD83E\uDD22':''}</div>
           <div class="lb-team-meta" style="display:flex;gap:10px;flex-wrap:wrap;margin-top:2px;">
             <span style="color:var(--red);">${name}</span>
-            <span style="color:var(--muted);">Last Match: ${lastCompletedMatch ? (lastCompletedPointsByTeam[name] || 0) : '—'}</span>
+            <span style="color:var(--muted);">${hasTodayMatches ? 'Today: ' + (todayActiveScoringMatches.reduce((s,tm)=>{let p=0;TEAMS.find(t=>t.name===name)?.players.forEach(pl=>{const pf=(tm.performances||{})[pl.name];if(pf)p+=calcFantasyPoints({...pf,playerName:pl.name,role:pl.role},name,tm.potm);});return s+p;},0)) : lastCompletedMatch ? 'Last: '+(lastCompletedPointsByTeam[name]||0) : '—'}</span>
           </div>
           <div class="lb-team-meta" style="display:flex;gap:10px;flex-wrap:wrap;margin-top:2px;">
             <span style="color:var(--gold);">C: ${capName}</span>
@@ -1368,7 +1377,7 @@ function renderLeaderboard() {
         </div>
       </div>
       <div id="lb-roster-${i}" style="display:none;border-top:1px solid var(--border);">
-        ${liveMatch?`<div style="display:flex;justify-content:flex-end;padding:4px 16px;gap:16px;background:#050e1d;"><span style="font-size:10px;color:var(--muted);letter-spacing:1px;">THIS MATCH</span><span style="font-size:10px;color:var(--muted);letter-spacing:1px;min-width:44px;text-align:right;">TOTAL</span></div>`:`<div style="display:flex;justify-content:flex-end;padding:4px 16px;background:#050e1d;"><span style="font-size:10px;color:var(--muted);letter-spacing:1px;min-width:44px;text-align:right;">TOTAL PTS</span></div>`}
+        ${hasTodayMatches?`<div style="display:flex;justify-content:flex-end;padding:4px 16px;gap:16px;background:#050e1d;"><span style="font-size:10px;color:var(--muted);letter-spacing:1px;">TODAY</span><span style="font-size:10px;color:var(--muted);letter-spacing:1px;min-width:44px;text-align:right;">TOTAL</span></div>`:`<div style="display:flex;justify-content:flex-end;padding:4px 16px;background:#050e1d;"><span style="font-size:10px;color:var(--muted);letter-spacing:1px;min-width:44px;text-align:right;">TOTAL PTS</span></div>`}
         ${rosterRows}
       </div>
     </div>`;
@@ -1685,15 +1694,24 @@ function renderPlayers() {
 }
 
 // ── LIVE ──
+let _liveMatchTab = 0;
+function selectLiveMatchTab(idx) { _liveMatchTab = idx; renderLive(); }
 function renderLive() {
   const wrap=document.getElementById('liveWrap'); if(!wrap)return;
   const allMatches=(liveData.matches||[]).filter(Boolean);
   const liveMatches=allMatches.filter(m=>m.status==='live');
   const live=liveMatches.find(m=>m.performances&&Object.keys(m.performances).length>0)||null;
-  const today = new Date().toISOString().slice(0,10);
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
   const scoringToday = allMatches.filter(m => {
     const perfCount = m && m.performances ? Object.keys(m.performances).length : 0;
     return perfCount > 0 && String(m.date || '').slice(0,10) === today;
+  });
+  // Collect all distinct today's active matches for sub-tabs
+  const seen = new Set();
+  const todayActiveMatches = [];
+  [...liveMatches, ...scoringToday].forEach(m => {
+    const key = m.apiId || m.label;
+    if (!seen.has(key)) { seen.add(key); todayActiveMatches.push(m); }
   });
   const likelyLiveFallback =
     scoringToday.find(m => m.status !== 'done') ||
@@ -1703,7 +1721,8 @@ function renderLive() {
       return perfCount > 0 && m.status !== 'done';
     }) ||
     null;
-  const selectedMatch = live || likelyLiveFallback;
+  const tabIdx = Math.min(_liveMatchTab, Math.max(0, todayActiveMatches.length - 1));
+  const selectedMatch = todayActiveMatches[tabIdx] || live || likelyLiveFallback;
   if(!selectedMatch){
     const feedBlocked = _lastCurrentMatchesFeedError && /blocked/i.test(_lastCurrentMatchesFeedError) && (Date.now()-_lastCurrentMatchesFeedErrorAt)<(20*60*1000);
     if(feedBlocked){
@@ -1787,7 +1806,17 @@ function renderLive() {
       </div>
     </div>`;
   }).join('');
+  const subTabsHtml = todayActiveMatches.length > 1 ? `
+    <div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap;">
+      ${todayActiveMatches.map((m, i) => {
+        const isActive = i === tabIdx;
+        const shortLabel = (m.label || 'Match').split(',')[0];
+        const mStatus = m.status === 'live';
+        return `<button onclick="selectLiveMatchTab(${i})" style="font-family:Barlow Condensed,sans-serif;font-size:12px;font-weight:700;letter-spacing:1px;padding:6px 14px;border-radius:6px;cursor:pointer;border:1px solid ${isActive ? 'var(--green)' : 'var(--border)'};background:${isActive ? '#00e67615' : 'var(--surface2)'};color:${isActive ? 'var(--green)' : 'var(--muted)'};white-space:nowrap;">${mStatus ? '<span style="display:inline-block;width:6px;height:6px;background:var(--green);border-radius:50%;margin-right:5px;animation:pulse-text 1.5s infinite;"></span>' : ''}${shortLabel}</button>`;
+      }).join('')}
+    </div>` : '';
   wrap.innerHTML=`
+    ${subTabsHtml}
     <div class="live-match-header">
       ${liveBadgeMarkup}
       <div class="live-match-teams">${selectedMatch.label||'Match in Progress'}</div>
@@ -3278,7 +3307,10 @@ function renderAdmin() {
   const wrap = document.getElementById('adminWrap'); if (!wrap) return;
   wrap.innerHTML = `
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
-      <div class="admin-section-title" style="margin:0;">Fantasy League Admin</div>
+      <div>
+        <div class="admin-section-title" style="margin:0;">Fantasy League Admin</div>
+        <div style="font-size:10px;color:var(--muted);letter-spacing:1px;margin-top:2px;">v5.0</div>
+      </div>
       <div class="insights-subtabs" style="margin:0;padding:0;">
         <button class="insights-subtab ${_adminSubTab==='settings'?'active':''}" onclick="switchAdminSubTab('settings')">Settings</button>
         <button class="insights-subtab ${_adminSubTab==='monitoring'?'active':''}" onclick="switchAdminSubTab('monitoring')">Monitoring</button>
