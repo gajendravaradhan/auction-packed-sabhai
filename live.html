@@ -1706,13 +1706,24 @@ function renderLive() {
     const perfCount = m && m.performances ? Object.keys(m.performances).length : 0;
     return perfCount > 0 && String(m.date || '').slice(0,10) === today;
   });
-  // Collect all distinct today's active matches for sub-tabs
-  const seen = new Set();
-  const todayActiveMatches = [];
-  [...liveMatches, ...scoringToday].forEach(m => {
-    const key = m.apiId || m.label;
-    if (!seen.has(key)) { seen.add(key); todayActiveMatches.push(m); }
-  });
+  // Build sub-tabs from today's schedule entries (always correct count),
+  // each matched to its Firebase record (if imported) or shown as pending.
+  const todaySchedule = IPL_2026_SCHEDULE.filter(s => s && s.date === today)
+    .sort((a, b) => (a.time || '').localeCompare(b.time || ''));
+  const todayActiveMatches = todaySchedule.length > 0
+    ? todaySchedule.map(s => {
+        // Find imported match by cricapi_match_id, ESPN id mapping, or team name match
+        const fb = allMatches.find(m =>
+          (s.cricapi_match_id && m.apiId === s.cricapi_match_id) ||
+          matchScheduleTeams(s, m.label || '')
+        );
+        return fb || { _pending: true, label: s.home + ' vs ' + s.away, date: today, status: 'upcoming', _scheduleMatch: s };
+      })
+    : (() => {
+        const seen = new Set(); const arr = [];
+        [...liveMatches, ...scoringToday].forEach(m => { const k=m.apiId||m.label; if(!seen.has(k)){seen.add(k);arr.push(m);} });
+        return arr;
+      })();
   const likelyLiveFallback =
     scoringToday.find(m => m.status !== 'done') ||
     scoringToday[scoringToday.length - 1] ||
@@ -1722,7 +1733,14 @@ function renderLive() {
     }) ||
     null;
   const tabIdx = Math.min(_liveMatchTab, Math.max(0, todayActiveMatches.length - 1));
-  const selectedMatch = todayActiveMatches[tabIdx] || live || likelyLiveFallback;
+  const tabMatch = todayActiveMatches[tabIdx];
+  const selectedMatch = (tabMatch && !tabMatch._pending) ? tabMatch : (live || likelyLiveFallback);
+  // Pending tab selected — show placeholder, still render sub-tabs
+  if (tabMatch && tabMatch._pending && !selectedMatch) {
+    const subHtml = todayActiveMatches.length > 1 ? subTabsHtml : '';
+    wrap.innerHTML = subHtml + `<div class="live-match-header"><div style="margin-bottom:8px"><span style="font-family:Barlow Condensed,sans-serif;font-size:10px;font-weight:700;letter-spacing:2px;color:var(--gold);border:1px solid #ffb80040;border-radius:4px;padding:3px 8px;">UPCOMING</span></div><div class="live-match-teams">${tabMatch.label}</div><div class="live-match-score">Match not started yet</div></div>`;
+    return;
+  }
   if(!selectedMatch){
     const feedBlocked = _lastCurrentMatchesFeedError && /blocked/i.test(_lastCurrentMatchesFeedError) && (Date.now()-_lastCurrentMatchesFeedErrorAt)<(20*60*1000);
     if(feedBlocked){
@@ -1811,8 +1829,12 @@ function renderLive() {
       ${todayActiveMatches.map((m, i) => {
         const isActive = i === tabIdx;
         const shortLabel = (m.label || 'Match').split(',')[0];
-        const mStatus = m.status === 'live';
-        return `<button onclick="selectLiveMatchTab(${i})" style="font-family:Barlow Condensed,sans-serif;font-size:12px;font-weight:700;letter-spacing:1px;padding:6px 14px;border-radius:6px;cursor:pointer;border:1px solid ${isActive ? 'var(--green)' : 'var(--border)'};background:${isActive ? '#00e67615' : 'var(--surface2)'};color:${isActive ? 'var(--green)' : 'var(--muted)'};white-space:nowrap;">${mStatus ? '<span style="display:inline-block;width:6px;height:6px;background:var(--green);border-radius:50%;margin-right:5px;animation:pulse-text 1.5s infinite;"></span>' : ''}${shortLabel}</button>`;
+        const mIsLive = m.status === 'live';
+        const mIsPending = !!m._pending;
+        const borderColor = isActive ? (mIsPending ? 'var(--gold)' : 'var(--green)') : 'var(--border)';
+        const bgColor = isActive ? (mIsPending ? '#ffb80010' : '#00e67615') : 'var(--surface2)';
+        const textColor = isActive ? (mIsPending ? 'var(--gold)' : 'var(--green)') : 'var(--muted)';
+        return `<button onclick="selectLiveMatchTab(${i})" style="font-family:Barlow Condensed,sans-serif;font-size:12px;font-weight:700;letter-spacing:1px;padding:6px 14px;border-radius:6px;cursor:pointer;border:1px solid ${borderColor};background:${bgColor};color:${textColor};white-space:nowrap;">${mIsLive ? '<span style="display:inline-block;width:6px;height:6px;background:var(--green);border-radius:50%;margin-right:5px;animation:pulse-text 1.5s infinite;"></span>' : ''}${shortLabel}${mIsPending ? ' ·' : ''}</button>`;
       }).join('')}
     </div>` : '';
   wrap.innerHTML=`
