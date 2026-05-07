@@ -600,21 +600,143 @@ const IPL_2026_SCHEDULE = [
 ];
 
 // ═══════════════════════════════════════════════════════
-// TEAMS
+// PLAYERS — single source of truth
+// id        = CricAPI player ID (primary key)
+// displayName = ESPN Cricinfo display name (shown in UI)
+// cricapiName = name CricAPI returns in scorecards
+// espnId    = ESPN Cricinfo GUID
+// iplTeam   = IPL 2026 franchise
+// fantasyTeam = auction team code
+// role      = BAT|BOW|ALL|WIC
+// bowl      = {type:'Fast'|'Spinner', arm:'Left'|'Right'} or null
 // ═══════════════════════════════════════════════════════
-const TEAMS = [
-  {name:'ALVA',players:[{name:'Shubman Gill',role:'BAT'},{name:'Varun Chakravarthy',role:'BOW'},{name:'Tilak Varma',role:'BAT'},{name:'Hardik Pandya',role:'ALL'},{name:'Ryan Rickelton',role:'WIC'},{name:'Mohammed Siraj',role:'BOW'},{name:'Axar Patel',role:'ALL'},{name:'David Miller',role:'BAT'},{name:'Devdutt Padikkal',role:'BAT'},{name:'Mitchell Starc',role:'BOW'},{name:'Tim Seifert',role:'WIC'}]},
-  {name:'ANIRUDH',players:[{name:'Ishan Kishan',role:'WIC'},{name:'Ayush Mhatre',role:'BAT'},{name:'Priyansh Arya',role:'ALL'},{name:'Arshdeep Singh',role:'BOW'},{name:'Prasidh Krishna',role:'BOW'},{name:'Digvesh Singh',role:'BOW'},{name:'Naman Dhir',role:'ALL'},{name:'Quinton de Kock',role:'WIC'},{name:'Harshit Rana',role:'BOW'},{name:'Sam Curran',role:'ALL'},{name:'Glenn Phillips',role:'BAT'}]},
-  {name:'ASVIN',players:[{name:'Yashasvi Jaiswal',role:'BAT'},{name:'Jasprit Bumrah',role:'BOW'},{name:'Rishabh Pant',role:'WIC'},{name:'Yuzvendra Chahal',role:'BOW'},{name:'Mitchell Marsh',role:'ALL'},{name:'Nitish Rana',role:'ALL'},{name:'Pat Cummins',role:'BOW'},{name:'Tim David',role:'ALL'},{name:'Pathum Nissanka',role:'BAT'},{name:'Vaibhav Arora',role:'BOW'},{name:'Shashank Singh',role:'BAT'}]},
-  {name:'GAJA',players:[{name:'Sanju Samson',role:'WIC'},{name:'Suryakumar Yadav',role:'BAT'},{name:'Rajat Patidar',role:'BAT'},{name:'Angkrish Raghuvanshi',role:'BAT'},{name:'Jacob Bethell',role:'ALL'},{name:'Cameron Green',role:'ALL'},{name:'Josh Hazlewood',role:'BOW'},{name:'Trent Boult',role:'BOW'},{name:'Jitesh Sharma',role:'WIC'},{name:'Mohammed Shami',role:'BOW'},{name:'Aniket Verma',role:'BAT'}]},
-  {name:'KARTHIK',players:[{name:'Phil Salt',role:'WIC'},{name:'Vaibhav Sooryavanshi',role:'BAT'},{name:'Sunil Narine',role:'ALL'},{name:'Shimron Hetmyer',role:'BAT'},{name:'Khaleel Ahmed',role:'BOW'},{name:'MS Dhoni',role:'WIC'},{name:'Will Jacks',role:'ALL'},{name:'Sandeep Sharma',role:'BOW'},{name:'Vipraj Nigam',role:'ALL'},{name:'T Natarajan',role:'BOW'},{name:'Deepak Chahar',role:'BOW'}]},
-  {name:'MUKIL',players:[{name:'Ruturaj Gaikwad',role:'BAT'},{name:'Rohit Sharma',role:'BAT'},{name:'Aiden Markram',role:'ALL'},{name:'Kuldeep Yadav',role:'BOW'},{name:'Ravindra Jadeja',role:'ALL'},{name:'Jos Buttler',role:'WIC'},{name:'Kagiso Rabada',role:'BOW'},{name:'Ravi Bishnoi',role:'BOW'},{name:'Mitchell Santner',role:'ALL'},{name:'Venkatesh Iyer',role:'ALL'},{name:'Abishek Porel',role:'WIC'}]},
-  {name:'SRIPAD',players:[{name:'Abhishek Sharma',role:'ALL'},{name:'Nicholas Pooran',role:'WIC'},{name:'Travis Head',role:'BAT'},{name:'Prabhsimran Singh',role:'WIC'},{name:'Ajinkya Rahane',role:'BAT'},{name:'Jaydev Unadkat',role:'BOW'},{name:'Matt Henry',role:'BOW'},{name:'Sai Kishore',role:'BOW'},{name:'Washington Sundar',role:'ALL'},{name:'Krunal Pandya',role:'ALL'},{name:'Suyash Sharma',role:'BOW'}]},
-  {name:'VATS',players:[{name:'Virat Kohli',role:'BAT'},{name:'Sai Sudharsan',role:'BAT'},{name:'Rashid Khan',role:'BOW'},{name:'Heinrich Klaasen',role:'WIC'},{name:'Shivam Dube',role:'ALL'},{name:'Bhuvneshwar Kumar',role:'BOW'},{name:'Karthik Sharma',role:'WIC'},{name:'Sarfaraz Khan',role:'BAT'},{name:'Tristan Stubbs',role:'WIC'},{name:'Harshal Patel',role:'BOW'},{name:'Jofra Archer',role:'BOW'}]},
-  {name:'VINAY',players:[{name:'KL Rahul',role:'WIC'},{name:'Noor Ahmad',role:'BOW'},{name:'Dewald Brevis',role:'BAT'},{name:'Finn Allen',role:'WIC'},{name:'Riyan Parag',role:'BAT'},{name:'Shreyas Iyer',role:'BAT'},{name:'Avesh Khan',role:'BOW'},{name:'Marco Jansen',role:'ALL'},{name:'Harpreet Brar',role:'ALL'},{name:'Zeeshan Ansari',role:'BOW'},{name:'Dhruv Jurel',role:'WIC'}]},
+const PLAYERS = [
+  {id:'7263e990-a9e9-4829-8adf-760d18d1315c',displayName:'Shubman Gill',cricapiName:'Shubman Gill',espnId:'bceef63e-967a-982e-1a99-f5e8bf54c0e5',ESPN_ID:1070173,iplTeam:'Gujarat Titans',fantasyTeam:'ALVA',role:'BAT',bowl:null},
+  {id:'702254aa-2764-4fe4-b28e-20336a0ab069',displayName:'Varun Chakravarthy',cricapiName:'Varun Chakaravarthy',espnId:'57e03610-fff6-80ff-ec0b-77f63a8f32c5',ESPN_ID:1108375,iplTeam:'Kolkata Knight Riders',fantasyTeam:'ALVA',role:'BOW',bowl:{type:'Spinner',arm:'Right'}},
+  {id:'aefd9074-da5a-408d-94f1-3be0e79d3b82',displayName:'Tilak Varma',cricapiName:'Tilak Varma',espnId:'60cfbcd3-1275-6108-6451-874e9d095fc7',ESPN_ID:1170265,iplTeam:'Mumbai Indians',fantasyTeam:'ALVA',role:'BAT',bowl:null},
+  {id:'a90b2371-5c53-4c29-a382-9b52d40a7548',displayName:'Hardik Pandya',cricapiName:'Hardik Pandya',espnId:'345443cf-9d44-d113-d69e-dbde2a4564e6',ESPN_ID:625371,iplTeam:'Mumbai Indians',fantasyTeam:'ALVA',role:'ALL',bowl:{type:'Fast',arm:'Right'}},
+  {id:'a6686871-5bcd-4aae-8bfc-8298f878b6a9',displayName:'Ryan Rickelton',cricapiName:'Ryan Rickelton',espnId:'811e5826-a8f7-0664-9b65-7d4cd63c17ef',ESPN_ID:605661,iplTeam:'Mumbai Indians',fantasyTeam:'ALVA',role:'WIC',bowl:null},
+  {id:'2a8d8640-2213-4cf6-ac7e-309d8b733e96',displayName:'Mohammed Siraj',cricapiName:'Mohammed Siraj',espnId:'84136daf-55e5-0b5b-9d6c-8ae631267255',ESPN_ID:940973,iplTeam:'Gujarat Titans',fantasyTeam:'ALVA',role:'BOW',bowl:{type:'Fast',arm:'Right'}},
+  {id:'670ae8ac-4fe9-4f0c-84ee-320b13039f34',displayName:'Axar Patel',cricapiName:'Axar Patel',espnId:'9cbc381c-a14b-6ba1-e0b9-378f7fb2e2f7',ESPN_ID:554691,iplTeam:'Delhi Capitals',fantasyTeam:'ALVA',role:'ALL',bowl:{type:'Spinner',arm:'Left'}},
+  {id:'2f50df2f-809d-44f9-b5be-ccb846515861',displayName:'David Miller',cricapiName:'David Miller',espnId:'cdcb4cc4-b390-36a5-508e-05d7957eabef',ESPN_ID:321777,iplTeam:'Delhi Capitals',fantasyTeam:'ALVA',role:'BAT',bowl:null},
+  {id:'74c6584a-45a5-4781-a5e7-c0c9340da954',displayName:'Devdutt Padikkal',cricapiName:'Devdutt Padikkal',espnId:'b0ce7616-f07e-5c34-834a-38c3a6e0249f',ESPN_ID:1119026,iplTeam:'Royal Challengers Bengaluru',fantasyTeam:'ALVA',role:'BAT',bowl:null},
+  {id:'bceb7084-1dda-4d76-b691-43c5a29d39a7',displayName:'Mitchell Starc',cricapiName:'Mitchell Starc',espnId:'c061df98-493e-01c7-bbf3-479c94957802',ESPN_ID:311592,iplTeam:'Delhi Capitals',fantasyTeam:'ALVA',role:'BOW',bowl:{type:'Fast',arm:'Left'}},
+  {id:'812fc568-a932-4f29-a1c4-b7c929e6a248',displayName:'Tim Seifert',cricapiName:'Tim Seifert',espnId:'5c287eed-61bc-188f-4127-9cadc23c6324',ESPN_ID:625964,iplTeam:'Kolkata Knight Riders',fantasyTeam:'ALVA',role:'WIC',bowl:null},
+  {id:'9ae68636-48d9-488f-8adc-e62a19815d85',displayName:'Ishan Kishan',cricapiName:'Ishan Kishan',espnId:'fa241288-f64b-a994-767f-7f1fbc895a22',ESPN_ID:720471,iplTeam:'Sunrisers Hyderabad',fantasyTeam:'ANIRUDH',role:'WIC',bowl:null},
+  {id:'679f3d10-ac62-4f5b-89b2-7010935b9985',displayName:'Ayush Mhatre',cricapiName:'Ayush Mhatre',espnId:'345bb16d-3ab9-340c-a1d5-c6d632427ebf',ESPN_ID:1452455,iplTeam:'Chennai Super Kings',fantasyTeam:'ANIRUDH',role:'BAT',bowl:null},
+  {id:'4ff68cf3-d3a7-489f-bf37-4ac233f41a15',displayName:'Priyansh Arya',cricapiName:'Priyansh Arya',espnId:'5308a157-cf8b-7f68-aae6-91dfb5e0ed11',ESPN_ID:1175456,iplTeam:'Punjab Kings',fantasyTeam:'ANIRUDH',role:'ALL',bowl:null},
+  {id:'607ff10c-5619-411d-a822-06ba28992230',displayName:'Arshdeep Singh',cricapiName:'Arshdeep Singh',espnId:'386190f1-2a6d-50f7-80d9-db96595188f5',ESPN_ID:1125976,iplTeam:'Punjab Kings',fantasyTeam:'ANIRUDH',role:'BOW',bowl:{type:'Fast',arm:'Left'}},
+  {id:'99eb6b5c-379f-46da-bab7-dc8fd31ba435',displayName:'Prasidh Krishna',cricapiName:'Prasidh Krishna',espnId:'8bb3d8af-ea8d-877d-9236-4447249fb0d8',ESPN_ID:917159,iplTeam:'Gujarat Titans',fantasyTeam:'ANIRUDH',role:'BOW',bowl:{type:'Fast',arm:'Right'}},
+  {id:'93eaaabd-7529-44cb-a8c7-52acd30ea54e',displayName:'Digvesh Rathi',cricapiName:'Digvesh Singh Rathi',espnId:'e9b16521-74f8-3bd1-bd31-5cf3b8b948c0',ESPN_ID:1460529,iplTeam:'Lucknow Super Giants',fantasyTeam:'ANIRUDH',role:'BOW',bowl:{type:'Spinner',arm:'Right'}},
+  {id:'71add5ac-55f9-4eb7-9e0c-d51208ae20c0',displayName:'Naman Dhir',cricapiName:'Naman Dhir',espnId:'b9d01c4f-220c-358f-8538-494dd0e43787',ESPN_ID:1287032,iplTeam:'Mumbai Indians',fantasyTeam:'ANIRUDH',role:'ALL',bowl:null},
+  {id:'000f9f7c-cc24-4a85-8638-b013b0f4760e',displayName:'Quinton de Kock',cricapiName:'Quinton de Kock',espnId:'374756bd-73a7-8746-b00a-b86cdb8f2994',ESPN_ID:379143,iplTeam:'Mumbai Indians',fantasyTeam:'ANIRUDH',role:'WIC',bowl:null},
+  {id:'225ae9ea-dba6-456d-a64b-2dbd7476c8f0',displayName:'Harshit Rana',cricapiName:'Harshit Rana',espnId:'e89a8dca-1aca-31e1-bd0c-5438e8a41fdd',ESPN_ID:1312645,iplTeam:'Kolkata Knight Riders',fantasyTeam:'ANIRUDH',role:'BOW',bowl:{type:'Fast',arm:'Right'}},
+  {id:'45613012-5c4f-4a7a-a1c4-d9827939b2bf',displayName:'Sam Curran',cricapiName:'Sam Curran',espnId:'8aa6fff5-de7f-b1d7-d6a2-0d79fa4d8d5d',ESPN_ID:662973,iplTeam:'Rajasthan Royals',fantasyTeam:'ANIRUDH',role:'ALL',bowl:{type:'Fast',arm:'Left'}},
+  {id:'9e6fa482-3ad3-4831-b05d-4fed2510cdf5',displayName:'Glenn Phillips',cricapiName:'Glenn Phillips',espnId:'74eaa1f3-7f64-66cb-db1e-7df734a24c84',ESPN_ID:823509,iplTeam:'Gujarat Titans',fantasyTeam:'ANIRUDH',role:'BAT',bowl:null},
+  {id:'a254feed-0d7c-4f04-a2ab-7bf9ceef156b',displayName:'Yashasvi Jaiswal',cricapiName:'Yashasvi Jaiswal',espnId:'1b2ceee7-e0d2-e46c-65f8-23e01b26a73e',ESPN_ID:1151278,iplTeam:'Rajasthan Royals',fantasyTeam:'ASVIN',role:'BAT',bowl:null},
+  {id:'6602d875-cf56-46a3-866c-de80aaa006bc',displayName:'Jasprit Bumrah',cricapiName:'Jasprit Bumrah',espnId:'1032183d-7d9f-ae46-24f9-30782c5f655c',ESPN_ID:625383,iplTeam:'Mumbai Indians',fantasyTeam:'ASVIN',role:'BOW',bowl:{type:'Fast',arm:'Right'}},
+  {id:'a52b2d20-7c98-4238-9ba4-ec78419a5cc2',displayName:'Rishabh Pant',cricapiName:'Rishabh Pant',espnId:'ede019d6-3d9a-dd9e-f9a9-3ebd600cb1e9',ESPN_ID:931581,iplTeam:'Lucknow Super Giants',fantasyTeam:'ASVIN',role:'WIC',bowl:null},
+  {id:'0d704a13-518a-40a7-bb93-0fc0d92af9e2',displayName:'Yuzvendra Chahal',cricapiName:'Yuzvendra Chahal',espnId:'787a6694-ff99-c2b2-2a31-2dabfd1513aa',ESPN_ID:430246,iplTeam:'Punjab Kings',fantasyTeam:'ASVIN',role:'BOW',bowl:{type:'Spinner',arm:'Right'}},
+  {id:'6eaac800-13e7-4a07-8ee2-14acd04cc53f',displayName:'Mitchell Marsh',cricapiName:'Mitchell Marsh',espnId:'9d8209ff-08ec-9b05-5833-e3a18e0c9d7a',ESPN_ID:272450,iplTeam:'Lucknow Super Giants',fantasyTeam:'ASVIN',role:'ALL',bowl:{type:'Fast',arm:'Right'}},
+  {id:'64360dd6-a8db-47ae-8837-638a5bbbaae6',displayName:'Nitish Rana',cricapiName:'Nitish Rana',espnId:'5766a9ff-419c-2a83-1c74-f4a3915580b2',ESPN_ID:604527,iplTeam:'Delhi Capitals',fantasyTeam:'ASVIN',role:'ALL',bowl:null},
+  {id:'13b3d56e-0fba-4d31-a174-d211211404e2',displayName:'Pat Cummins',cricapiName:'Pat Cummins',espnId:'51ff0cb3-370b-1414-da51-37b2332e8da4',ESPN_ID:489889,iplTeam:'Sunrisers Hyderabad',fantasyTeam:'ASVIN',role:'BOW',bowl:{type:'Fast',arm:'Right'}},
+  {id:'69718248-2a3a-45d4-9a2a-6f4dfc6942a5',displayName:'Tim David',cricapiName:'Tim David',espnId:'3dedc31f-e135-e0c1-5897-fb7086dc5093',ESPN_ID:892749,iplTeam:'Royal Challengers Bengaluru',fantasyTeam:'ASVIN',role:'ALL',bowl:{type:'Spinner',arm:'Right'}},
+  {id:'bbbf3b4e-dbc3-4f2a-986d-1a0227ea5a06',displayName:'Pathum Nissanka',cricapiName:'Pathum Nissanka',espnId:'3c53cd33-8e12-331e-58ab-01240073b5da',ESPN_ID:1028655,iplTeam:'Delhi Capitals',fantasyTeam:'ASVIN',role:'BAT',bowl:null},
+  {id:'82de5824-b29b-4737-9e9d-44f5796ef227',displayName:'Vaibhav Arora',cricapiName:'Vaibhav Arora',espnId:'3980ff17-8f46-3c17-8cd0-717a75832bca',ESPN_ID:1209292,iplTeam:'Kolkata Knight Riders',fantasyTeam:'ASVIN',role:'BOW',bowl:{type:'Fast',arm:'Right'}},
+  {id:'9d6cb002-6b9f-4795-a9bf-ea1a6e27ed08',displayName:'Shashank Singh',cricapiName:'Shashank Singh',espnId:'8b4c191e-a7a1-ad33-b079-90038a386de3',ESPN_ID:377534,iplTeam:'Punjab Kings',fantasyTeam:'ASVIN',role:'BAT',bowl:null},
+  {id:'35ed1b20-38f3-4013-be2e-dc28ffbecfd6',displayName:'Sanju Samson',cricapiName:'Sanju Samson',espnId:'bd213311-a8e1-737a-42f0-a741a97fee56',ESPN_ID:425943,iplTeam:'Chennai Super Kings',fantasyTeam:'GAJA',role:'WIC',bowl:null},
+  {id:'8c579447-bfbd-4cf6-a283-db4dc1d5ac33',displayName:'Suryakumar Yadav',cricapiName:'Suryakumar Yadav',espnId:'415cbcd9-3093-3fe9-009f-c4aba6a7ae64',ESPN_ID:446507,iplTeam:'Mumbai Indians',fantasyTeam:'GAJA',role:'BAT',bowl:null},
+  {id:'88215ee9-ca67-48af-a3f0-6b38718bd830',displayName:'Rajat Patidar',cricapiName:'Rajat Patidar',espnId:'d3568e11-ba0f-5403-a641-6aebab5e6081',ESPN_ID:823703,iplTeam:'Royal Challengers Bengaluru',fantasyTeam:'GAJA',role:'BAT',bowl:null},
+  {id:'3c89df94-f39c-4c51-8e64-441c73c32c78',displayName:'Angkrish Raghuvanshi',cricapiName:'Angkrish Raghuvanshi',espnId:'feaf9d68-90df-30e3-b1e8-54d327762f75',ESPN_ID:1292495,iplTeam:'Kolkata Knight Riders',fantasyTeam:'GAJA',role:'BAT',bowl:null},
+  {id:'d8b0e01b-b754-432b-80a4-551e8c7ec8ca',displayName:'Jacob Bethell',cricapiName:'Jacob Bethell',espnId:'6f1836aa-27dc-158f-7290-02bc8b541596',ESPN_ID:1194959,iplTeam:'Royal Challengers Bengaluru',fantasyTeam:'GAJA',role:'ALL',bowl:null},
+  {id:'abe58090-e933-4888-8538-64f4611ee259',displayName:'Cameron Green',cricapiName:'Cameron Green',espnId:'1b27bf81-d048-6de3-5fe0-ce0253d1fa62',ESPN_ID:1076713,iplTeam:'Kolkata Knight Riders',fantasyTeam:'GAJA',role:'ALL',bowl:{type:'Fast',arm:'Right'}},
+  {id:'2190c28d-1712-4fd2-ae44-9ac54319fc21',displayName:'Josh Hazlewood',cricapiName:'Josh Hazlewood',espnId:'e77305b4-97e5-57d4-297b-a57adeaeaddd',ESPN_ID:288284,iplTeam:'Royal Challengers Bengaluru',fantasyTeam:'GAJA',role:'BOW',bowl:{type:'Fast',arm:'Right'}},
+  {id:'6004fd3f-2264-470d-b39f-340d530b19b3',displayName:'Trent Boult',cricapiName:'Trent Boult',espnId:'86c2cd43-0fcb-a366-065a-e26d1b262bda',ESPN_ID:277912,iplTeam:'Mumbai Indians',fantasyTeam:'GAJA',role:'BOW',bowl:{type:'Fast',arm:'Left'}},
+  {id:'e28de73b-f5df-49eb-bdf6-c50471319404',displayName:'Jitesh Sharma',cricapiName:'Jitesh Sharma',espnId:'401c93f4-d786-d917-2c31-708b68374a8f',ESPN_ID:721867,iplTeam:'Royal Challengers Bengaluru',fantasyTeam:'GAJA',role:'WIC',bowl:null},
+  {id:'11d06633-aa20-469c-8fbb-676a1ae33eed',displayName:'Mohammed Shami',cricapiName:'Mohammed Shami',espnId:'6b210110-45e4-7b39-7031-aa979ef86125',ESPN_ID:481896,iplTeam:'Lucknow Super Giants',fantasyTeam:'GAJA',role:'BOW',bowl:{type:'Fast',arm:'Right'}},
+  {id:'196f622e-e1ae-4962-95b5-81324e26c5fe',displayName:'Aniket Verma',cricapiName:'Aniket Verma',espnId:'8c809971-96fc-3ace-a1f5-7fde36eaa796',ESPN_ID:1409976,iplTeam:'Sunrisers Hyderabad',fantasyTeam:'GAJA',role:'BAT',bowl:null},
+  {id:'6db25d60-ff96-4d8d-8d22-dedeeb5ffa29',displayName:'Phil Salt',cricapiName:'Philip Salt',espnId:'8ca5ccbf-21a4-35b6-31e0-44411106e7a4',ESPN_ID:669365,iplTeam:'Royal Challengers Bengaluru',fantasyTeam:'KARTHIK',role:'WIC',bowl:null},
+  {id:'0f5502aa-40c8-43c6-a38f-1496000bd5b6',displayName:'Vaibhav Sooryavanshi',cricapiName:'Vaibhav Sooryavanshi',espnId:'ceac701b-7f67-3fb2-bf91-4064238559b5',ESPN_ID:1408688,iplTeam:'Rajasthan Royals',fantasyTeam:'KARTHIK',role:'BAT',bowl:null},
+  {id:'ef2e9c01-41f2-4349-a945-45d8b11dbd19',displayName:'Sunil Narine',cricapiName:'Sunil Narine',espnId:'2c8120ea-9c26-699e-8289-cfec1da373af',ESPN_ID:230558,iplTeam:'Kolkata Knight Riders',fantasyTeam:'KARTHIK',role:'ALL',bowl:{type:'Spinner',arm:'Right'}},
+  {id:'4269d64c-962d-4cd9-b2d2-1a62f51256b8',displayName:'Shimron Hetmyer',cricapiName:'Shimron Hetmyer',espnId:'89909888-a8dc-a4c5-362b-63ac5bbd71a7',ESPN_ID:670025,iplTeam:'Rajasthan Royals',fantasyTeam:'KARTHIK',role:'BAT',bowl:null},
+  {id:'8df6183b-1c95-46d2-85c0-e185792d03f1',displayName:'Khaleel Ahmed',cricapiName:'Khaleel Ahmed',espnId:'00646ed5-d651-c5c0-03eb-683e56887e8b',ESPN_ID:942645,iplTeam:'Chennai Super Kings',fantasyTeam:'KARTHIK',role:'BOW',bowl:{type:'Fast',arm:'Left'}},
+  {id:'b6e7aa41-b0bb-4b0f-8f59-59f729283be5',displayName:'MS Dhoni',cricapiName:'MS Dhoni',espnId:'0e5c1403-4ab2-b429-3da2-863d53abbd08',ESPN_ID:28081,iplTeam:'Chennai Super Kings',fantasyTeam:'KARTHIK',role:'WIC',bowl:null},
+  {id:'c510fbe6-8a16-47e4-ab60-0965720241af',displayName:'Will Jacks',cricapiName:'Will Jacks',espnId:'09b9060e-bcff-9067-f701-95841df53ee2',ESPN_ID:897549,iplTeam:'Mumbai Indians',fantasyTeam:'KARTHIK',role:'ALL',bowl:null},
+  {id:'3f18b02d-0e1a-49be-aec4-c2fc11503505',displayName:'Sandeep Sharma',cricapiName:'Sandeep Sharma',espnId:'c8ebdbcf-f257-18e8-1a3d-c1d9354694ea',ESPN_ID:438362,iplTeam:'Rajasthan Royals',fantasyTeam:'KARTHIK',role:'BOW',bowl:{type:'Fast',arm:'Right'}},
+  {id:'6d4e7d4a-4fae-4958-bc15-a063c09508eb',displayName:'Vipraj Nigam',cricapiName:'Vipraj Nigam',espnId:'7d4e39ca-daf6-392c-a0a2-d13ff1329bb1',ESPN_ID:1449074,iplTeam:'Delhi Capitals',fantasyTeam:'KARTHIK',role:'ALL',bowl:{type:'Spinner',arm:'Right'}},
+  {id:'d8826d0d-ef95-4dce-a47a-b09b97f49f07',displayName:'T Natarajan',cricapiName:'T Natarajan',espnId:'bbac0863-71c2-0b62-11b7-2c9a5f8bce1a',ESPN_ID:802575,iplTeam:'Delhi Capitals',fantasyTeam:'KARTHIK',role:'BOW',bowl:{type:'Fast',arm:'Left'}},
+  {id:'237a1ef2-1eae-4877-8b94-d20d84faf635',displayName:'Deepak Chahar',cricapiName:'Deepak Chahar',espnId:'c2f42a27-3f08-e855-0be3-3778fa719af4',ESPN_ID:447261,iplTeam:'Mumbai Indians',fantasyTeam:'KARTHIK',role:'BOW',bowl:{type:'Fast',arm:'Right'}},
+  {id:'50b70c71-1535-41c0-87fd-c12883105ede',displayName:'Ruturaj Gaikwad',cricapiName:'Ruturaj Gaikwad',espnId:'7881c869-4062-4601-bff5-e52caa3555fb',ESPN_ID:1060380,iplTeam:'Chennai Super Kings',fantasyTeam:'MUKIL',role:'BAT',bowl:null},
+  {id:'03bda674-3916-4d64-952e-00a6c19c01e1',displayName:'Rohit Sharma',cricapiName:'Rohit Sharma',espnId:'6917541e-a949-7311-aeab-307bc72e66f4',ESPN_ID:34102,iplTeam:'Mumbai Indians',fantasyTeam:'MUKIL',role:'BAT',bowl:null},
+  {id:'3fef81b0-c1e9-45eb-954f-519f3b33d640',displayName:'Aiden Markram',cricapiName:'Aiden Markram',espnId:'57183f05-c9cc-9f7d-49cb-265a73f5bb0c',ESPN_ID:600498,iplTeam:'Lucknow Super Giants',fantasyTeam:'MUKIL',role:'ALL',bowl:{type:'Spinner',arm:'Right'}},
+  {id:'1e651cfb-57f1-48da-bf9d-83cbff1733d1',displayName:'Kuldeep Yadav',cricapiName:'Kuldeep Yadav',espnId:'a733aefc-e4ab-4ad6-795d-aaa12d262547',ESPN_ID:559235,iplTeam:'Delhi Capitals',fantasyTeam:'MUKIL',role:'BOW',bowl:{type:'Spinner',arm:'Left'}},
+  {id:'81b446e1-bfea-45a7-a15e-062b8157a323',displayName:'Ravindra Jadeja',cricapiName:'Ravindra Jadeja',espnId:'59db9ad2-2cdd-4fd3-d428-831dd8213dcd',ESPN_ID:234675,iplTeam:'Rajasthan Royals',fantasyTeam:'MUKIL',role:'ALL',bowl:{type:'Spinner',arm:'Left'}},
+  {id:'7567e305-1b40-4eee-9290-e2fcb8804496',displayName:'Jos Buttler',cricapiName:'Jos Buttler',espnId:'f53d6bed-b2a0-9667-fb84-b67550585534',ESPN_ID:308967,iplTeam:'Gujarat Titans',fantasyTeam:'MUKIL',role:'WIC',bowl:null},
+  {id:'a81da20a-e420-476a-baf6-204fc219dbdd',displayName:'Kagiso Rabada',cricapiName:'Kagiso Rabada',espnId:'6f453aac-c60c-6620-8a14-90d0c93a4731',ESPN_ID:550215,iplTeam:'Gujarat Titans',fantasyTeam:'MUKIL',role:'BOW',bowl:{type:'Fast',arm:'Right'}},
+  {id:'9a71201c-c377-45aa-a355-1af6d2c4bae3',displayName:'Ravi Bishnoi',cricapiName:'Ravi Bishnoi',espnId:'dbb20cdf-f8e3-fe54-9041-545709ce378a',ESPN_ID:1175441,iplTeam:'Rajasthan Royals',fantasyTeam:'MUKIL',role:'BOW',bowl:{type:'Spinner',arm:'Right'}},
+  {id:'16ec245b-022d-4104-bd8f-ccc780428390',displayName:'Mitchell Santner',cricapiName:'Mitchell Santner',espnId:'f4b3f2c0-f7f5-10be-b37a-c83bb4de5ba5',ESPN_ID:502714,iplTeam:'Mumbai Indians',fantasyTeam:'MUKIL',role:'ALL',bowl:{type:'Spinner',arm:'Left'}},
+  {id:'c3236037-6694-404a-8f01-9ad880564ea9',displayName:'Venkatesh Iyer',cricapiName:'Venkatesh Iyer',espnId:'ff3f03b2-cfd9-2667-ef8d-233439eb1b72',ESPN_ID:851403,iplTeam:'Royal Challengers Bengaluru',fantasyTeam:'MUKIL',role:'ALL',bowl:null},
+  {id:'8199e3da-acb4-4bac-ab02-47d7ca004ed2',displayName:'Abishek Porel',cricapiName:'Abishek Porel',espnId:'ddc2d3ae-2e4a-3a09-9dac-5fb282d93616',ESPN_ID:1277545,iplTeam:'Delhi Capitals',fantasyTeam:'MUKIL',role:'WIC',bowl:null},
+  {id:'83fe6ab6-d63c-420e-9416-a93d59a9a964',displayName:'Abhishek Sharma',cricapiName:'Abhishek Sharma',espnId:'dedfc692-2bdb-dfad-eb36-d9cf1b550ff5',ESPN_ID:1070183,iplTeam:'Sunrisers Hyderabad',fantasyTeam:'SRIPAD',role:'ALL',bowl:{type:'Spinner',arm:'Left'}},
+  {id:'4e8ab9cd-c5af-430e-887b-d22bf74ad052',displayName:'Nicholas Pooran',cricapiName:'Nicholas Pooran',espnId:'e301e044-a1d3-96c5-b9bc-1762fb3a695e',ESPN_ID:604302,iplTeam:'Lucknow Super Giants',fantasyTeam:'SRIPAD',role:'WIC',bowl:null},
+  {id:'d6720897-e81d-4703-bf33-d2b60c973d30',displayName:'Travis Head',cricapiName:'Travis Head',espnId:'fada420f-c212-af38-00ff-feb575589f1a',ESPN_ID:530011,iplTeam:'Sunrisers Hyderabad',fantasyTeam:'SRIPAD',role:'BAT',bowl:null},
+  {id:'a15dfada-704c-42c3-9545-91c332ffca73',displayName:'Prabhsimran Singh',cricapiName:'Prabhsimran Singh',espnId:'88c3b633-98df-738d-48af-3b6963fcad60',ESPN_ID:1161024,iplTeam:'Punjab Kings',fantasyTeam:'SRIPAD',role:'WIC',bowl:null},
+  {id:'cdc2646c-1fe7-4bc2-b26e-42453f45a212',displayName:'Ajinkya Rahane',cricapiName:'Ajinkya Rahane',espnId:'ab2f3cc8-92e1-ece5-5f20-21bd4d1bffd2',ESPN_ID:277916,iplTeam:'Kolkata Knight Riders',fantasyTeam:'SRIPAD',role:'BAT',bowl:null},
+  {id:'f589d2a9-4e44-464d-9741-e224354a1370',displayName:'Jaydev Unadkat',cricapiName:'Jaydev Unadkat',espnId:'81bac3c6-4064-a9fe-ffab-2dc4f0d357a6',ESPN_ID:390484,iplTeam:'Sunrisers Hyderabad',fantasyTeam:'SRIPAD',role:'BOW',bowl:{type:'Fast',arm:'Left'}},
+  {id:'36e929d1-32f1-4d41-96c2-7df1364d0bab',displayName:'Matt Henry',cricapiName:'Matt Henry',espnId:'e3ed61fb-7bd6-f520-8a0a-278c323b5b88',ESPN_ID:506612,iplTeam:'Chennai Super Kings',fantasyTeam:'SRIPAD',role:'BOW',bowl:{type:'Fast',arm:'Right'}},
+  {id:'7d6bbd6c-c5bb-4e1c-9374-aaa829e77611',displayName:'Sai Kishore',cricapiName:'Ravisrinivasan Sai Kishore',espnId:'796cde88-c649-b1a5-69a0-b9ec5b962cf8',ESPN_ID:1048739,iplTeam:'Gujarat Titans',fantasyTeam:'SRIPAD',role:'BOW',bowl:{type:'Spinner',arm:'Left'}},
+  {id:'309d3ffd-3d06-460d-9427-c559a604d471',displayName:'Washington Sundar',cricapiName:'Washington Sundar',espnId:'8fb80052-ba2e-c65f-e5c4-593c889e0e6b',ESPN_ID:719715,iplTeam:'Gujarat Titans',fantasyTeam:'SRIPAD',role:'ALL',bowl:{type:'Spinner',arm:'Right'}},
+  {id:'81c09c1b-1b1d-4e87-9eaa-d7d0a89a6159',displayName:'Krunal Pandya',cricapiName:'Krunal Pandya',espnId:'325655a9-c886-ec47-ac43-d63806fe5d5c',ESPN_ID:471342,iplTeam:'Royal Challengers Bengaluru',fantasyTeam:'SRIPAD',role:'ALL',bowl:{type:'Spinner',arm:'Left'}},
+  {id:'2bf2258f-f35e-4831-884e-f88ef46968f5',displayName:'Suyash Sharma',cricapiName:'Suyash Sharma',espnId:'10ab78c7-4dfe-3427-9ac2-0717970ac100',ESPN_ID:1350792,iplTeam:'Royal Challengers Bengaluru',fantasyTeam:'SRIPAD',role:'BOW',bowl:{type:'Spinner',arm:'Right'}},
+  {id:'c61d247d-7f77-452c-b495-2813a9cd0ac4',displayName:'Virat Kohli',cricapiName:'Virat Kohli',espnId:'1db8126c-fddd-3caa-d09c-178d9db45fc5',ESPN_ID:253802,iplTeam:'Royal Challengers Bengaluru',fantasyTeam:'VATS',role:'BAT',bowl:null},
+  {id:'79f582a1-f5ab-4d30-8f5f-b05d4143608c',displayName:'Sai Sudharsan',cricapiName:'Sai Sudharsan',espnId:'dff7593d-6a63-be25-3115-fbf0066f71ee',ESPN_ID:1151288,iplTeam:'Gujarat Titans',fantasyTeam:'VATS',role:'BAT',bowl:null},
+  {id:'1ce33d76-9743-4e71-88bf-7972c2f2c168',displayName:'Rashid Khan',cricapiName:'Rashid Khan',espnId:'35ccda48-5933-c55e-5c58-aeec12463fd2',ESPN_ID:793463,iplTeam:'Gujarat Titans',fantasyTeam:'VATS',role:'BOW',bowl:{type:'Spinner',arm:'Right'}},
+  {id:'7d662361-8f12-4a52-9a4b-01e8734bd31d',displayName:'Heinrich Klaasen',cricapiName:'Heinreich Klaasen',espnId:'9f1d6fbd-4971-c676-264c-539d157eed2c',ESPN_ID:436757,iplTeam:'Sunrisers Hyderabad',fantasyTeam:'VATS',role:'WIC',bowl:null},
+  {id:'22ee45d8-0538-4e3e-a758-c515f9b86d11',displayName:'Shivam Dube',cricapiName:'Shivam Dube',espnId:'5b0c18f0-a1a8-070c-5daa-4ef7aa22fc38',ESPN_ID:714451,iplTeam:'Chennai Super Kings',fantasyTeam:'VATS',role:'ALL',bowl:{type:'Fast',arm:'Right'}},
+  {id:'3f3ecf51-8411-4046-9477-18c0fe3da6ac',displayName:'Bhuvneshwar Kumar',cricapiName:'Bhuvneshwar Kumar',espnId:'3191888f-6f9b-cf21-5505-8e821d4d3ab9',ESPN_ID:326016,iplTeam:'Royal Challengers Bengaluru',fantasyTeam:'VATS',role:'BOW',bowl:{type:'Fast',arm:'Right'}},
+  {id:'062d8899-e9e8-471a-a1f0-c441b10c78f3',displayName:'Kartik Sharma',cricapiName:'Karthik Sharma',espnId:'350e73c1-5f7e-3fb4-b58c-fcf24d811955',ESPN_ID:1459392,iplTeam:'Chennai Super Kings',fantasyTeam:'VATS',role:'WIC',bowl:null},
+  {id:'ec1b806b-de33-4b79-b3ba-8a5ad78df163',displayName:'Sarfaraz Khan',cricapiName:'Sarfaraz Khan',espnId:'7cd1f5a6-1952-0d45-474a-492e240e85a3',ESPN_ID:642525,iplTeam:'Chennai Super Kings',fantasyTeam:'VATS',role:'BAT',bowl:null},
+  {id:'de19a93e-06df-4597-9186-7a53c1613552',displayName:'Tristan Stubbs',cricapiName:'Tristan Stubbs',espnId:'a3f96d77-dd85-1e4e-4a5f-b4de1ae72af7',ESPN_ID:595978,iplTeam:'Delhi Capitals',fantasyTeam:'VATS',role:'WIC',bowl:null},
+  {id:'15bccb4f-8c3c-4da6-acd9-551782278bfd',displayName:'Harshal Patel',cricapiName:'Harshal Patel',espnId:'568ecd14-d7ee-dc73-72ac-2ab131c40662',ESPN_ID:390481,iplTeam:'Sunrisers Hyderabad',fantasyTeam:'VATS',role:'BOW',bowl:{type:'Fast',arm:'Right'}},
+  {id:'19758cd7-4cce-47d8-b1fe-5975609de802',displayName:'Jofra Archer',cricapiName:'Jofra Archer',espnId:'93e19413-b58e-a7a6-346a-5024850f3fea',ESPN_ID:669855,iplTeam:'Rajasthan Royals',fantasyTeam:'VATS',role:'BOW',bowl:{type:'Fast',arm:'Right'}},
+  {id:'a034346c-b408-4d29-a0f0-8b12430be28e',displayName:'KL Rahul',cricapiName:'KL Rahul',espnId:'cb52c118-1026-2064-39fb-6d64cd77de03',ESPN_ID:422108,iplTeam:'Delhi Capitals',fantasyTeam:'VINAY',role:'WIC',bowl:null},
+  {id:'3cbc5a08-62af-4ca5-b709-c7712db6e8b6',displayName:'Noor Ahmad',cricapiName:'Noor Ahmad',espnId:'cf4d26ea-6aeb-114b-7215-3433b2f1fe73',ESPN_ID:1182529,iplTeam:'Chennai Super Kings',fantasyTeam:'VINAY',role:'BOW',bowl:{type:'Spinner',arm:'Left'}},
+  {id:'14a56d48-499a-4b03-aa0f-bd3f592e9d94',displayName:'Dewald Brevis',cricapiName:'Dewald Brevis',espnId:'ba63c891-0fb5-af6e-cc6a-d35e49d6c35f',ESPN_ID:1070665,iplTeam:'Chennai Super Kings',fantasyTeam:'VINAY',role:'BAT',bowl:null},
+  {id:'08924d57-b4d3-4ed0-903d-087a8384be12',displayName:'Finn Allen',cricapiName:'Finn Allen',espnId:'30a30d17-4afc-8beb-8bb5-f7771455e83f',ESPN_ID:959759,iplTeam:'Kolkata Knight Riders',fantasyTeam:'VINAY',role:'WIC',bowl:null},
+  {id:'b51bb4e5-acdf-423b-abb3-7a1e6694d2c2',displayName:'Riyan Parag',cricapiName:'Riyan Parag',espnId:'70352318-3716-bff8-ed8c-39337bdb21e5',ESPN_ID:1079434,iplTeam:'Rajasthan Royals',fantasyTeam:'VINAY',role:'BAT',bowl:null},
+  {id:'77791963-6c1b-4979-b07a-f910dee28cd9',displayName:'Shreyas Iyer',cricapiName:'Shreyas Iyer',espnId:'d48f6143-2136-1ace-8e12-6748e2a4110a',ESPN_ID:642519,iplTeam:'Punjab Kings',fantasyTeam:'VINAY',role:'BAT',bowl:null},
+  {id:'332200ad-d1f8-4035-95c5-b33bd1c9a939',displayName:'Avesh Khan',cricapiName:'Avesh Khan',espnId:'7b7e4ca5-3a03-cf5c-f3c7-8904166d35c1',ESPN_ID:694211,iplTeam:'Lucknow Super Giants',fantasyTeam:'VINAY',role:'BOW',bowl:{type:'Fast',arm:'Right'}},
+  {id:'d3c53885-7016-4228-8a20-1dd98214489d',displayName:'Marco Jansen',cricapiName:'Marco Jansen',espnId:'a97a3896-1478-9d00-4007-3a66dd4799b7',ESPN_ID:696401,iplTeam:'Punjab Kings',fantasyTeam:'VINAY',role:'ALL',bowl:{type:'Fast',arm:'Left'}},
+  {id:'e3005322-b01a-4c58-9b26-a2ca150ad1d1',displayName:'Harpreet Brar',cricapiName:'Harpreet Brar',espnId:'78357449-815e-4d89-fc65-3a1cfffe313d',ESPN_ID:1168641,iplTeam:'Punjab Kings',fantasyTeam:'VINAY',role:'ALL',bowl:{type:'Spinner',arm:'Left'}},
+  {id:'f183c67e-0b7c-44e5-8ab7-fe1e0be672f3',displayName:'Zeeshan Ansari',cricapiName:'Zeeshan Ansari',espnId:'d4451a49-7b8a-d073-db7c-260e0f1bc6a9',ESPN_ID:942371,iplTeam:'Sunrisers Hyderabad',fantasyTeam:'VINAY',role:'BOW',bowl:{type:'Spinner',arm:'Right'}},
+  {id:'21d693c2-b4dd-4d24-b747-90dfc8357ef5',displayName:'Dhruv Jurel',cricapiName:'Dhruv Jurel',espnId:'1cf6e5fd-3fee-6e1c-501f-e17a5355be1b',ESPN_ID:1175488,iplTeam:'Rajasthan Royals',fantasyTeam:'VINAY',role:'WIC',bowl:null},
 ];
 
-const IPL_TEAM_MAP={'Shubman Gill':'Gujarat Titans','Varun Chakravarthy':'Kolkata Knight Riders','Tilak Varma':'Mumbai Indians','Hardik Pandya':'Mumbai Indians','Ryan Rickelton':'Mumbai Indians','Mohammed Siraj':'Gujarat Titans','Axar Patel':'Delhi Capitals','David Miller':'Delhi Capitals','Devdutt Padikkal':'Royal Challengers Bengaluru','Mitchell Starc':'Delhi Capitals','Tim Seifert':'Kolkata Knight Riders','Ishan Kishan':'Sunrisers Hyderabad','Ayush Mhatre':'Chennai Super Kings','Priyansh Arya':'Punjab Kings','Arshdeep Singh':'Punjab Kings','Prasidh Krishna':'Gujarat Titans','Digvesh Singh':'Lucknow Super Giants','Naman Dhir':'Mumbai Indians','Quinton de Kock':'Mumbai Indians','Harshit Rana':'Kolkata Knight Riders','Sam Curran':'Rajasthan Royals','Glenn Phillips':'Gujarat Titans','Yashasvi Jaiswal':'Rajasthan Royals','Jasprit Bumrah':'Mumbai Indians','Rishabh Pant':'Lucknow Super Giants','Yuzvendra Chahal':'Punjab Kings','Mitchell Marsh':'Lucknow Super Giants','Nitish Rana':'Delhi Capitals','Pat Cummins':'Sunrisers Hyderabad','Tim David':'Royal Challengers Bengaluru','Pathum Nissanka':'Delhi Capitals','Vaibhav Arora':'Kolkata Knight Riders','Shashank Singh':'Punjab Kings','Sanju Samson':'Chennai Super Kings','Suryakumar Yadav':'Mumbai Indians','Rajat Patidar':'Royal Challengers Bengaluru','Angkrish Raghuvanshi':'Kolkata Knight Riders','Jacob Bethell':'Royal Challengers Bengaluru','Cameron Green':'Kolkata Knight Riders','Josh Hazlewood':'Royal Challengers Bengaluru','Trent Boult':'Mumbai Indians','Jitesh Sharma':'Royal Challengers Bengaluru','Mohammed Shami':'Lucknow Super Giants','Aniket Verma':'Sunrisers Hyderabad','Phil Salt':'Royal Challengers Bengaluru','Vaibhav Sooryavanshi':'Rajasthan Royals','Sunil Narine':'Kolkata Knight Riders','Shimron Hetmyer':'Rajasthan Royals','Khaleel Ahmed':'Chennai Super Kings','MS Dhoni':'Chennai Super Kings','Will Jacks':'Mumbai Indians','Sandeep Sharma':'Rajasthan Royals','Vipraj Nigam':'Delhi Capitals','T Natarajan':'Delhi Capitals','Deepak Chahar':'Mumbai Indians','Ruturaj Gaikwad':'Chennai Super Kings','Rohit Sharma':'Mumbai Indians','Aiden Markram':'Lucknow Super Giants','Kuldeep Yadav':'Delhi Capitals','Ravindra Jadeja':'Rajasthan Royals','Jos Buttler':'Gujarat Titans','Kagiso Rabada':'Gujarat Titans','Ravi Bishnoi':'Rajasthan Royals','Mitchell Santner':'Mumbai Indians','Venkatesh Iyer':'Royal Challengers Bengaluru','Abishek Porel':'Delhi Capitals','Abhishek Sharma':'Sunrisers Hyderabad','Nicholas Pooran':'Lucknow Super Giants','Travis Head':'Sunrisers Hyderabad','Prabhsimran Singh':'Punjab Kings','Ajinkya Rahane':'Kolkata Knight Riders','Jaydev Unadkat':'Sunrisers Hyderabad','Matt Henry':'Chennai Super Kings','Sai Kishore':'Gujarat Titans','Washington Sundar':'Gujarat Titans','Krunal Pandya':'Royal Challengers Bengaluru','Suyash Sharma':'Royal Challengers Bengaluru','Virat Kohli':'Royal Challengers Bengaluru','Sai Sudharsan':'Gujarat Titans','Rashid Khan':'Gujarat Titans','Heinrich Klaasen':'Sunrisers Hyderabad','Shivam Dube':'Chennai Super Kings','Bhuvneshwar Kumar':'Royal Challengers Bengaluru','Karthik Sharma':'Chennai Super Kings','Sarfaraz Khan':'Chennai Super Kings','Tristan Stubbs':'Delhi Capitals','Harshal Patel':'Sunrisers Hyderabad','Jofra Archer':'Rajasthan Royals','KL Rahul':'Delhi Capitals','Noor Ahmad':'Chennai Super Kings','Dewald Brevis':'Chennai Super Kings','Finn Allen':'Kolkata Knight Riders','Riyan Parag':'Rajasthan Royals','Shreyas Iyer':'Punjab Kings','Avesh Khan':'Lucknow Super Giants','Marco Jansen':'Punjab Kings','Harpreet Brar':'Punjab Kings','Zeeshan Ansari':'Sunrisers Hyderabad','Dhruv Jurel':'Rajasthan Royals'};
+// Lookup maps derived from PLAYERS
+const PLAYER_BY_ID          = Object.fromEntries(PLAYERS.map(p=>[p.id,p]));
+const PLAYER_BY_ESPN_ID     = Object.fromEntries(PLAYERS.filter(p=>p.espnId).map(p=>[p.espnId,p]));
+const PLAYER_BY_ESPN_NUM_ID = Object.fromEntries(PLAYERS.filter(p=>p.ESPN_ID).map(p=>[p.ESPN_ID,p]));
+
+// Resolve a captain/VC value (CricAPI player ID) → displayName
+function resolveCaptainName(id) {
+  if (!id) return '';
+  return PLAYER_BY_ID[id]?.displayName || '';
+}
+
+// ═══════════════════════════════════════════════════════
+// TEAMS — derived from PLAYERS (preserves CSV/auction order)
+// ═══════════════════════════════════════════════════════
+const TEAMS = ['ALVA','ANIRUDH','ASVIN','GAJA','KARTHIK','MUKIL','SRIPAD','VATS','VINAY'].map(tn=>({
+  name: tn,
+  players: PLAYERS.filter(p=>p.fantasyTeam===tn).map(p=>({name:p.displayName,role:p.role}))
+}));
+
+// IPL_TEAM_MAP — derived from PLAYERS; covers displayName AND cricapiName for matching
+const IPL_TEAM_MAP = {};
+PLAYERS.forEach(p=>{
+  IPL_TEAM_MAP[p.displayName]=p.iplTeam;
+  if(p.cricapiName!==p.displayName) IPL_TEAM_MAP[p.cricapiName]=p.iplTeam;
+});
 
 const TEAM_SLUGS = {
   'VATS':    'KKKKeKran meKran',
@@ -630,8 +752,9 @@ const TEAM_SLUGS = {
 
 const ADMIN_PASSWORD = 'auctionpacked2026';
 const CV_LOCK_DEADLINE = new Date('2026-03-29T13:30:00Z');
-const CRICKETDATA_API_KEY = '392801ff-67f0-4f6d-b919-050d49eed9ba';
-const CRICKETDATA_API_KEY_BACKUP = '5cd565cf-ef3b-4ce2-8fe9-0d82ed9c403c';
+const CRICKETDATA_API_KEY = '37a47d7c-a1d6-459c-aacc-56490ac87ea3';
+const CRICKETDATA_API_KEY_BACKUP = '392801ff-67f0-4f6d-b919-050d49eed9ba';
+const CRICKETDATA_API_KEY_BACKUP2 = '5cd565cf-ef3b-4ce2-8fe9-0d82ed9c403c';
 const API_BASE = 'https://api.cricapi.com/v1';
 const IPL_2026_SERIES_ID = '87c62aac-bc3c-4738-ab93-19da0690488f';
 
@@ -713,8 +836,8 @@ function calcFantasyPoints(p, teamName, matchPotm) {
   const base = calcBasePoints(p);
   const cv = liveData.captains || {};
   const teamCV = cv[teamName] || {};
-  const isCap = teamCV.captain === p.playerName;
-  const isVC  = teamCV.viceCaptain === p.playerName;
+  const isCap = resolveCaptainName(teamCV.captain) === p.playerName;
+  const isVC  = resolveCaptainName(teamCV.viceCaptain) === p.playerName;
 
   const isPotm = normalizePlayerKey(matchPotm) && normalizePlayerKey(p.playerName) === normalizePlayerKey(matchPotm);
   
@@ -1195,6 +1318,35 @@ function adminLogin() {
 // ═══════════════════════════════════════════════════════
 // FIREBASE
 // ═══════════════════════════════════════════════════════
+function migrateCaptainNamesToIds() {
+  const caps = liveData.captains || {};
+  const norm = s => String(s).toLowerCase().replace(/[^a-z]/g, '');
+  // Legacy name spellings that no longer match current displayName/cricapiName after renames
+  const LEGACY = {
+    'vaibhavsuryavanshi':  '0f5502aa-40c8-43c6-a38f-1496000bd5b6',
+    'vaibhavsooryavanshi': '0f5502aa-40c8-43c6-a38f-1496000bd5b6',
+    'digveshsingh':        '93eaaabd-7529-44cb-a8c7-52acd30ea54e',
+    'karthiksharma':       '062d8899-e9e8-471a-a1f0-c441b10c78f3',
+    'saisudarshan':        '79f582a1-f5ab-4d30-8f5f-b05d4143608c',
+    'saisudharsan':        '79f582a1-f5ab-4d30-8f5f-b05d4143608c',
+  };
+  let changed = false;
+  Object.keys(caps).forEach(team => {
+    const entry = caps[team];
+    if (!entry) return;
+    ['captain', 'viceCaptain'].forEach(field => {
+      const val = entry[field];
+      if (!val || PLAYER_BY_ID[val]) return; // empty or already a valid ID
+      const key = norm(val);
+      const player = PLAYERS.find(p => norm(p.displayName) === key || norm(p.cricapiName) === key)
+                  || (LEGACY[key] ? PLAYER_BY_ID[LEGACY[key]] : null);
+      if (player) { entry[field] = player.id; changed = true; }
+    });
+  });
+  if (changed) saveLiveData(true);
+}
+
+
 function initFirebaseListener() {
   if (!window._db) return;
   window._db.ref('live').on('value', snap => {
@@ -1202,6 +1354,7 @@ function initFirebaseListener() {
     liveData = d || { matches: [] };
     if (!liveData.matches) liveData.matches = [];
     syncInsightsBatPosCacheWithLiveData();
+    migrateCaptainNamesToIds();
     if (liveData.captains && typeof liveData.captains === 'object' && !Array.isArray(liveData.captains)) {
       _lastKnownCaptains = JSON.parse(JSON.stringify(liveData.captains));
     }
@@ -1321,8 +1474,8 @@ function renderLeaderboard() {
     const team = TEAMS.find(t=>t.name===name);
     const pct = max>0?Math.round((pts/max)*100):0;
     const picks = cv[name];
-    const capName = picks?picks.captain.split(' ').pop():'—';
-    const vcName  = picks?picks.viceCaptain.split(' ').pop():'—';
+    const capName = picks?resolveCaptainName(picks.captain).split(' ').pop():'—';
+    const vcName  = picks?resolveCaptainName(picks.viceCaptain).split(' ').pop():'—';
     const isBPL   = i>=totalTeams-3&&totalTeams>=4;
     const bplStyle = isBPL?'border-color:#ff2d5540;':'';
 
@@ -1330,8 +1483,8 @@ function renderLeaderboard() {
       .sort((a,b)=>((pt[b.name]||{pts:0}).pts)-((pt[a.name]||{pts:0}).pts))
       .map(p => {
         const tot=pt[p.name]||{pts:0};
-        const isCap=picks&&picks.captain===p.name;
-        const isVC=picks&&picks.viceCaptain===p.name;
+        const isCap=picks&&resolveCaptainName(picks.captain)===p.name;
+        const isVC=picks&&resolveCaptainName(picks.viceCaptain)===p.name;
         let matchPts=0;
         if (hasTodayMatches) {
           todayActiveScoringMatches.forEach(tm => {
@@ -1423,6 +1576,172 @@ function toggleRosterLive(id, headerEl) {
 }
 
 // ── MATCHES ──
+function renderScorecardHtml(sv, fix) {
+  const isDone = sv.status === 'done';
+  const perfs = sv.performances || {};
+  const norm = s => (s||'').toLowerCase().replace(/[^a-z]/g,'');
+  function resolveDisplayName(apiName) {
+    const key = norm(apiName);
+    const p = PLAYERS.find(p => norm(p.cricapiName)===key || norm(p.displayName)===key);
+    return p ? p.displayName : apiName;
+  }
+  function ecostr(r, oStr) {
+    const op=String(oStr).split('.');
+    const balls=parseInt(op[0]||0)*6+parseInt(op[1]||0);
+    return balls>0?((r/balls)*6).toFixed(2):'-';
+  }
+  function srstyle(sr){return sr>=150?'var(--green)':sr>=100?'var(--text)':sr>=70?'var(--gold)':'var(--red)';}
+  function wktstyle(w){return w>=3?'var(--green)':w>=1?'var(--gold)':'var(--muted)';}
+  const THSTYLE='padding:4px 6px;font-size:9px;letter-spacing:1px;color:var(--muted);font-weight:600;border-bottom:1px solid var(--surface2);text-align:right;white-space:nowrap;';
+  const THNL=THSTYLE+'text-align:left;';
+  const TDSTYLE='padding:3px 6px;font-size:12px;text-align:right;border-bottom:1px solid var(--surface2);vertical-align:top;';
+  const TDNL=TDSTYLE+'text-align:left;';
+  let html='';
+
+  const innings = sv.scorecard_raw;
+  const hasRaw = innings && innings.length > 0;
+
+  // Result + POTM banner
+  if (isDone) {
+    const resultStr = sv.matchResult || '';
+    const potmStr = sv.potm || '';
+    if (resultStr || potmStr) {
+      html += `<div style="background:var(--surface2);border-radius:6px;padding:8px 12px;margin-bottom:10px;font-size:12px;color:var(--text);">`;
+      if (resultStr) html += `<div style="font-weight:700;color:var(--green);margin-bottom:2px;">${resultStr}</div>`;
+      if (potmStr) html += `<div style="color:var(--gold);">⭐ POTM: ${potmStr}</div>`;
+      html += `</div>`;
+    }
+  }
+
+  if (hasRaw) {
+    innings.forEach((inn, ii) => {
+      const teamShort = Object.entries(ESPN_TEAM_MAP||{}).find(([k,v])=>norm(v)===norm(inn.teamName))?.[0] || inn.teamName;
+      html += `<div style="margin-bottom:14px;">
+        <div style="font-family:Barlow Condensed,sans-serif;font-size:13px;font-weight:700;letter-spacing:1px;padding:4px 0 6px;border-bottom:2px solid var(--surface2);margin-bottom:4px;display:flex;justify-content:space-between;align-items:baseline;">
+          <span>${teamShort||inn.teamName}</span>
+          <span style="color:var(--gold);font-size:15px;">${inn.score||''}</span>
+        </div>`;
+      // Batting
+      if (inn.batting.length) {
+        html += `<table style="width:100%;border-collapse:collapse;margin-bottom:8px;">
+          <thead><tr>
+            <th style="${THNL}">Batter</th>
+            <th style="${THSTYLE}">R</th><th style="${THSTYLE}">B</th>
+            <th style="${THSTYLE}">4s</th><th style="${THSTYLE}">6s</th>
+            <th style="${THSTYLE}">SR</th>
+          </tr></thead><tbody>`;
+        inn.batting.forEach(b => {
+          const sr = b.b>0?((b.r/b.b)*100):0;
+          const srDisp = b.b>0?sr.toFixed(1):'-';
+          const dispText = b.dismissalText||b.dismissal||(b.out?'out':'not out');
+          html += `<tr>
+            <td style="${TDNL}">
+              <span style="font-weight:${b.out?'400':'600'};color:${b.out?'var(--text)':'var(--green)'};">${b.name}${b.out?'':' *'}</span>
+              <div style="font-size:10px;color:var(--muted);line-height:1.3;">${dispText}</div>
+            </td>
+            <td style="${TDSTYLE}font-weight:700;">${b.r}</td>
+            <td style="${TDSTYLE}color:var(--muted);">${b.b}</td>
+            <td style="${TDSTYLE}color:var(--gold);">${b['4s']||0}</td>
+            <td style="${TDSTYLE}color:var(--green);">${b['6s']||0}</td>
+            <td style="${TDSTYLE}color:${b.b>0?srstyle(sr):'var(--muted)'};">${srDisp}</td>
+          </tr>`;
+        });
+        html += `</tbody></table>`;
+      }
+      // Bowling
+      if (inn.bowling.length) {
+        html += `<table style="width:100%;border-collapse:collapse;">
+          <thead><tr>
+            <th style="${THNL}">Bowler</th>
+            <th style="${THSTYLE}">O</th><th style="${THSTYLE}">M</th>
+            <th style="${THSTYLE}">R</th><th style="${THSTYLE}">W</th>
+            <th style="${THSTYLE}">Eco</th>
+            ${isDone?`<th style="${THSTYLE}">Dots</th>`:''}
+          </tr></thead><tbody>`;
+        inn.bowling.forEach(b => {
+          const dn = resolveDisplayName(b.name);
+          const dotsVal = isDone ? (perfs[dn]?.dots ?? b.dots ?? 0) : null;
+          html += `<tr>
+            <td style="${TDNL}">${b.name}</td>
+            <td style="${TDSTYLE}color:var(--muted);">${b.o}</td>
+            <td style="${TDSTYLE}color:var(--muted);">${b.m}</td>
+            <td style="${TDSTYLE}">${b.r}</td>
+            <td style="${TDSTYLE}font-weight:700;color:${wktstyle(b.w)};">${b.w}</td>
+            <td style="${TDSTYLE}color:var(--muted);">${ecostr(b.r,b.o)}</td>
+            ${isDone?`<td style="${TDSTYLE}color:var(--muted);">${dotsVal??''}</td>`:''}
+          </tr>`;
+        });
+        html += `</tbody></table>`;
+      }
+      html += `</div>`;
+    });
+  } else if (Object.keys(perfs).length) {
+    // Fallback: group by IPL team from schedule
+    const home = fix.home, away = fix.away;
+    const homeTeamFull = ESPN_TEAM_MAP[home]||home, awayTeamFull = ESPN_TEAM_MAP[away]||away;
+    [homeTeamFull, awayTeamFull].forEach(teamFull => {
+      const teamCode = Object.entries(ESPN_TEAM_MAP||{}).find(([k,v])=>v===teamFull)?.[0]||teamFull;
+      const teamPlayers = PLAYERS.filter(p=>p.iplTeam===teamFull);
+      const batters = teamPlayers.filter(p=>perfs[p.displayName]?.runs!=null||perfs[p.displayName]?.balls>0);
+      const bowlers = teamPlayers.filter(p=>perfs[p.displayName]?.overs>0||perfs[p.displayName]?.wickets>0);
+      if (!batters.length && !bowlers.length) return;
+      html += `<div style="margin-bottom:14px;">
+        <div style="font-family:Barlow Condensed,sans-serif;font-size:13px;font-weight:700;letter-spacing:1px;padding:4px 0 6px;border-bottom:2px solid var(--surface2);margin-bottom:4px;">${teamCode}</div>`;
+      if (batters.length) {
+        html += `<table style="width:100%;border-collapse:collapse;margin-bottom:8px;">
+          <thead><tr>
+            <th style="${THNL}">Batter</th>
+            <th style="${THSTYLE}">R</th><th style="${THSTYLE}">B</th>
+            <th style="${THSTYLE}">4s</th><th style="${THSTYLE}">6s</th><th style="${THSTYLE}">SR</th>
+          </tr></thead><tbody>`;
+        batters.forEach(pl => {
+          const p=perfs[pl.displayName]||{};
+          const sr=p.balls>0?((p.runs/p.balls)*100):0;
+          html += `<tr>
+            <td style="${TDNL}"><span style="color:${p.dismissed===false?'var(--green)':'var(--text)'};">${pl.displayName}${p.dismissed===false?' *':''}</span></td>
+            <td style="${TDSTYLE}font-weight:700;">${p.runs??'-'}</td>
+            <td style="${TDSTYLE}color:var(--muted);">${p.balls??'-'}</td>
+            <td style="${TDSTYLE}color:var(--gold);">${p.fours??0}</td>
+            <td style="${TDSTYLE}color:var(--green);">${p.sixes??0}</td>
+            <td style="${TDSTYLE}color:${p.balls>0?srstyle(sr):'var(--muted)'};">${p.balls>0?sr.toFixed(1):'-'}</td>
+          </tr>`;
+        });
+        html += `</tbody></table>`;
+      }
+      if (bowlers.length) {
+        html += `<table style="width:100%;border-collapse:collapse;">
+          <thead><tr>
+            <th style="${THNL}">Bowler</th>
+            <th style="${THSTYLE}">O</th><th style="${THSTYLE}">M</th>
+            <th style="${THSTYLE}">R</th><th style="${THSTYLE}">W</th>
+            <th style="${THSTYLE}">Eco</th>
+            ${isDone?`<th style="${THSTYLE}">Dots</th>`:''}
+          </tr></thead><tbody>`;
+        bowlers.forEach(pl => {
+          const p=perfs[pl.displayName]||{};
+          const fullO=Math.floor(p.overs||0);
+          const partB=Math.round(((p.overs||0)-fullO)*6);
+          const oStr=partB?`${fullO}.${partB}`:String(fullO);
+          const totalB=fullO*6+partB;
+          const eco=totalB>0?((p.runsConceded/totalB)*6).toFixed(2):'-';
+          html += `<tr>
+            <td style="${TDNL}">${pl.displayName}</td>
+            <td style="${TDSTYLE}color:var(--muted);">${oStr}</td>
+            <td style="${TDSTYLE}color:var(--muted);">${p.maidens??0}</td>
+            <td style="${TDSTYLE}">${p.runsConceded??0}</td>
+            <td style="${TDSTYLE}font-weight:700;color:${wktstyle(p.wickets||0)};">${p.wickets??0}</td>
+            <td style="${TDSTYLE}color:var(--muted);">${eco}</td>
+            ${isDone?`<td style="${TDSTYLE}color:var(--muted);">${p.dots??0}</td>`:''}
+          </tr>`;
+        });
+        html += `</tbody></table>`;
+      }
+      html += `</div>`;
+    });
+  }
+  return html;
+}
+
 function renderMatches() {
   const list = document.getElementById('matchList'); if (!list) return;
   const today = new Date().toISOString().slice(0,10);
@@ -1430,14 +1749,28 @@ function renderMatches() {
   const sched = [...IPL_2026_SCHEDULE].sort((a,b)=>String(a.date).localeCompare(String(b.date)));
 
   list.innerHTML = sched.map((fix,si) => {
-    const sv = saved.find(m=>(m.label||'').toLowerCase().includes(fix.home.toLowerCase())&&(m.label||'').toLowerCase().includes(fix.away.toLowerCase()));
+    const homeTeamFull = (ESPN_TEAM_MAP[fix.home]||fix.home).toLowerCase();
+    const awayTeamFull = (ESPN_TEAM_MAP[fix.away]||fix.away).toLowerCase();
+    const sv = saved.find(m=>{
+      // Prefer exact ID match
+      if (fix.cricapi_match_id && m.apiId===fix.cricapi_match_id) return true;
+      // If ID is known but didn't match, skip (don't cross-contaminate)
+      if (fix.cricapi_match_id) return false;
+      // ID unknown: match by team names + date (±1 day) to avoid leg-1/leg-2 mixup
+      const label=(m.label||'').toLowerCase();
+      if (!label.includes(homeTeamFull)||!label.includes(awayTeamFull)) return false;
+      const mDate=new Date(m.date||''), fDate=new Date(fix.date||'');
+      return Math.abs(mDate-fDate)<=86400000*1.5;
+    });
     const isToday=fix.date===today, isPast=fix.date<today;
     const status=sv?.status||(isToday?'today':isPast?'past':'upcoming');
     const isLive=status==='live', isDone=status==='done'||(isPast&&!isToday&&!isLive);
     const bc=isLive?'var(--green)':isDone?'var(--muted)':isToday?'var(--gold)':'var(--surface2)';
     const bl=isLive?'LIVE':isDone?'DONE':isToday?'TODAY':'UPCOMING';
+    const hasData = sv && (sv.scorecard_raw?.length || Object.keys(sv.performances||{}).length);
 
-    let scoresHtml='';
+    // Fantasy points grid
+    let fantasyHtml='';
     if (sv&&sv.performances) {
       const tp={};TEAMS.forEach(t=>{tp[t.name]=0;});
       Object.entries(sv.performances).forEach(([pn,perf])=>{
@@ -1447,21 +1780,30 @@ function renderMatches() {
         tp[to.name]=(tp[to.name]||0)+calcFantasyPoints({...perf,playerName:pn,role:ro},to.name,sv.potm);
       });
       const so=Object.entries(tp).sort((a,b)=>b[1]-a[1]);
-      scoresHtml='<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:3px;margin-top:8px;">'+
-        so.map(([n,p])=>'<div style="background:var(--bg);border-radius:4px;padding:4px 6px;text-align:center;"><div style="font-family:Barlow Condensed,sans-serif;font-size:10px;color:var(--muted);letter-spacing:1px;">'+n+'</div><div style="font-family:Barlow Condensed,sans-serif;font-size:14px;font-weight:700;color:'+(p>0?'var(--green)':p<0?'var(--red)':'var(--muted)')+';">'+p+'</div></div>').join('')+
-      '</div>';
+      fantasyHtml='<div style="margin-top:14px;padding-top:10px;border-top:1px solid var(--surface2);"><div style="font-family:Barlow Condensed,sans-serif;font-size:10px;color:var(--muted);letter-spacing:1px;margin-bottom:6px;">FANTASY POINTS</div>'
+        +'<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:3px;">'
+        +so.map(([n,p])=>'<div style="background:var(--bg);border-radius:4px;padding:4px 6px;text-align:center;"><div style="font-family:Barlow Condensed,sans-serif;font-size:10px;color:var(--muted);letter-spacing:1px;">'+n+'</div><div style="font-family:Barlow Condensed,sans-serif;font-size:14px;font-weight:700;color:'+(p>0?'var(--green)':p<0?'var(--red)':'var(--muted)')+';">'+p+'</div></div>').join('')
+        +'</div></div>';
     }
 
+    const scorecardHtml = sv ? renderScorecardHtml(sv, fix) : '';
+
     return `<div id="match-anchor-${si}" style="margin-bottom:6px;">
-      <div class="match-card" style="cursor:pointer;" onclick="var d=this.querySelector('.match-detail');d.style.display=d.style.display==='none'?'block':'none';">
+      <div class="match-card" style="cursor:pointer;" onclick="var d=this.querySelector('.match-detail');var open=d.style.display!=='none';d.style.display=open?'none':'block';this.querySelector('.match-chevron').textContent=open?'▾':'▴';">
         <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
-          <div>
+          <div style="flex:1;min-width:0;">
             <div style="font-family:Barlow Condensed,sans-serif;font-size:16px;font-weight:700;letter-spacing:1px;">${fix.home} vs ${fix.away}</div>
             <div style="font-size:11px;color:var(--muted);letter-spacing:1px;margin-top:2px;">Match ${fix.match} · ${fix.date} · ${fix.venue}</div>
           </div>
-          <span style="font-family:Barlow Condensed,sans-serif;font-size:10px;font-weight:700;letter-spacing:1px;color:${bc};border:1px solid ${bc};border-radius:4px;padding:4px 12px;white-space:nowrap;flex-shrink:0;min-width:72px;text-align:center;display:inline-block;">${bl}</span>
+          <div style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+            <span style="font-family:Barlow Condensed,sans-serif;font-size:10px;font-weight:700;letter-spacing:1px;color:${bc};border:1px solid ${bc};border-radius:4px;padding:4px 12px;min-width:72px;text-align:center;display:inline-block;">${bl}</span>
+            <span class="match-chevron" style="color:var(--muted);font-size:14px;visibility:${hasData?'visible':'hidden'};">▾</span>
+          </div>
         </div>
-        <div class="match-detail" style="display:${sv?'block':'none'};">${scoresHtml}</div>
+        <div class="match-detail" style="display:none;margin-top:12px;">
+          ${scorecardHtml}
+          ${fantasyHtml}
+        </div>
       </div>
     </div>`;
   }).join('');
@@ -1786,8 +2128,8 @@ function renderLive() {
     const cls = i===0&&pts>0?'top1':i===1&&pts>0?'top2':i===2&&pts>0?'top3':'';
     const isBPL = i >= totalTeams - 3 && totalTeams >= 4;
     const picks = cv[name];
-    const capName = picks ? picks.captain.split(' ').pop() : '—';
-    const vcName  = picks ? picks.viceCaptain.split(' ').pop() : '—';
+    const capName = picks ? resolveCaptainName(picks.captain).split(' ').pop() : '—';
+    const vcName  = picks ? resolveCaptainName(picks.viceCaptain).split(' ').pop() : '—';
     const slug = TEAM_SLUGS[name] || name;
     const team = TEAMS.find(t => t.name === name);
     const rosterRows = (team ? [...team.players] : [])
@@ -2141,8 +2483,8 @@ function getCvImpactData(series) {
       const pf = { ...perf, playerName: name, role: ro.role };
       const base = calcBasePoints(pf);
       const picks = cv[teamName] || {};
-      const isCap = picks.captain === name;
-      const isVC = picks.viceCaptain === name;
+      const isCap = resolveCaptainName(picks.captain) === name;
+      const isVC = resolveCaptainName(picks.viceCaptain) === name;
       const isPotm = normalizePlayerKey(match.potm) && normalizePlayerKey(name) === normalizePlayerKey(match.potm);
       const neutral = base + (isPotm ? 30 : 0);
       const actual = calcFantasyPoints(pf, teamName, match.potm);
@@ -2339,8 +2681,8 @@ function renderInsightsHeadToHead(series) {
 function calcFantasyPointsWithPicks(p, captain, viceCaptain, matchPotm) {
   if (!p || !p.played) return 0;
   const base = calcBasePoints(p);
-  const isCap = captain === p.playerName;
-  const isVC = viceCaptain === p.playerName;
+  const isCap = resolveCaptainName(captain) === p.playerName;
+  const isVC = resolveCaptainName(viceCaptain) === p.playerName;
   const isPotm = normalizePlayerKey(matchPotm) && normalizePlayerKey(p.playerName) === normalizePlayerKey(matchPotm);
   let potmValue = 0;
   if (isPotm) {
@@ -2462,57 +2804,10 @@ function syncInsightsBatPosCacheWithLiveData() {
   }
 }
 
-const PLAYER_BOWLING_PROFILE = {
-  'Varun Chakravarthy': { type: 'Spinner', arm: 'Right' },
-  'Hardik Pandya': { type: 'Fast', arm: 'Right' },
-  'Mohammed Siraj': { type: 'Fast', arm: 'Right' },
-  'Axar Patel': { type: 'Spinner', arm: 'Left' },
-  'Mitchell Starc': { type: 'Fast', arm: 'Left' },
-  'Arshdeep Singh': { type: 'Fast', arm: 'Left' },
-  'Prasidh Krishna': { type: 'Fast', arm: 'Right' },
-  'Digvesh Singh': { type: 'Spinner', arm: 'Right' },
-  'Harshit Rana': { type: 'Fast', arm: 'Right' },
-  'Sam Curran': { type: 'Fast', arm: 'Left' },
-  'Jasprit Bumrah': { type: 'Fast', arm: 'Right' },
-  'Yuzvendra Chahal': { type: 'Spinner', arm: 'Right' },
-  'Aiden Markram': { type: 'Spinner', arm: 'Right' },
-  'Mitchell Marsh': { type: 'Fast', arm: 'Right' },
-  'Pat Cummins': { type: 'Fast', arm: 'Right' },
-  'Vaibhav Arora': { type: 'Fast', arm: 'Right' },
-  'Sunil Narine': { type: 'Spinner', arm: 'Right' },
-  'Khaleel Ahmed': { type: 'Fast', arm: 'Left' },
-  'Sandeep Sharma': { type: 'Fast', arm: 'Right' },
-  'T Natarajan': { type: 'Fast', arm: 'Left' },
-  'Deepak Chahar': { type: 'Fast', arm: 'Right' },
-  'Kuldeep Yadav': { type: 'Spinner', arm: 'Left' },
-  'Ravindra Jadeja': { type: 'Spinner', arm: 'Left' },
-  'Kagiso Rabada': { type: 'Fast', arm: 'Right' },
-  'Ravi Bishnoi': { type: 'Spinner', arm: 'Right' },
-  'Mitchell Santner': { type: 'Spinner', arm: 'Left' },
-  'Abhishek Sharma': { type: 'Spinner', arm: 'Left' },
-  'Jaydev Unadkat': { type: 'Fast', arm: 'Left' },
-  'Matt Henry': { type: 'Fast', arm: 'Right' },
-  'Sai Kishore': { type: 'Spinner', arm: 'Left' },
-  'Washington Sundar': { type: 'Spinner', arm: 'Right' },
-  'Krunal Pandya': { type: 'Spinner', arm: 'Left' },
-  'Cameron Green': { type: 'Fast', arm: 'Right' },
-  'Shivam Dube': { type: 'Fast', arm: 'Right' },
-  'Tim David': { type: 'Spinner', arm: 'Right' },
-  'Vipraj Nigam': { type: 'Spinner', arm: 'Right' },
-  'Suyash Sharma': { type: 'Spinner', arm: 'Right' },
-  'Rashid Khan': { type: 'Spinner', arm: 'Right' },
-  'Bhuvneshwar Kumar': { type: 'Fast', arm: 'Right' },
-  'Harshal Patel': { type: 'Fast', arm: 'Right' },
-  'Jofra Archer': { type: 'Fast', arm: 'Right' },
-  'Noor Ahmad': { type: 'Spinner', arm: 'Left' },
-  'Avesh Khan': { type: 'Fast', arm: 'Right' },
-  'Marco Jansen': { type: 'Fast', arm: 'Left' },
-  'Harpreet Brar': { type: 'Spinner', arm: 'Left' },
-  'Zeeshan Ansari': { type: 'Spinner', arm: 'Right' },
-  'Josh Hazlewood': { type: 'Fast', arm: 'Right' },
-  'Trent Boult': { type: 'Fast', arm: 'Left' },
-  'Mohammed Shami': { type: 'Fast', arm: 'Right' }
-};
+// PLAYER_BOWLING_PROFILE — derived from PLAYERS (keyed by displayName for UI lookups)
+const PLAYER_BOWLING_PROFILE = Object.fromEntries(
+  PLAYERS.filter(p=>p.bowl).map(p=>[p.displayName,p.bowl])
+);
 
 function ensureInsightsVisibleTeams() {
   if (!insightsMomentumVisibleTeams) {
@@ -2694,7 +2989,8 @@ async function loadBattingPositionBuckets() {
         bat.forEach(b => {
           const bt = String(b.batted_type || b.battedType || '').toLowerCase();
           if (bt !== 'yes') return;
-          const nm = normalizePlayerName(b.name || b.batsmanName || b.batsman || '');
+          const _bpPlayer = PLAYER_BY_ESPN_NUM_ID[+b.player_id];
+          const nm = _bpPlayer ? _bpPlayer.displayName : '';
           if (!nm) return;
           pos++;
           if (!acc[nm]) acc[nm] = [];
@@ -3312,8 +3608,8 @@ function renderCaptainsView() {
       return `<div style="background:var(--surface);border:1px solid ${lk?'#00e67640':'var(--border)'};border-radius:12px;padding:14px 16px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px;">
         <div style="font-family:Barlow Condensed,sans-serif;font-size:20px;font-weight:800;letter-spacing:2px;">${team.name}</div>
         ${lk?`<div style="display:flex;gap:12px;align-items:center;">
-          <div style="text-align:right;"><div style="font-size:10px;color:var(--gold);letter-spacing:2px;">CAPTAIN</div><div style="font-family:Barlow Condensed,sans-serif;font-size:15px;font-weight:700;">${picks.captain}</div></div>
-          <div style="text-align:right;"><div style="font-size:10px;color:var(--muted);letter-spacing:2px;">VICE CAPTAIN</div><div style="font-family:Barlow Condensed,sans-serif;font-size:15px;font-weight:700;">${picks.viceCaptain}</div></div>
+          <div style="text-align:right;"><div style="font-size:10px;color:var(--gold);letter-spacing:2px;">CAPTAIN</div><div style="font-family:Barlow Condensed,sans-serif;font-size:15px;font-weight:700;">${resolveCaptainName(picks.captain)}</div></div>
+          <div style="text-align:right;"><div style="font-size:10px;color:var(--muted);letter-spacing:2px;">VICE CAPTAIN</div><div style="font-family:Barlow Condensed,sans-serif;font-size:15px;font-weight:700;">${resolveCaptainName(picks.viceCaptain)}</div></div>
           <span style="font-family:Barlow Condensed,sans-serif;font-size:10px;font-weight:700;letter-spacing:2px;color:var(--green);border:1px solid #00e67640;border-radius:4px;padding:2px 6px;">LOCKED${adminSet ? ' (admin)' : ''}</span>
         </div>`:`<span style="font-size:12px;color:var(--muted);letter-spacing:1px;">Not selected yet</span>`}
       </div>`;
@@ -3336,7 +3632,7 @@ function renderAdmin() {
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
       <div>
         <div class="admin-section-title" style="margin:0;">Fantasy League Admin</div>
-        <div style="font-size:10px;color:var(--muted);letter-spacing:1px;margin-top:2px;">v5.0</div>
+        <div style="font-size:10px;color:var(--muted);letter-spacing:1px;margin-top:2px;">v5.1</div>
       </div>
       <div class="insights-subtabs" style="margin:0;padding:0;">
         <button class="insights-subtab ${_adminSubTab==='settings'?'active':''}" onclick="switchAdminSubTab('settings')">Settings</button>
@@ -3403,6 +3699,10 @@ function renderAdminSettings() {
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
         <button onclick="fetchAndShowSchedule()" id="fetchScheduleBtn" style="background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:12px 8px;cursor:pointer;font-family:Barlow Condensed,sans-serif;font-size:15px;font-weight:700;letter-spacing:2px;text-transform:uppercase;">Refresh Schedule</button>
         <button onclick="fetchCricapiResults()" id="importAllScheduledBtn" style="background:var(--surface2);border:1px solid var(--blue);color:var(--blue);border-radius:8px;padding:12px 8px;cursor:pointer;font-family:Barlow Condensed,sans-serif;font-size:15px;font-weight:700;letter-spacing:2px;text-transform:uppercase;">Fetch CricAPI Results</button>
+      </div>
+      <div style="margin-bottom:8px;">
+        <button onclick="forceResyncAllCricAPI()" id="forceResyncBtn" style="background:var(--surface2);border:1px solid #ff7b2f;color:#ff7b2f;border-radius:8px;padding:12px 8px;cursor:pointer;font-family:Barlow Condensed,sans-serif;font-size:15px;font-weight:700;letter-spacing:2px;text-transform:uppercase;width:100%;">Force Resync All Performances (Clear + Refetch)</button>
+        <div id="forceResyncStatus" style="margin-top:6px;font-size:12px;color:var(--muted);letter-spacing:1px;"></div>
       </div>
       <div id="importAllStatus" style="margin-top:8px;">${getImportAllScheduledStatusMarkup()}</div>
       <div id="scheduleList" style="margin-top:8px;max-height:300px;overflow-y:auto;"></div>
@@ -3702,7 +4002,9 @@ function renderAdminCVOverride() {
     const locked = picks.locked;
     const cap = picks.captain || '';
     const vc = picks.viceCaptain || '';
-    const opts = team.players.map(p => `<option value="${p.name}">${p.name} (${p.role})</option>`).join('');
+    const teamPlayers = PLAYERS.filter(p => p.fantasyTeam === team.name);
+    const opts = teamPlayers.map(p => `<option value="${p.id}">${p.displayName} (${p.role})</option>`).join('');
+    const capDisplay = resolveCaptainName(cap), vcDisplay = resolveCaptainName(vc);
     return `
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap;">
         <div style="min-width:80px;font-weight:700;">${team.name}</div>
@@ -3714,7 +4016,7 @@ function renderAdminCVOverride() {
           <option value="">-- Vice Captain --</option>
           ${opts}
         </select>
-        <span style="font-size:12px;color:${locked ? 'var(--green)' : 'var(--muted)'};margin-left:8px;">${cap && vc ? `C: <b>${cap}</b> · VC: <b>${vc}</b>${locked ? ' (locked)' : ''}` : 'Not set'}</span>
+        <span style="font-size:12px;color:${locked ? 'var(--green)' : 'var(--muted)'};margin-left:8px;">${cap && vc ? `C: <b>${capDisplay}</b> · VC: <b>${vcDisplay}</b>${locked ? ' (locked)' : ''}` : 'Not set'}</span>
       </div>
     `;
   }).join('');
@@ -3995,7 +4297,7 @@ function initMatchDayWatcher() {
 
 
 function getCricapiKeyCandidates() {
-  return [CRICKETDATA_API_KEY, CRICKETDATA_API_KEY_BACKUP].filter(Boolean);
+  return [CRICKETDATA_API_KEY, CRICKETDATA_API_KEY_BACKUP, CRICKETDATA_API_KEY_BACKUP2].filter(Boolean);
 }
 
 async function fetchCricapiJson(path, params = {}, options = {}) {
@@ -4178,20 +4480,6 @@ function normalizePlayerKey(name) {
   return (normalizePlayerName(name) || '').toString().toLowerCase().replace(/[^a-z]/g, '');
 }
 
-function findESPNBowlerPerformanceKey(match, bowlerName) {
-  if (!match || !match.performances) return null;
-  const target = normalizePlayerKey(bowlerName);
-  if (!target) return null;
-
-  const keys = Object.keys(match.performances);
-  const exact = keys.find(k => normalizePlayerKey(k) === target);
-  if (exact) return exact;
-
-  const endsWith = keys.find(k => normalizePlayerKey(k).endsWith(target));
-  if (endsWith) return endsWith;
-
-  return keys.find(k => target.endsWith(normalizePlayerKey(k)));
-}
 
 function getESPNBowlerDots(bowler) {
   return getESPNInt(bowler, 'dots', 'dotBalls', 'dot_balls', 'dot_ball', 'dots_count', 'dotBallCount');
@@ -4225,8 +4513,13 @@ function getESPNPotmName(matchData) {
   for (const candidate of candidates) {
     if (!candidate) continue;
     const potmValue = Array.isArray(candidate) ? candidate[0] : candidate;
-    const potmName = potmValue && potmValue.name ? potmValue.name : null;
-    if (potmName) return normalizePlayerName(potmName);
+    if (!potmValue) continue;
+    if (potmValue.player_id) {
+      const p = PLAYER_BY_ESPN_NUM_ID[+potmValue.player_id];
+      if (p) return p.displayName;
+    }
+    // Player not in fantasy pool — store raw name for admin visibility; no bonus awarded
+    if (potmValue.name) return potmValue.name;
   }
 
   return null;
@@ -4246,23 +4539,20 @@ function parseESPNData(matchData, matchIndex) {
   const match = liveData.matches[matchIndex];
   if (!match || !match.performances) return;
 
-  // Parse dot balls for bowlers from each innings
+  // Parse dot balls for bowlers — resolve via ESPN numeric player_id
   const innings = getESPNInnings(matchData);
   innings.forEach(inning => {
     if (!inning || !inning.bowling) return;
     inning.bowling.forEach(bowler => {
-      const name = bowler.name;
+      const player = PLAYER_BY_ESPN_NUM_ID[+bowler.player_id];
       const dots = getESPNBowlerDots(bowler);
-      if (name && dots !== null) {
-        const perfKey = findESPNBowlerPerformanceKey(match, name);
-        if (perfKey) {
-          match.performances[perfKey].dots = dots;
-        }
+      if (player && dots !== null && match.performances[player.displayName]) {
+        match.performances[player.displayName].dots = dots;
       }
     });
   });
 
-  // Parse POTM if match is RESULT (ESPN payload can expose this at multiple nesting levels)
+  // Parse POTM if match is RESULT
   if (getESPNMatchStatus(matchData) === 'RESULT') {
     const potmName = getESPNPotmName(matchData);
     if (potmName) {
@@ -4273,26 +4563,12 @@ function parseESPNData(matchData, matchIndex) {
 
 function normalizePlayerName(name) {
   if (!name) return '';
-
-  const aliases = {
-    williamgeorgejacks: 'Will Jacks',
-    williamjacks: 'Will Jacks',
-    vaibhavsooryavanshi: 'Vaibhav Sooryavanshi',
-    sooryavanshi: 'Vaibhav Sooryavanshi',
-    yashaswijaiswal: 'Yashasvi Jaiswal',
-    yashasvijaiswal: 'Yashasvi Jaiswal',
-    kartiksharma: 'Karthik Sharma',
-    digveshrathi: 'Digvesh Singh',
-    digveshsinghrathi: 'Digvesh Singh'
-  };
-
   const key = String(name).toLowerCase().replace(/[^a-z]/g, '');
-  if (aliases[key]) return aliases[key];
-
-  const allPlayers = TEAMS.flatMap(t => t.players.map(p => p.name));
-  const exact = allPlayers.find(p => p.toLowerCase().replace(/[^a-z]/g, '') === key);
-  if (exact) return exact;
-
+  // Check exact normalized match against PLAYERS (covers both displayName and cricapiName)
+  for (const p of PLAYERS) {
+    if (p.displayName.toLowerCase().replace(/[^a-z]/g, '') === key) return p.displayName;
+    if (p.cricapiName.toLowerCase().replace(/[^a-z]/g, '') === key) return p.displayName;
+  }
   return String(name).trim();
 }
 
@@ -4799,12 +5075,10 @@ async function fetchESPNDataManual() {
         innings.forEach(inning => {
           if (!inning || !inning.bowling) return;
           inning.bowling.forEach(bowler => {
-            const name = bowler.name;
+            const player = PLAYER_BY_ESPN_NUM_ID[+bowler.player_id];
             const dots = getESPNBowlerDots(bowler);
-            if (name && dots !== null) {
-              const perfKey = findESPNBowlerPerformanceKey(match, name);
-              const displayName = perfKey || normalizePlayerName(name);
-              entry.dotUpdates.push({ name: displayName, dots });
+            if (player && dots !== null) {
+              entry.dotUpdates.push({ name: player.displayName, dots });
             }
           });
         });
@@ -4813,6 +5087,7 @@ async function fetchESPNDataManual() {
             const potmName = getESPNPotmName(espnData);
             if (potmName) {
               entry.potm = potmName;
+              entry.potmIsFantasy = !!PLAYERS.find(p => p.displayName === potmName);
             }
           }
           entry.statusText = 'Updated';
@@ -4858,6 +5133,34 @@ function resetESPNCheckpoint() {
   showToast('ESPN checkpoint reset', 'success');
 }
 
+function extractRawScorecard(data) {
+  const scorecard = data.scorecard || [];
+  if (!scorecard.length) return [];
+  function gn(obj,...keys){for(const k of keys){const v=obj[k];if(v!=null&&v!==''&&v!=='-'){const n=+v;if(!isNaN(n))return n;}}return 0;}
+  return scorecard.map(inn=>({
+    teamName: inn.teamName||inn.team||'',
+    score: inn.score||inn.scorecard||'',
+    batting: (inn.batting||[]).map(b=>({
+      name: b.batsman?.name||b.batsmanName||b.name||'',
+      r: gn(b,'r','runs','R'),
+      b: gn(b,'b','balls','B','bf'),
+      '4s': gn(b,'4s','fours','s4','four'),
+      '6s': gn(b,'6s','sixes','s6','six'),
+      dismissal: (b.dismissal||'').trim(),
+      dismissalText: (b['dismissal-text']||b.dismissalText||b.dismissal_text||'').trim(),
+      out: !(b.dismissal===''||b.dismissal==='not out'||b.dismissal==null),
+    })).filter(b=>b.name),
+    bowling: (inn.bowling||[]).map(b=>({
+      name: b.bowler?.name||b.bowlerName||b.name||'',
+      o: String(b.o||b.overs||'0'),
+      m: gn(b,'m','maidens','maiden','M'),
+      r: gn(b,'r','runs','conceded','R'),
+      w: gn(b,'w','wickets','wkts','W'),
+      dots: gn(b,'dots','dot_balls','dotBalls','dotBallCount'),
+    })).filter(b=>b.name),
+  })).filter(inn=>inn.batting.length||inn.bowling.length);
+}
+
 function upsertMatch(apiId,name,date,scorecardData) {
   if(!liveData.matches)liveData.matches=[];
   ensureCricapiIdMap();
@@ -4881,12 +5184,21 @@ function upsertMatch(apiId,name,date,scorecardData) {
     }
     const potm=existing.potm||null;
     const teams=(safeScorecardData&&Array.isArray(safeScorecardData.teams)&&safeScorecardData.teams.length)?safeScorecardData.teams:(existing.teams||name);
+    const rawSc=extractRawScorecard(safeScorecardData);
+    const matchResult=safeScorecardData.status||safeScorecardData.result||'';
     liveData.matches[ei]={apiId,label:name,date,teams,status,performances};
     if(potm)liveData.matches[ei].potm=potm;
+    if(rawSc.length)liveData.matches[ei].scorecard_raw=rawSc;
+    if(matchResult)liveData.matches[ei].matchResult=matchResult;
   } else {
     const performances=parsedPerformances;
     const teams=(safeScorecardData&&Array.isArray(safeScorecardData.teams)&&safeScorecardData.teams.length)?safeScorecardData.teams:name;
-    liveData.matches.push({apiId,label:name,date,teams,status:incomingStatus,performances});
+    const rawSc=extractRawScorecard(safeScorecardData);
+    const matchResult=safeScorecardData.status||safeScorecardData.result||'';
+    const m={apiId,label:name,date,teams,status:incomingStatus,performances};
+    if(rawSc.length)m.scorecard_raw=rawSc;
+    if(matchResult)m.matchResult=matchResult;
+    liveData.matches.push(m);
   }
   saveLiveData();
 }
@@ -4926,73 +5238,26 @@ function upsertMatchMetaOnly(apiId,name,date,matchStarted,matchEnded) {
 // SCORECARD PARSER
 // ═══════════════════════════════════════════════════════
 function parseScorecard(matchData) {
-  const allPlayers=TEAMS.flatMap(t=>t.players.map(p=>({...p,teamName:t.name})));
   const performances={};
 
-  function cleanApiName(n){return(n||'').replace(/\s*\([^)]*\)/g,'').replace(/\s*†/g,'').replace(/\s*\*/g,'').replace(/\s*(c&wk|c\s*&\s*wk|c\/wk)/gi,'').replace(/\s*\b(capt|captain|wk|sub)\b/gi,'').replace(/\s+/g,' ').trim();}
-  function normName(n){return cleanApiName(n||'').toLowerCase().replace(/[^a-z]/g,'');}
-
-  const playerMap={},aliasMap={};
-
-
-  const KNOWN_ALIASES={'philipsalt':'Phil Salt','philipdeansalt':'Phil Salt','vaibhavsooryavanshi':'Vaibhav Sooryavanshi','sooryavanshi':'Vaibhav Sooryavanshi','msdhoni':'MS Dhoni','mahendrasinghdhoni':'MS Dhoni','mohammadshami':'Mohammed Shami','mohammedshami':'Mohammed Shami','samuelcurran':'Sam Curran','josephbuttler':'Jos Buttler','josephcharlesbuttler':'Jos Buttler','williamjacks':'Will Jacks','williamgeorgejacks':'Will Jacks','matthewhenry':'Matt Henry','matthewjameshenry':'Matt Henry','patrickjamescummins':'Pat Cummins','patrickcummins':'Pat Cummins','ravindrasinhajadeja':'Ravindra Jadeja','rashidkhanarman':'Rashid Khan','klrahul':'KL Rahul','kannarurlokeshrahul':'KL Rahul','finnleyhughallen':'Finn Allen','finnleyallen':'Finn Allen','thangarasunatarajan':'T Natarajan'};
-
-  const matchTeams=(matchData.teams||[]).map(t=>(t||'').toLowerCase());
-
-  allPlayers.forEach(p=>{
-    playerMap[normName(p.name)]=p.name;
-    const pts=p.name.trim().split(/\s+/);
-    if(pts.length>=3){const sk=normName(pts[0]+' '+pts[pts.length-1]);if(!playerMap[sk])aliasMap[sk]=p.name;}
-  });
-
-  function similarity(a,b){if(!a||!b)return 0;if(a===b)return 1;const lo=a.length<=b.length?a:b,hi=a.length<=b.length?b:a;let m=0;const used=new Array(hi.length).fill(false);const range=Math.max(0,Math.floor(hi.length/2)-1);for(let i=0;i<lo.length;i++)for(let j=Math.max(0,i-range);j<Math.min(hi.length,i+range+1);j++)if(!used[j]&&lo[i]===hi[j]){m++;used[j]=true;break;}return m===0?0:(m/lo.length+m/hi.length)/2;}
-
-  function isInMatch(name,teams){
-    if(!teams||teams.length<2)return true;
-    const t=IPL_TEAM_MAP[name];
-    if(!t)return true;
-    const playerAliases=getTeamAliases(t);
-    return teams.some(mt=>{
-      const matchAliases=getTeamAliases(mt);
-      for(const pa of playerAliases){
-        if(matchAliases.has(pa))return true;
-      }
-      return false;
-    });
-  }
-
-  function findPlayer(apiName){
-    if(!apiName)return null;
-    const norm=normName(apiName);if(!norm)return null;
-    if(playerMap[norm])return playerMap[norm];
-    if(KNOWN_ALIASES[norm])return KNOWN_ALIASES[norm];
-    if(aliasMap[norm])return aliasMap[norm];
-    const pts=cleanApiName(apiName).trim().split(/\s+/).filter(Boolean);
-    const fn=normName(pts[0]||''),ln=normName(pts[pts.length-1]||'');
-    const hf=fn.length>1;
-    if(ln.length>=4){
-      const cands=Object.keys(playerMap).filter(k=>k.endsWith(ln)&&k.length-ln.length<=10);
-      if(cands.length===1){if(!hf)return playerMap[cands[0]];if(cands[0].slice(0,cands[0].length-ln.length).startsWith(fn[0]))return playerMap[cands[0]];}
-      else if(cands.length>1&&hf){let best=null,bs=0;cands.forEach(k=>{const s=similarity(fn,k.slice(0,k.length-ln.length));if(s>bs){bs=s;best=k;}});if(bs>=0.7)return playerMap[best];return null;}
-    }
-    if(fn.length<=2&&ln.length>=4){for(const k of Object.keys(playerMap))if(k.endsWith(ln)&&k.startsWith(fn[0]))return playerMap[k];}
-    if(pts.length>=3){for(let i=1;i<pts.length;i++){const tl=normName(pts[i]);if(tl.length<4)continue;const cands=Object.keys(playerMap).filter(k=>k.endsWith(tl)&&k.length-tl.length<=10);if(cands.length===1){const cf=cands[0].slice(0,cands[0].length-tl.length);if(cf.startsWith(fn[0]))return playerMap[cands[0]];}}}
-    if(norm.length>=6){let best=null,bs=0;for(const k of Object.keys(playerMap)){const s=Math.max(similarity(norm,k),ln.length>=5?similarity(ln,k.slice(-(ln.length+2))):0);if(s>=0.82&&s>bs){if(hf&&similarity(fn,k.slice(0,fn.length))<0.45)continue;bs=s;best=k;}}if(best)return playerMap[best];}
-    return null;
-  }
-
-  function findPlayerTeamAware(apiName,teams){const f=findPlayer(apiName);if(!f)return null;if(!isInMatch(f,teams||matchTeams))return null;return f;}
-
   function getInt(obj,...keys){for(const k of keys){const v=parseInt(obj[k]);if(!isNaN(v)&&v>=0)return v;}return 0;}
-  function getFloat(obj,...keys){for(const k of keys){const v=parseFloat(obj[k]);if(!isNaN(v)&&v>=0)return v;}return 0;}
+
+  // Resolve player: CricAPI UUID first, then exact cricapiName/displayName match as fallback
+  const _normCache={};
+  function _norm(s){return _normCache[s]||(_normCache[s]=(s||'').toLowerCase().replace(/[^a-z]/g,''));}
+  function resolvePlayer(id,name){
+    if(id&&PLAYER_BY_ID[id])return PLAYER_BY_ID[id];
+    if(!name)return null;
+    const key=_norm(name);
+    return PLAYERS.find(p=>_norm(p.cricapiName)===key||_norm(p.displayName)===key)||null;
+  }
 
   (matchData.scorecard||[]).forEach(innings=>{
     // Batting
     (innings.batting||[]).forEach(b=>{
-      const batsmanName=b.batsman?.name||b.batsmanName||b.name||'';
-      const teamAwareBatter=findPlayerTeamAware(batsmanName,matchTeams);
-      const name=teamAwareBatter||((!matchTeams||matchTeams.length<2)?findPlayer(batsmanName):null);
-      if(!name)return;
+      const player=resolvePlayer(b.batsman?.id,b.batsman?.name||b.batsmanName||b.name);
+      if(!player)return;
+      const name=player.displayName;
       if(!performances[name])performances[name]={played:true,_warnings:[]};
       const p=performances[name];
       p.played=true;
@@ -5010,10 +5275,9 @@ function parseScorecard(matchData) {
 
     // Bowling
     (innings.bowling||[]).forEach(b=>{
-      const bowlerName=b.bowler?.name||b.bowlerName||b.name||'';
-      const teamAwareBowler=findPlayerTeamAware(bowlerName,matchTeams);
-      const name=teamAwareBowler||((!matchTeams||matchTeams.length<2)?findPlayer(bowlerName):null);
-      if(!name)return;
+      const player=resolvePlayer(b.bowler?.id,b.bowler?.name||b.bowlerName||b.name);
+      if(!player)return;
+      const name=player.displayName;
       if(!performances[name])performances[name]={played:true,_warnings:[]};
       const p=performances[name];
       p.played=true;
@@ -5025,55 +5289,64 @@ function parseScorecard(matchData) {
       p.runsConceded=(p.runsConceded||0)+getInt(b,'r','runs','conceded','R');
       p.maidens=(p.maidens||0)+getInt(b,'m','maidens','maiden','M');
       const apiDots=getInt(b,'dots','dot_balls','dotBalls','dot_ball','dots_count','dotBallCount');
-      if (apiDots > 0) {
-        p.dots=(p.dots||0)+apiDots;
-      } else {
-        p.dots=p.dots||0;
-      }
+      if(apiDots>0){p.dots=(p.dots||0)+apiDots;}else{p.dots=p.dots||0;}
     });
 
-    // Fielding
-    const mtt=(matchData.teams||[]).map(t=>(t||'').toLowerCase());
-    (innings.batting||[]).forEach(b=>{
-      const dt=(b.dismissal||'').toLowerCase().trim();
-      const dr=String(b['dismissal-text']||b.dismissalText||b.dismissal_text||'').trim();
-      const drLower=dr.toLowerCase();
-      const isCaughtAndBowled=/^c\s*&\s*b|^c&b|^c\s+and\s+b|caught\s+and\s+bowled/i.test(drLower);
-      const isCatchDismissal=dt==='catch'||dt==='caught'||dt==='caught and bowled'||dt==='c&b'||dt==='cb'||isCaughtAndBowled;
-      if(isCatchDismissal){
-        let cn=b.catcher?.name||'';
-        if(!cn&&isCaughtAndBowled)cn=b.bowler?.name||'';
-        if(!cn&&isCaughtAndBowled){
-          const m=dr.match(/(?:c\s*&\s*b|c&b|c\s+and\s+b|caught\s+and\s+bowled)\s+(.+)$/i);
-          if(m)cn=m[1].trim();
-        }
-        const teamAwareFielder=findPlayerTeamAware(cn,mtt);
-        const f=teamAwareFielder||((!mtt||mtt.length<2)?findPlayer(cn):null);
-        if(f){if(!performances[f])performances[f]={played:true,_warnings:[]};performances[f].catches=(performances[f].catches||0)+1;}
-      }
-      if(dt==='stumped'){
-        const f=findPlayerTeamAware(b.catcher?.name||'',mtt);
-        if(f){if(!performances[f])performances[f]={played:true,_warnings:[]};performances[f].stumpings=(performances[f].stumpings||0)+1;}
-      }
-      if(dt==='runout'){
-        let dn='',idn='';
-        const rm=dr.match(/run out \(([^)]+)\)/i);
-        if(rm){
-          const parts=rm[1].split('/').map(s=>s.trim()).filter(Boolean);
-          if(parts.length>=2){
-            // Two-player runout: credit ONLY second player as indirect
-            idn=parts[1];
-          } else if(parts.length===1){
-            // One-player runout: credit that player as direct
-            dn=parts[0];
+    // Fielding — prefer catching section; fall back to parsing dismissals from batting
+    if(innings.catching&&innings.catching.length>0){
+      innings.catching.forEach(c=>{
+        // CricAPI uses 'fielder', not 'catcher'
+        const player=resolvePlayer(c.fielder?.id,c.fielder?.name||c.catcher?.name);
+        if(!player)return;
+        const name=player.displayName;
+        if(!performances[name])performances[name]={played:true,_warnings:[]};
+        const catches=getInt(c,'catch','catches')+getInt(c,'cb');
+        const stumpings=getInt(c,'stumped','stumpings');
+        const runouts=getInt(c,'runout','runouts');
+        if(catches>0)performances[name].catches=(performances[name].catches||0)+catches;
+        if(stumpings>0)performances[name].stumpings=(performances[name].stumpings||0)+stumpings;
+        if(runouts>0)performances[name].runoutDirect=(performances[name].runoutDirect||0)+runouts;
+      });
+    } else {
+      // Fallback: parse fielding from individual batting dismissal entries
+      // CricAPI uses b.fielder (not b.catcher) and 'run out' (with space, not 'runout')
+      (innings.batting||[]).forEach(b=>{
+        const dt=(b.dismissal||'').toLowerCase().trim();
+        const dr=String(b['dismissal-text']||b.dismissalText||b.dismissal_text||'').trim();
+        if(dt==='catch'||dt==='caught'){
+          const fielder=resolvePlayer(b.fielder?.id,b.fielder?.name);
+          if(fielder){
+            if(!performances[fielder.displayName])performances[fielder.displayName]={played:true,_warnings:[]};
+            performances[fielder.displayName].catches=(performances[fielder.displayName].catches||0)+1;
           }
         }
-        const direct=dn?findPlayerTeamAware(dn,mtt):null;
-        if(direct){if(!performances[direct])performances[direct]={played:true,_warnings:[]};performances[direct].runoutDirect=(performances[direct].runoutDirect||0)+1;}
-        const indirect=idn?findPlayerTeamAware(idn,mtt):null;
-        if(indirect){if(!performances[indirect])performances[indirect]={played:true,_warnings:[]};performances[indirect].runoutIndirect=(performances[indirect].runoutIndirect||0)+1;}
-      }
-    });
+        if(dt==='stumped'){
+          const fielder=resolvePlayer(b.fielder?.id,b.fielder?.name);
+          if(fielder){
+            if(!performances[fielder.displayName])performances[fielder.displayName]={played:true,_warnings:[]};
+            performances[fielder.displayName].stumpings=(performances[fielder.displayName].stumpings||0)+1;
+          }
+        }
+        if(dt==='run out'||dt==='runout'){
+          // Try b.fielder first (direct CricAPI field), then parse from dismissal-text
+          const directFielder=resolvePlayer(b.fielder?.id,b.fielder?.name);
+          if(directFielder){
+            if(!performances[directFielder.displayName])performances[directFielder.displayName]={played:true,_warnings:[]};
+            performances[directFielder.displayName].runoutDirect=(performances[directFielder.displayName].runoutDirect||0)+1;
+          } else {
+            const rm=dr.match(/run out \(([^)]+)\)/i);
+            if(rm){
+              const parts=rm[1].split('/').map(s=>s.trim()).filter(Boolean);
+              const fielder=resolvePlayer(null,parts[0]||'');
+              if(fielder){
+                if(!performances[fielder.displayName])performances[fielder.displayName]={played:true,_warnings:[]};
+                performances[fielder.displayName].runoutDirect=(performances[fielder.displayName].runoutDirect||0)+1;
+              }
+            }
+          }
+        }
+      });
+    }
   });
 
   return performances;
@@ -5111,11 +5384,12 @@ function renderCVPicker(){
   if(!teamName){body.innerHTML='';btn.disabled=true;return;}
   const cv=liveData.captains||{};
   if(cv[teamName]&&cv[teamName].locked){
-    body.innerHTML=`<div style="background:#00e67615;border:1px solid #00e67640;border-radius:10px;padding:16px;text-align:center;margin-top:8px;"><div style="font-family:Barlow Condensed,sans-serif;font-size:14px;font-weight:700;letter-spacing:3px;color:var(--green);margin-bottom:10px;">PICKS LOCKED ✓</div><div style="font-size:15px;margin-bottom:4px;"><span style="color:var(--gold);font-weight:700;">C:</span> ${cv[teamName].captain}</div><div style="font-size:15px;"><span style="color:var(--muted);font-weight:700;">VC:</span> ${cv[teamName].viceCaptain}</div></div>`;
+    body.innerHTML=`<div style="background:#00e67615;border:1px solid #00e67640;border-radius:10px;padding:16px;text-align:center;margin-top:8px;"><div style="font-family:Barlow Condensed,sans-serif;font-size:14px;font-weight:700;letter-spacing:3px;color:var(--green);margin-bottom:10px;">PICKS LOCKED ✓</div><div style="font-size:15px;margin-bottom:4px;"><span style="color:var(--gold);font-weight:700;">C:</span> ${resolveCaptainName(cv[teamName].captain)}</div><div style="font-size:15px;"><span style="color:var(--muted);font-weight:700;">VC:</span> ${resolveCaptainName(cv[teamName].viceCaptain)}</div></div>`;
     btn.disabled=true;btn.textContent='Already Locked';return;
   }
   const team=TEAMS.find(t=>t.name===teamName);if(!team)return;
-  const opts=team.players.map(p=>`<option value="${p.name}">${p.name} (${p.role})</option>`).join('');
+  const teamPlayers=PLAYERS.filter(p=>p.fantasyTeam===teamName);
+  const opts=teamPlayers.map(p=>`<option value="${p.id}">${p.displayName} (${p.role})</option>`).join('');
   body.innerHTML=`
     <div class="field-label" style="margin-bottom:6px;">Captain (2x points)</div>
     <select class="field-input" id="cv_captain_sel" onchange="updateVCOptions()" style="margin-bottom:16px;"><option value="">-- Select Captain --</option>${opts}</select>
@@ -5130,8 +5404,9 @@ function updateVCOptions(){
   const teamName=document.getElementById('cvTeamSelect').value;
   const team=TEAMS.find(t=>t.name===teamName);if(!team)return;
   const cur=vcSel.value;
+  const tmPlayers=PLAYERS.filter(p=>p.fantasyTeam===teamName);
   vcSel.innerHTML='<option value="">-- Select Vice Captain --</option>'+
-    team.players.filter(p=>p.name!==capSel.value).map(p=>`<option value="${p.name}" ${cur===p.name&&cur!==capSel.value?'selected':''}>${p.name} (${p.role})</option>`).join('');
+    tmPlayers.filter(p=>p.id!==capSel.value).map(p=>`<option value="${p.id}" ${cur===p.id&&cur!==capSel.value?'selected':''}>${p.displayName} (${p.role})</option>`).join('');
   highlightCV();
 }
 
@@ -5147,7 +5422,7 @@ function confirmCV(){
   const capSel=document.getElementById('cv_captain_sel'),vcSel=document.getElementById('cv_vc_sel');
   if(!capSel||!vcSel||!capSel.value||!vcSel.value){showToast('Pick both Captain and Vice Captain','error');return;}
   if(capSel.value===vcSel.value){showToast('C and VC must be different','error');return;}
-  if(!confirm('Lock in '+capSel.value+' as Captain and '+vcSel.value+' as Vice Captain for '+teamName+'? This cannot be changed.'))return;
+  if(!confirm('Lock in '+resolveCaptainName(capSel.value)+' as Captain and '+resolveCaptainName(vcSel.value)+' as Vice Captain for '+teamName+'? This cannot be changed.'))return;
   if(!liveData.captains)liveData.captains={};
   liveData.captains[teamName]={captain:capSel.value,viceCaptain:vcSel.value,locked:true};
   saveLiveData();
@@ -5163,7 +5438,7 @@ function openPlayerModal(playerName){
   if(!modal||!body)return;
   const pt=getPlayerTotals(),info=pt[playerName];if(!info)return;
   const cv=liveData.captains||{},picks=cv[info.teamName]||{};
-  const isCap=picks.captain===playerName,isVC=picks.viceCaptain===playerName;
+  const isCap=resolveCaptainName(picks.captain)===playerName,isVC=resolveCaptainName(picks.viceCaptain)===playerName;
   const role=isCap?' · CAPTAIN':isVC?' · VICE CAPTAIN':'';
   const ptsCls=info.pts>0?'color:var(--green)':info.pts<0?'color:var(--red)':'color:var(--muted)';
 
@@ -5232,7 +5507,7 @@ function renderESPNVerificationBody(entries, summary) {
           entry.dotUpdates.map(d => `<div style="font-size:13px;color:var(--text);">${d.name}: <strong>${d.dots}</strong> dot balls</div>`).join('') +
         `</div>`
       : '';
-    const potmDetail = entry.potm ? `<div style="font-size:13px;color:var(--gold);margin-top:6px;">POTM: <strong>${entry.potm}</strong></div>` : '';
+    const potmDetail = entry.potm ? `<div style="font-size:13px;color:${entry.potmIsFantasy ? 'var(--orange)' : 'var(--muted)'};margin-top:6px;">POTM: <strong>${entry.potm}</strong>${entry.potmIsFantasy ? '' : ' <span style="font-size:11px;">(non-fantasy)</span>'}</div>` : '';
     return `<div style="border-bottom:1px solid rgba(255,255,255,0.08);padding:12px 0;">
       <div style="display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap;">
         <div><strong>${entry.matchLabel}</strong><div style="font-size:12px;color:var(--muted);">${entry.matchDate || ''}</div></div>
@@ -5317,7 +5592,7 @@ function getPointsBreakdown(p, teamName, matchPotm) {
   // POTM/C/VC: POTM is role-aware and included before multiplier
   const hasPotm=normalizePlayerKey(matchPotm)&&normalizePlayerKey(p.playerName)===normalizePlayerKey(matchPotm);
   const cv=liveData.captains||{},tcv=cv[teamName]||{};
-  const isCap2=tcv.captain===p.playerName,isVC2=tcv.viceCaptain===p.playerName;
+  const isCap2=resolveCaptainName(tcv.captain)===p.playerName,isVC2=resolveCaptainName(tcv.viceCaptain)===p.playerName;
 
   // Add role-aware POTM if applicable
   let potmDisplayPts = 0;
@@ -5367,6 +5642,52 @@ window.addEventListener('resize',()=>{
   if (currentTab === 'players') updatePlayersStickyColumns();
 });
 // ═══════════════════════════════════════════════════════
+// ═══════════════════════════════════════════════════════
+// FORCE RESYNC — clears stale fuzzy-matched performances, refetches clean via ID-based parser
+// ═══════════════════════════════════════════════════════
+async function forceResyncAllCricAPI() {
+  if (!confirm('This will clear ALL stored performance data for every match and refetch from CricAPI.\n\nESPN dot balls and POTM will be preserved.\n\nProceed?')) return;
+  const btn = document.getElementById('forceResyncBtn');
+  const status = document.getElementById('forceResyncStatus');
+  if (btn) { btn.disabled = true; btn.textContent = 'Resyncing...'; }
+
+  const matches = (liveData.matches || []).filter(m => m && m.apiId && (m.status === 'done' || m.status === 'live'));
+  let done = 0, failed = 0;
+
+  for (const match of matches) {
+    if (status) status.textContent = `${done + failed + 1}/${matches.length} — ${match.label || match.apiId}`;
+    try {
+      const d = await fetchCricapiJson('/match_scorecard', { id: match.apiId });
+      const sc = d && d.data ? d.data : null;
+      if (!sc) { failed++; continue; }
+
+      const freshPerfs = parseScorecard(sc);
+      // Preserve ESPN dots and POTM already stored; replace everything else
+      const preserved = match.performances || {};
+      Object.keys(preserved).forEach(player => {
+        if (preserved[player].dots != null) {
+          if (freshPerfs[player]) freshPerfs[player].dots = preserved[player].dots;
+        }
+      });
+      match.performances = freshPerfs;
+      const rawSc = extractRawScorecard(sc);
+      if (rawSc.length) match.scorecard_raw = rawSc;
+      const matchResult = sc.status || sc.result || '';
+      if (matchResult) match.matchResult = matchResult;
+      done++;
+    } catch (e) {
+      console.warn('[AP] forceResync failed for', match.apiId, e.message);
+      failed++;
+    }
+  }
+
+  saveLiveData();
+  if (btn) { btn.disabled = false; btn.textContent = 'Force Resync All Performances (Clear + Refetch)'; }
+  if (status) status.textContent = `Done: ${done} resynced, ${failed} failed.`;
+  showToast(`Resync complete: ${done} matches`, 'success');
+  renderTab(currentTab);
+}
+
 // FETCH CRICAPI RESULTS (ADMIN)
 // ═══════════════════════════════════════════════════════
 async function fetchCricapiResults(options = {}) {
@@ -5400,7 +5721,7 @@ async function fetchCricapiResults(options = {}) {
     if (!callerStartedOrEndedIds) {
       for (let offset = 0; offset <= 10; offset++) {
         try {
-          const d = await fetchCricapiJson('/currentMatches', { offset });
+          const d = await fetchCricapiJson('/currentMatches', { offset }, { signal: AbortSignal.timeout(25000) });
           const page = (d.data || []);
           page.filter(m => isIPLMatch(m) && (m.matchStarted || m.matchEnded)).forEach(m => startedOrEndedIds.add(m.id));
           if (!page.length) break; // no more pages
@@ -5452,9 +5773,9 @@ async function fetchCricapiResults(options = {}) {
         }
       }
 
-      // Skip scorecard fetch for matches already confirmed done — no new data expected.
-      const alreadyDone = (liveData.matches || []).some(m => m && m.apiId === scheduleMatch.cricapi_match_id && m.status === 'done');
-      if (alreadyDone) { refreshed++; continue; }
+      // Skip scorecard fetch for matches already confirmed done with scorecard cached — no new data expected.
+      const existingDone = (liveData.matches || []).find(m => m && m.apiId === scheduleMatch.cricapi_match_id && m.status === 'done');
+      if (existingDone && existingDone.scorecard_raw?.length) { refreshed++; continue; }
 
       try {
         const d = await fetchCricapiJson('/match_scorecard', { id: scheduleMatch.cricapi_match_id });
