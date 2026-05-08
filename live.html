@@ -14,6 +14,7 @@
 <!-- PWA manifest + icon injected inline by script below — no external files needed -->
 <script>
 (function(){
+  var IPL_YEAR = new Date().getFullYear();
 var SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">'
     + '<rect width="512" height="512" rx="96" fill="%23070f1c"/>'
     + '<circle cx="256" cy="220" r="130" fill="none" stroke="%23ff5c00" stroke-width="6" opacity="0.3"/>'
@@ -23,7 +24,7 @@ var SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">'
     + '<path d="M215 120 Q195 220 215 320" fill="none" stroke="%23ff5c00" stroke-width="3.5" stroke-linecap="round" opacity="0.6"/>'
     + '<path d="M297 120 Q317 220 297 320" fill="none" stroke="%23ff5c00" stroke-width="3.5" stroke-linecap="round" opacity="0.6"/>'
     + '<text x="256" y="248" font-family="Arial Black,Arial,sans-serif" font-size="96" font-weight="900" text-anchor="middle" fill="%23ffb800" letter-spacing="-4">AP</text>'
-    + '<text x="256" y="390" font-family="Arial,sans-serif" font-size="36" font-weight="700" text-anchor="middle" fill="%235b7ba8" letter-spacing="8">IPL 2026</text>'
+    + '<text x="256" y="390" font-family="Arial,sans-serif" font-size="36" font-weight="700" text-anchor="middle" fill="%235b7ba8" letter-spacing="8">IPL ' + IPL_YEAR + '</text>'
     + '</svg>';
   var ICON = 'data:image/svg+xml,' + SVG;
 
@@ -39,7 +40,7 @@ var SVG = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">'
   var manifest = {
     name: 'Auction Packed',
     short_name: 'Auction Packed',
-    description: 'IPL 2026 Fantasy Cricket League — live scores, leaderboard & stats',
+    description: 'IPL ' + IPL_YEAR + ' Fantasy Cricket League — live scores, leaderboard & stats',
     start_url: '/live',
     scope: '/',
     display: 'standalone',
@@ -282,7 +283,7 @@ select.field-input{cursor:pointer;}
 <div id="screenLanding" class="screen active">
   <div class="logo">
     <h1><span class="logo-word-top">Auction</span><span class="logo-word-bot">Packed</span><span class="logo-live">LIVE</span></h1>
-    <p>IPL 2026 · Fantasy Points Tracker</p>
+    <p id="iplYearTagline">IPL 2026 · Fantasy Points Tracker</p>
   </div>
   <div class="landing-cards">
     <div class="landing-card viewer" onclick="showScreen('screenMain');setTimeout(()=>switchTab('leaderboard'),50)">
@@ -1577,7 +1578,7 @@ function toggleRosterLive(id, headerEl) {
 
 // ── MATCHES ──
 function renderScorecardHtml(sv, fix) {
-  const isDone = sv.status === 'done';
+  const isDone = sv.status === 'done' || !!(sv.potm || sv.matchResult);
   const perfs = sv.performances || {};
   const norm = s => (s||'').toLowerCase().replace(/[^a-z]/g,'');
   function resolveDisplayName(apiName) {
@@ -1764,7 +1765,8 @@ function renderMatches() {
     });
     const isToday=fix.date===today, isPast=fix.date<today;
     const status=sv?.status||(isToday?'today':isPast?'past':'upcoming');
-    const isLive=status==='live', isDone=status==='done'||(isPast&&!isToday&&!isLive);
+    const hasConcluded = !!(sv?.potm || sv?.matchResult);
+    const isLive=status==='live'&&!hasConcluded, isDone=status==='done'||hasConcluded||(isPast&&!isToday&&!isLive);
     const bc=isLive?'var(--green)':isDone?'var(--muted)':isToday?'var(--gold)':'var(--surface2)';
     const bl=isLive?'LIVE':isDone?'DONE':isToday?'TODAY':'UPCOMING';
     const hasData = sv && (sv.scorecard_raw?.length || Object.keys(sv.performances||{}).length);
@@ -3632,7 +3634,7 @@ function renderAdmin() {
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
       <div>
         <div class="admin-section-title" style="margin:0;">Fantasy League Admin</div>
-        <div style="font-size:10px;color:var(--muted);letter-spacing:1px;margin-top:2px;">v5.2</div>
+        <div style="font-size:10px;color:var(--muted);letter-spacing:1px;margin-top:2px;">v5.3</div>
       </div>
       <div class="insights-subtabs" style="margin:0;padding:0;">
         <button class="insights-subtab ${_adminSubTab==='settings'?'active':''}" onclick="switchAdminSubTab('settings')">Settings</button>
@@ -3693,9 +3695,9 @@ function renderAdminSettings() {
       ${isStopped ? '<p style="color:var(--red);font-size:12px;letter-spacing:1px;margin-top:8px;">Daily limit reached. Resets at midnight.</p>' : ''}
     </div>
 
-    <div class="admin-section-title">IPL 2026 Schedule</div>
+    <div class="admin-section-title" id="iplYearScheduleTitle">IPL 2026 Schedule</div>
     <div class="match-input-card" style="margin-bottom:16px;">
-      <p style="font-size:13px;color:var(--muted);letter-spacing:1px;margin-bottom:12px;line-height:1.6;">All IPL 2026 matches are fetched automatically. Live and completed matches sync every 30 minutes.</p>
+      <p id="iplYearScheduleDesc" style="font-size:13px;color:var(--muted);letter-spacing:1px;margin-bottom:12px;line-height:1.6;">All IPL 2026 matches are fetched automatically. Live and completed matches sync every 30 minutes.</p>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
         <button onclick="fetchAndShowSchedule()" id="fetchScheduleBtn" style="background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:12px 8px;cursor:pointer;font-family:Barlow Condensed,sans-serif;font-size:15px;font-weight:700;letter-spacing:2px;text-transform:uppercase;">Refresh Schedule</button>
         <button onclick="fetchCricapiResults()" id="importAllScheduledBtn" style="background:var(--surface2);border:1px solid var(--blue);color:var(--blue);border-radius:8px;padding:12px 8px;cursor:pointer;font-family:Barlow Condensed,sans-serif;font-size:15px;font-weight:700;letter-spacing:2px;text-transform:uppercase;">Fetch CricAPI Results</button>
@@ -5629,6 +5631,15 @@ function showToast(msg,type=''){
 // INIT
 // ═══════════════════════════════════════════════════════
 window.addEventListener('DOMContentLoaded',()=>{
+  // Inject dynamic IPL year into static HTML elements
+  const _iplYear = new Date().getFullYear();
+  const _yearEls = {
+    iplYearTagline:    `IPL ${_iplYear} · Fantasy Points Tracker`,
+    iplYearScheduleTitle: `IPL ${_iplYear} Schedule`,
+    iplYearScheduleDesc:  `All IPL ${_iplYear} matches are fetched automatically. Live and completed matches sync every 30 minutes.`,
+  };
+  Object.entries(_yearEls).forEach(([id,text])=>{const el=document.getElementById(id);if(el)el.textContent=text;});
+
   if(window._db) initFirebaseListener();
   if(!liveData.matches) liveData.matches=[];
   renderTab(currentTab);
