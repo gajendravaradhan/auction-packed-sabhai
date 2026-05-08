@@ -1617,10 +1617,12 @@ function renderScorecardHtml(sv, fix) {
   // Derive score string from batting data when inn.score is absent (CricAPI scorecard endpoint often omits it)
   function deriveScore(inn) {
     if (inn.score) return inn.score;
-    const runs = (inn.batting||[]).reduce((s,b)=>s+(b.r||0),0);
+    const batRuns = (inn.batting||[]).reduce((s,b)=>s+(b.r||0),0);
+    const extras = inn.extras||0;
+    const total = batRuns + extras;
     const wkts = (inn.batting||[]).filter(b=>b.out).length;
-    if (!runs && !wkts) return '';
-    return `${runs}/${wkts}`;
+    if (!total && !wkts) return '';
+    return `${total}/${wkts}`;
   }
   if (hasRaw && innings.length >= 1) {
     const inn0 = innings[0], inn1 = innings[1];
@@ -3798,7 +3800,7 @@ function renderAdmin() {
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
       <div>
         <div class="admin-section-title" style="margin:0;">Fantasy League Admin</div>
-        <div style="font-size:10px;color:var(--muted);letter-spacing:1px;margin-top:2px;">v5.12</div>
+        <div style="font-size:10px;color:var(--muted);letter-spacing:1px;margin-top:2px;">v5.13</div>
       </div>
       <div class="insights-subtabs" style="margin:0;padding:0;">
         <button class="insights-subtab ${_adminSubTab==='settings'?'active':''}" onclick="switchAdminSubTab('settings')">Settings</button>
@@ -5307,6 +5309,7 @@ function extractRawScorecard(data) {
     teamName: inn.teamName||inn.team||inn.batTeamName||inn.batTeam||inn.inningsTeamName||'',
     score: inn.score||inn.scorecard||'',
     overs: String(inn.overs||inn.oversBowled||inn.oversDone||''),
+    extras: (() => { const e=inn.extras; if(typeof e==='number') return e; if(e&&typeof e==='object') return (e.wides||0)+(e.noBalls||0)+(e.byes||0)+(e.legByes||0)+(e.penalty||0); const ed=inn.extrasData; if(ed&&typeof ed==='object') return (ed.wides||0)+(ed.noBalls||0)+(ed.byes||0)+(ed.legByes||0)+(ed.penalty||0); return 0; })(),
     batting: (inn.batting||[]).map(b=>({
       name: b.batsman?.name||b.batsmanName||b.name||'',
       r: gn(b,'r','runs','R'),
