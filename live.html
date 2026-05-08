@@ -3810,7 +3810,7 @@ function renderAdmin() {
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
       <div>
         <div class="admin-section-title" style="margin:0;">Fantasy League Admin</div>
-        <div style="font-size:10px;color:var(--muted);letter-spacing:1px;margin-top:2px;">v5.16</div>
+        <div style="font-size:10px;color:var(--muted);letter-spacing:1px;margin-top:2px;">v5.17</div>
       </div>
       <div class="insights-subtabs" style="margin:0;padding:0;">
         <button class="insights-subtab ${_adminSubTab==='settings'?'active':''}" onclick="switchAdminSubTab('settings')">Settings</button>
@@ -5975,9 +5975,9 @@ async function fetchCricapiResults(options = {}) {
         }
       }
 
-      // Skip scorecard fetch for matches already confirmed done with scorecard cached — no new data expected.
+      // Skip scorecard fetch for matches already confirmed done with scorecard cached (including scoreEntry from top-level score[]).
       const existingDone = (liveData.matches || []).find(m => m && m.apiId === scheduleMatch.cricapi_match_id && m.status === 'done');
-      if (existingDone && existingDone.scorecard_raw?.length) { refreshed++; continue; }
+      if (existingDone && existingDone.scorecard_raw?.length && existingDone.scorecard_raw[0]?.scoreEntry) { refreshed++; continue; }
 
       try {
         const d = await fetchCricapiJson('/match_scorecard', { id: scheduleMatch.cricapi_match_id });
