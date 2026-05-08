@@ -1618,9 +1618,15 @@ function renderScorecardHtml(sv, fix) {
   function deriveScore(inn) {
     if (inn.score) return inn.score;
     const batRuns = (inn.batting||[]).reduce((s,b)=>s+(b.r||0),0);
-    const extras = inn.extras||0;
-    const total = batRuns + extras;
     const wkts = (inn.batting||[]).filter(b=>b.out).length;
+    // extras stored explicitly → bat+extras; otherwise bowling sum (includes wides/no-balls, misses only byes/leg-byes)
+    let total;
+    if (inn.extras != null && inn.extras > 0) {
+      total = batRuns + inn.extras;
+    } else {
+      const bowlTotal = (inn.bowling||[]).reduce((s,b)=>s+(b.r||0),0);
+      total = bowlTotal > batRuns ? bowlTotal : batRuns;
+    }
     if (!total && !wkts) return '';
     return `${total}/${wkts}`;
   }
@@ -3800,7 +3806,7 @@ function renderAdmin() {
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
       <div>
         <div class="admin-section-title" style="margin:0;">Fantasy League Admin</div>
-        <div style="font-size:10px;color:var(--muted);letter-spacing:1px;margin-top:2px;">v5.13</div>
+        <div style="font-size:10px;color:var(--muted);letter-spacing:1px;margin-top:2px;">v5.14</div>
       </div>
       <div class="insights-subtabs" style="margin:0;padding:0;">
         <button class="insights-subtab ${_adminSubTab==='settings'?'active':''}" onclick="switchAdminSubTab('settings')">Settings</button>
