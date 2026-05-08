@@ -1768,7 +1768,8 @@ function renderMatches() {
     });
     const isToday=fix.date===today, isPast=fix.date<today;
     const status=sv?.status||(isToday?'today':isPast?'past':'upcoming');
-    const hasConcluded = !!(sv?.potm || sv?.matchResult);
+    // hasConcluded: potm is authoritative; matchResult only counts when match isn't actively live
+    const hasConcluded = !!(sv?.potm || (sv?.matchResult && status !== 'live'));
     const isLive=status==='live'&&!hasConcluded, isDone=status==='done'||hasConcluded||(isPast&&!isToday&&!isLive);
     const bc=isLive?'var(--green)':isDone?'var(--muted)':isToday?'var(--gold)':'var(--surface2)';
     const bl=isLive?'LIVE':isDone?'DONE':isToday?'TODAY':'UPCOMING';
@@ -3637,7 +3638,7 @@ function renderAdmin() {
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
       <div>
         <div class="admin-section-title" style="margin:0;">Fantasy League Admin</div>
-        <div style="font-size:10px;color:var(--muted);letter-spacing:1px;margin-top:2px;">v5.4</div>
+        <div style="font-size:10px;color:var(--muted);letter-spacing:1px;margin-top:2px;">v5.5</div>
       </div>
       <div class="insights-subtabs" style="margin:0;padding:0;">
         <button class="insights-subtab ${_adminSubTab==='settings'?'active':''}" onclick="switchAdminSubTab('settings')">Settings</button>
@@ -5190,7 +5191,8 @@ function upsertMatch(apiId,name,date,scorecardData) {
     const potm=existing.potm||null;
     const teams=(safeScorecardData&&Array.isArray(safeScorecardData.teams)&&safeScorecardData.teams.length)?safeScorecardData.teams:(existing.teams||name);
     const rawSc=extractRawScorecard(safeScorecardData);
-    const matchResult=safeScorecardData.status||safeScorecardData.result||'';
+    // Only store matchResult when match has actually ended (sc.status is a live-status string for in-progress matches)
+    const matchResult=safeScorecardData.matchEnded?(safeScorecardData.result||safeScorecardData.status||''):'';
     liveData.matches[ei]={apiId,label:name,date,teams,status,performances};
     if(potm)liveData.matches[ei].potm=potm;
     if(rawSc.length)liveData.matches[ei].scorecard_raw=rawSc;
@@ -5199,7 +5201,7 @@ function upsertMatch(apiId,name,date,scorecardData) {
     const performances=parsedPerformances;
     const teams=(safeScorecardData&&Array.isArray(safeScorecardData.teams)&&safeScorecardData.teams.length)?safeScorecardData.teams:name;
     const rawSc=extractRawScorecard(safeScorecardData);
-    const matchResult=safeScorecardData.status||safeScorecardData.result||'';
+    const matchResult=safeScorecardData.matchEnded?(safeScorecardData.result||safeScorecardData.status||''):'';
     const m={apiId,label:name,date,teams,status:incomingStatus,performances};
     if(rawSc.length)m.scorecard_raw=rawSc;
     if(matchResult)m.matchResult=matchResult;
@@ -5686,7 +5688,7 @@ async function forceResyncAllCricAPI() {
       match.performances = freshPerfs;
       const rawSc = extractRawScorecard(sc);
       if (rawSc.length) match.scorecard_raw = rawSc;
-      const matchResult = sc.status || sc.result || '';
+      const matchResult = sc.matchEnded ? (sc.result || sc.status || '') : '';
       if (matchResult) match.matchResult = matchResult;
       done++;
     } catch (e) {
