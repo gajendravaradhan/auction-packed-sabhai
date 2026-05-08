@@ -1604,6 +1604,16 @@ function renderScorecardHtml(sv, fix) {
   const hasRaw = innings && innings.length > 0;
 
   // Match score header (ESPN-style 2-row scoreline)
+  // Derive team name from batting player lookup when inn.teamName absent (CricAPI omits or uses different field)
+  function deriveTeamName(inn) {
+    if (inn.teamName) return inn.teamName;
+    for (const b of (inn.batting||[])) {
+      const key = norm(b.name||'');
+      const p = PLAYERS.find(p=>norm(p.cricapiName)===key||norm(p.displayName)===key);
+      if (p && p.iplTeam) return p.iplTeam;
+    }
+    return '';
+  }
   // Derive score string from batting data when inn.score is absent (CricAPI scorecard endpoint often omits it)
   function deriveScore(inn) {
     if (inn.score) return inn.score;
@@ -1614,8 +1624,9 @@ function renderScorecardHtml(sv, fix) {
   }
   if (hasRaw && innings.length >= 1) {
     const inn0 = innings[0], inn1 = innings[1];
-    const t0short = Object.entries(ESPN_TEAM_MAP||{}).find(([k,v])=>norm(v)===norm(inn0.teamName))?.[0] || inn0.teamName;
-    const t0full = ESPN_TEAM_MAP[t0short] || inn0.teamName;
+    const t0teamName = deriveTeamName(inn0);
+    const t0short = Object.entries(ESPN_TEAM_MAP||{}).find(([k,v])=>norm(v)===norm(t0teamName))?.[0] || t0teamName;
+    const t0full = ESPN_TEAM_MAP[t0short] || t0teamName;
     const t0score = deriveScore(inn0);
     const t0runs = parseInt((t0score||'').split('/')[0]) || 0;
     const target = t0runs + 1;
@@ -1632,8 +1643,9 @@ function renderScorecardHtml(sv, fix) {
     html += `<span style="font-family:Barlow Condensed,sans-serif;font-size:${row0Bold?'18':'16'}px;font-weight:${row0Bold?'800':'600'};color:${row0Bold?'var(--text)':'var(--muted)'};">${t0score||'—'}${row0Bold&&row0Overs?`<span style="font-size:11px;font-weight:400;color:var(--muted);margin-left:4px;">${row0Overs}</span>`:''}</span>`;
     html += `</div>`;
     if (inn1) {
-      const t1short = Object.entries(ESPN_TEAM_MAP||{}).find(([k,v])=>norm(v)===norm(inn1.teamName))?.[0] || inn1.teamName;
-      const t1full = ESPN_TEAM_MAP[t1short] || inn1.teamName;
+      const t1teamName = deriveTeamName(inn1);
+      const t1short = Object.entries(ESPN_TEAM_MAP||{}).find(([k,v])=>norm(v)===norm(t1teamName))?.[0] || t1teamName;
+      const t1full = ESPN_TEAM_MAP[t1short] || t1teamName;
       const t1score = deriveScore(inn1);
       const t1overs = (inn1.overs && inn1.overs !== '0' && inn1.overs !== '') ? inn1.overs : '';
       const ovLabel = t1overs ? `${t1overs}/20 ov` : '';
@@ -3786,7 +3798,7 @@ function renderAdmin() {
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
       <div>
         <div class="admin-section-title" style="margin:0;">Fantasy League Admin</div>
-        <div style="font-size:10px;color:var(--muted);letter-spacing:1px;margin-top:2px;">v5.11</div>
+        <div style="font-size:10px;color:var(--muted);letter-spacing:1px;margin-top:2px;">v5.12</div>
       </div>
       <div class="insights-subtabs" style="margin:0;padding:0;">
         <button class="insights-subtab ${_adminSubTab==='settings'?'active':''}" onclick="switchAdminSubTab('settings')">Settings</button>
@@ -5292,7 +5304,7 @@ function extractRawScorecard(data) {
   if (!scorecard.length) return [];
   function gn(obj,...keys){for(const k of keys){const v=obj[k];if(v!=null&&v!==''&&v!=='-'){const n=+v;if(!isNaN(n))return n;}}return 0;}
   return scorecard.map(inn=>({
-    teamName: inn.teamName||inn.team||'',
+    teamName: inn.teamName||inn.team||inn.batTeamName||inn.batTeam||inn.inningsTeamName||'',
     score: inn.score||inn.scorecard||'',
     overs: String(inn.overs||inn.oversBowled||inn.oversDone||''),
     batting: (inn.batting||[]).map(b=>({
