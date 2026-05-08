@@ -1752,12 +1752,15 @@ function renderMatches() {
   list.innerHTML = sched.map((fix,si) => {
     const homeTeamFull = (ESPN_TEAM_MAP[fix.home]||fix.home).toLowerCase();
     const awayTeamFull = (ESPN_TEAM_MAP[fix.away]||fix.away).toLowerCase();
+    // Resolve cricapi ID: use hardcoded first, then dynamically discovered map
+    const resolvedCricapiId = fix.cricapi_match_id ||
+      (liveData.cricapiIdMap && fix.espn_match_id ? liveData.cricapiIdMap[String(fix.espn_match_id)] : null);
     const sv = saved.find(m=>{
-      // Prefer exact ID match
-      if (fix.cricapi_match_id && m.apiId===fix.cricapi_match_id) return true;
+      // Prefer exact ID match (hardcoded or from map)
+      if (resolvedCricapiId && m.apiId===resolvedCricapiId) return true;
       // If ID is known but didn't match, skip (don't cross-contaminate)
-      if (fix.cricapi_match_id) return false;
-      // ID unknown: match by team names + date (±1 day) to avoid leg-1/leg-2 mixup
+      if (resolvedCricapiId) return false;
+      // ID unknown: match by team names + date (±1.5 days) to avoid leg-1/leg-2 mixup
       const label=(m.label||'').toLowerCase();
       if (!label.includes(homeTeamFull)||!label.includes(awayTeamFull)) return false;
       const mDate=new Date(m.date||''), fDate=new Date(fix.date||'');
@@ -3634,7 +3637,7 @@ function renderAdmin() {
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
       <div>
         <div class="admin-section-title" style="margin:0;">Fantasy League Admin</div>
-        <div style="font-size:10px;color:var(--muted);letter-spacing:1px;margin-top:2px;">v5.3</div>
+        <div style="font-size:10px;color:var(--muted);letter-spacing:1px;margin-top:2px;">v5.4</div>
       </div>
       <div class="insights-subtabs" style="margin:0;padding:0;">
         <button class="insights-subtab ${_adminSubTab==='settings'?'active':''}" onclick="switchAdminSubTab('settings')">Settings</button>
