@@ -2782,6 +2782,7 @@ let insightsScatterVisibleTeams = null;
 let insightsScatterMode = 'players';
 let insightsDotLegendVisible = null;
 let insightsRoleMode = 'batting';
+let insightsRoleChartType = 'bar';
 let insightsDotOrder = 'total';
 let insightsBatPosByPlayer = {};
 let insightsBatPosEvents = [];
@@ -2922,6 +2923,11 @@ function setAllDotLegendParts(val) {
 
 function setInsightsRoleMode(mode) {
   insightsRoleMode = mode;
+  renderInsights();
+}
+
+function setInsightsRoleChartType(type) {
+  insightsRoleChartType = type;
   renderInsights();
 }
 
@@ -3193,6 +3199,10 @@ function renderInsightsRoleEfficiency() {
   const controls = '<div class="insight-controls">'
     + '<button class="insights-subtab ' + (insightsRoleMode === 'batting' ? 'active' : '') + '" onclick="setInsightsRoleMode(\'batting\')">Batting Position Drilldown</button>'
     + '<button class="insights-subtab ' + (insightsRoleMode === 'bowling' ? 'active' : '') + '" onclick="setInsightsRoleMode(\'bowling\')">Bowling Type/Arm Drilldown</button>'
+    + '</div>'
+    + '<div class="insight-controls" style="margin-top:6px;">'
+    + '<button class="insights-subtab ' + (insightsRoleChartType === 'bar' ? 'active' : '') + '" onclick="setInsightsRoleChartType(\'bar\')">Bar</button>'
+    + '<button class="insights-subtab ' + (insightsRoleChartType === 'line' ? 'active' : '') + '" onclick="setInsightsRoleChartType(\'line\')">Line</button>'
     + '</div>';
 
   if (insightsRoleMode === 'batting') {
@@ -3280,9 +3290,47 @@ function renderInsightsRoleEfficiency() {
         + '</tbody></table><div style="font-size:11px;color:var(--muted);margin-top:6px;">Unknown means batting position was not captured from ESPN innings for that player/match (for example no batting row with batted_type=yes, API mismatch, or unresolved name).</div></div>'
       : '';
 
+    // Line chart: points by batting position 1-11
+    const posPoints = Array.from({length: 11}, (_, i) => {
+      const pos = i + 1;
+      let total = 0;
+      Object.values(byBucketPos).forEach(bkt => { total += bkt[pos] || 0; });
+      return { pos, pts: total };
+    });
+    const batLineChart = (() => {
+      const w = 560, h = 200, pl = 44, pr = 16, pt = 16, pb = 32;
+      const maxY = Math.max(...posPoints.map(d => d.pts), 1);
+      const cx = i => pl + (i / 10) * (w - pl - pr);
+      const cy = v => h - pb - (v / maxY) * (h - pt - pb);
+      const pts = posPoints.map((d, i) => cx(i).toFixed(1) + ',' + cy(d.pts).toFixed(1)).join(' ');
+      const xGrid = posPoints.map((d, i) =>
+        '<line x1="' + cx(i).toFixed(1) + '" y1="' + pt + '" x2="' + cx(i).toFixed(1) + '" y2="' + (h-pb) + '" stroke="#163555" stroke-dasharray="3,3"/>'
+        + '<text x="' + cx(i).toFixed(1) + '" y="' + (h - pb + 14) + '" fill="#9fb8d8" font-size="10" text-anchor="middle">' + d.pos + '</text>'
+      ).join('');
+      const yTicks = [0, 0.25, 0.5, 0.75, 1].map(f => {
+        const yy = cy(f * maxY);
+        return '<line x1="' + pl + '" y1="' + yy.toFixed(1) + '" x2="' + (w-pr) + '" y2="' + yy.toFixed(1) + '" stroke="#163555" />'
+          + '<text x="' + (pl - 4) + '" y="' + (yy + 4).toFixed(1) + '" fill="#9fb8d8" font-size="9" text-anchor="end">' + Math.round(f * maxY) + '</text>';
+      }).join('');
+      const dots = posPoints.map((d, i) =>
+        '<circle cx="' + cx(i).toFixed(1) + '" cy="' + cy(d.pts).toFixed(1) + '" r="4" fill="' + (posColors[d.pos] || '#ffb800') + '"><title>Position ' + d.pos + ': ' + Math.round(d.pts) + ' pts</title></circle>'
+      ).join('');
+      return '<svg viewBox="0 0 ' + w + ' ' + h + '" style="width:100%;height:auto;background:#071325;border:1px solid #123050;border-radius:8px;margin-bottom:10px;">'
+        + yTicks + xGrid
+        + '<polyline fill="none" stroke="#00bcd4" stroke-width="2" points="' + pts + '"/>'
+        + dots
+        + '<line x1="' + pl + '" y1="' + (h-pb) + '" x2="' + (w-pr) + '" y2="' + (h-pb) + '" stroke="#2a5274"/>'
+        + '<line x1="' + pl + '" y1="' + pt + '" x2="' + pl + '" y2="' + (h-pb) + '" stroke="#2a5274"/>'
+        + '<text x="' + ((pl + w - pr) / 2) + '" y="' + (h - 2) + '" fill="#c9d9eb" font-size="10" text-anchor="middle">Batting Position</text>'
+        + '<text x="12" y="' + ((pt + h - pb) / 2) + '" transform="rotate(-90 12 ' + ((pt + h - pb) / 2) + ')" fill="#c9d9eb" font-size="10" text-anchor="middle">Points</text>'
+        + '</svg>';
+    })();
+
+    const chartContent = insightsRoleChartType === 'line' ? batLineChart : bucketCards;
+
     return '<div class="insight-card"><div class="insight-title">Role Efficiency · Batting Position</div>' + controls
       + (insightsBatPosLoading ? '<div style="font-size:12px;color:var(--muted);margin-bottom:8px;">Loading batting positions from ESPN...</div>' : '')
-      + bucketCards + unknownDetails
+      + chartContent + (insightsRoleChartType === 'bar' ? unknownDetails : '')
       + renderInsightExplain('roleEfficiency') + '</div>';
   }
 
@@ -3318,9 +3366,50 @@ function renderInsightsRoleEfficiency() {
       + unknownRows.slice(0, 50).map(r => '<tr><td>' + r.playerName + '</td><td>' + r.matchLabel + '</td><td>' + r.pts + '</td></tr>').join('')
       + '</tbody></table><div style="font-size:11px;color:var(--muted);margin-top:6px;">Unknown means bowling profile (type/arm) is missing for that player in the app mapping.</div></div>'
     : '';
+
+  const bowlLineChart = (() => {
+    if (!rows.length) return '';
+    const n = rows.length;
+    const w = 560, h = 200, pl = 44, pr = 16, pt = 16, pb = 48;
+    const maxY = Math.max(...rows.map(([,v]) => v), 1);
+    const cx = i => pl + (n > 1 ? (i / (n - 1)) * (w - pl - pr) : (w - pl - pr) / 2);
+    const cy = v => h - pb - (v / maxY) * (h - pt - pb);
+    const bowlColors = { 'Spinner-Left': '#b39ddb', 'Spinner-Right': '#7c4dff', 'Fast-Left': '#80deea', 'Fast-Right': '#00bcd4', 'Unknown': '#546e7a' };
+    const linePoints = rows.map(([,v], i) => cx(i).toFixed(1) + ',' + cy(v).toFixed(1)).join(' ');
+    const xLabels = rows.map(([k,], i) => {
+      const parts = k.split('-');
+      const line1 = parts[0] || k;
+      const line2 = parts[1] || '';
+      const xx = cx(i).toFixed(1);
+      return '<text x="' + xx + '" y="' + (h - pb + 14) + '" fill="#9fb8d8" font-size="9" text-anchor="middle">' + line1 + '</text>'
+        + (line2 ? '<text x="' + xx + '" y="' + (h - pb + 25) + '" fill="#9fb8d8" font-size="9" text-anchor="middle">' + line2 + '</text>' : '');
+    }).join('');
+    const xGrid = rows.map(([,], i) =>
+      '<line x1="' + cx(i).toFixed(1) + '" y1="' + pt + '" x2="' + cx(i).toFixed(1) + '" y2="' + (h-pb) + '" stroke="#163555" stroke-dasharray="3,3"/>'
+    ).join('');
+    const yTicks = [0, 0.25, 0.5, 0.75, 1].map(f => {
+      const yy = cy(f * maxY);
+      return '<line x1="' + pl + '" y1="' + yy.toFixed(1) + '" x2="' + (w-pr) + '" y2="' + yy.toFixed(1) + '" stroke="#163555"/>'
+        + '<text x="' + (pl - 4) + '" y="' + (yy + 4).toFixed(1) + '" fill="#9fb8d8" font-size="9" text-anchor="end">' + Math.round(f * maxY) + '</text>';
+    }).join('');
+    const dots = rows.map(([k, v], i) =>
+      '<circle cx="' + cx(i).toFixed(1) + '" cy="' + cy(v).toFixed(1) + '" r="5" fill="' + (bowlColors[k] || '#ffb800') + '"><title>' + k + ': ' + Math.round(v) + ' pts</title></circle>'
+    ).join('');
+    return '<svg viewBox="0 0 ' + w + ' ' + h + '" style="width:100%;height:auto;background:#071325;border:1px solid #123050;border-radius:8px;margin-bottom:10px;">'
+      + yTicks + xGrid
+      + '<polyline fill="none" stroke="#00e676" stroke-width="2" points="' + linePoints + '"/>'
+      + dots + xLabels
+      + '<line x1="' + pl + '" y1="' + (h-pb) + '" x2="' + (w-pr) + '" y2="' + (h-pb) + '" stroke="#2a5274"/>'
+      + '<line x1="' + pl + '" y1="' + pt + '" x2="' + pl + '" y2="' + (h-pb) + '" stroke="#2a5274"/>'
+      + '<text x="12" y="' + ((pt + h - pb) / 2) + '" transform="rotate(-90 12 ' + ((pt + h - pb) / 2) + ')" fill="#c9d9eb" font-size="10" text-anchor="middle">Points</text>'
+      + '</svg>';
+  })();
+
+  const bowlBarChart = rows.map(([k,v]) => '<div style="margin-bottom:8px;"><div style="display:flex;justify-content:space-between;font-size:12px;color:var(--muted);"><span>' + k + '</span><span>' + Math.round(v) + '</span></div><div class="insight-stack"><div class="insight-seg-base" style="width:' + Math.round((v/max)*100) + '%"></div></div></div>').join('');
+
   return '<div class="insight-card"><div class="insight-title">Role Efficiency · Bowling Type/Arm</div>' + controls
-    + rows.map(([k,v]) => '<div style="margin-bottom:8px;"><div style="display:flex;justify-content:space-between;font-size:12px;color:var(--muted);"><span>' + k + '</span><span>' + Math.round(v) + '</span></div><div class="insight-stack"><div class="insight-seg-base" style="width:' + Math.round((v/max)*100) + '%"></div></div></div>').join('')
-    + unknownDetails
+    + (insightsRoleChartType === 'line' ? bowlLineChart : bowlBarChart)
+    + (insightsRoleChartType === 'bar' ? unknownDetails : '')
     + renderInsightExplain('roleEfficiency') + '</div>';
 }
 
@@ -3649,7 +3738,7 @@ function renderAdmin() {
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
       <div>
         <div class="admin-section-title" style="margin:0;">Fantasy League Admin</div>
-        <div style="font-size:10px;color:var(--muted);letter-spacing:1px;margin-top:2px;">v5.8</div>
+        <div style="font-size:10px;color:var(--muted);letter-spacing:1px;margin-top:2px;">v5.9</div>
       </div>
       <div class="insights-subtabs" style="margin:0;padding:0;">
         <button class="insights-subtab ${_adminSubTab==='settings'?'active':''}" onclick="switchAdminSubTab('settings')">Settings</button>
