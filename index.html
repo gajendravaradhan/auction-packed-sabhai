@@ -1604,12 +1604,20 @@ function renderScorecardHtml(sv, fix) {
   const hasRaw = innings && innings.length > 0;
 
   // Match score header (ESPN-style 2-row scoreline)
+  // Derive score string from batting data when inn.score is absent (CricAPI scorecard endpoint often omits it)
+  function deriveScore(inn) {
+    if (inn.score) return inn.score;
+    const runs = (inn.batting||[]).reduce((s,b)=>s+(b.r||0),0);
+    const wkts = (inn.batting||[]).filter(b=>b.out).length;
+    if (!runs && !wkts) return '';
+    return `${runs}/${wkts}`;
+  }
   if (hasRaw && innings.length >= 1) {
     const inn0 = innings[0], inn1 = innings[1];
     const t0short = Object.entries(ESPN_TEAM_MAP||{}).find(([k,v])=>norm(v)===norm(inn0.teamName))?.[0] || inn0.teamName;
     const t0full = ESPN_TEAM_MAP[t0short] || inn0.teamName;
-    // Parse runs from score string for target calculation
-    const t0runs = parseInt((inn0.score||'').split('/')[0]) || 0;
+    const t0score = deriveScore(inn0);
+    const t0runs = parseInt((t0score||'').split('/')[0]) || 0;
     const target = t0runs + 1;
     const isLiveMatch = !isDone;
     // Row 0 — first innings team (always completed when row 1 exists, else current)
@@ -1621,11 +1629,12 @@ function renderScorecardHtml(sv, fix) {
     html += `<span style="font-family:Barlow Condensed,sans-serif;font-size:12px;font-weight:700;letter-spacing:1px;background:var(--bg);border-radius:4px;padding:1px 6px;color:var(--muted);">${t0short}</span>`;
     html += `<span style="font-family:Barlow Condensed,sans-serif;font-size:13px;font-weight:${row0Bold?'700':'500'};color:var(--text);">${t0full}</span>`;
     html += `</div>`;
-    html += `<span style="font-family:Barlow Condensed,sans-serif;font-size:${row0Bold?'18':'16'}px;font-weight:${row0Bold?'800':'600'};color:${row0Bold?'var(--text)':'var(--muted)'};">${inn0.score||'—'}${row0Bold&&row0Overs?`<span style="font-size:11px;font-weight:400;color:var(--muted);margin-left:4px;">${row0Overs}</span>`:''}</span>`;
+    html += `<span style="font-family:Barlow Condensed,sans-serif;font-size:${row0Bold?'18':'16'}px;font-weight:${row0Bold?'800':'600'};color:${row0Bold?'var(--text)':'var(--muted)'};">${t0score||'—'}${row0Bold&&row0Overs?`<span style="font-size:11px;font-weight:400;color:var(--muted);margin-left:4px;">${row0Overs}</span>`:''}</span>`;
     html += `</div>`;
     if (inn1) {
       const t1short = Object.entries(ESPN_TEAM_MAP||{}).find(([k,v])=>norm(v)===norm(inn1.teamName))?.[0] || inn1.teamName;
       const t1full = ESPN_TEAM_MAP[t1short] || inn1.teamName;
+      const t1score = deriveScore(inn1);
       const t1overs = (inn1.overs && inn1.overs !== '0' && inn1.overs !== '') ? inn1.overs : '';
       const ovLabel = t1overs ? `${t1overs}/20 ov` : '';
       const metaStr = isLiveMatch && (ovLabel||target) ? `(${[ovLabel, `T:${target}`].filter(Boolean).join(', ')}) ` : '';
@@ -1636,7 +1645,7 @@ function renderScorecardHtml(sv, fix) {
       html += `</div>`;
       html += `<div style="display:flex;align-items:center;gap:0;">`;
       if (metaStr) html += `<span style="font-size:11px;color:var(--muted);margin-right:6px;">${metaStr.trim()}</span>`;
-      html += `<span style="font-family:Barlow Condensed,sans-serif;font-size:18px;font-weight:800;color:var(--text);">${inn1.score||'—'}</span>`;
+      html += `<span style="font-family:Barlow Condensed,sans-serif;font-size:18px;font-weight:800;color:var(--text);">${t1score||'—'}</span>`;
       html += `</div></div>`;
     }
     html += `</div>`;
@@ -3777,7 +3786,7 @@ function renderAdmin() {
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
       <div>
         <div class="admin-section-title" style="margin:0;">Fantasy League Admin</div>
-        <div style="font-size:10px;color:var(--muted);letter-spacing:1px;margin-top:2px;">v5.10</div>
+        <div style="font-size:10px;color:var(--muted);letter-spacing:1px;margin-top:2px;">v5.11</div>
       </div>
       <div class="insights-subtabs" style="margin:0;padding:0;">
         <button class="insights-subtab ${_adminSubTab==='settings'?'active':''}" onclick="switchAdminSubTab('settings')">Settings</button>
