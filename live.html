@@ -1768,8 +1768,9 @@ function renderMatches() {
     });
     const isToday=fix.date===today, isPast=fix.date<today;
     const status=sv?.status||(isToday?'today':isPast?'past':'upcoming');
-    // hasConcluded: potm is authoritative; matchResult only counts when match isn't actively live
-    const hasConcluded = !!(sv?.potm || (sv?.matchResult && status !== 'live'));
+    // hasConcluded: potm is authoritative; matchResult only counts for past/done matches
+    // (status='live' + matchResult can occur with stale Firebase data from live API responses)
+    const hasConcluded = !!(sv?.potm || (sv?.matchResult && (isPast || status === 'done')));
     const isLive=status==='live'&&!hasConcluded, isDone=status==='done'||hasConcluded||(isPast&&!isToday&&!isLive);
     const bc=isLive?'var(--green)':isDone?'var(--muted)':isToday?'var(--gold)':'var(--surface2)';
     const bl=isLive?'LIVE':isDone?'DONE':isToday?'TODAY':'UPCOMING';
@@ -3638,7 +3639,7 @@ function renderAdmin() {
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
       <div>
         <div class="admin-section-title" style="margin:0;">Fantasy League Admin</div>
-        <div style="font-size:10px;color:var(--muted);letter-spacing:1px;margin-top:2px;">v5.5</div>
+        <div style="font-size:10px;color:var(--muted);letter-spacing:1px;margin-top:2px;">v5.6</div>
       </div>
       <div class="insights-subtabs" style="margin:0;padding:0;">
         <button class="insights-subtab ${_adminSubTab==='settings'?'active':''}" onclick="switchAdminSubTab('settings')">Settings</button>
