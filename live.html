@@ -2181,17 +2181,13 @@ function renderLive() {
   const tabIdx = Math.min(_liveMatchTab, Math.max(0, todayActiveMatches.length - 1));
   const tabMatch = todayActiveMatches[tabIdx];
   const selectedMatch = (tabMatch && !tabMatch._pending) ? tabMatch : (live || likelyLiveFallback);
-  // Resolve schedule entry for selectedMatch to get the correct IPL 2026 match number.
-  // Must match by date when falling back to team-name lookup — same teams play twice so
-  // a date-agnostic name match can resolve to the wrong leg (e.g. match 9 instead of 52).
-  const _smDate = String(selectedMatch?.date || '').slice(0, 10);
-  const selectedFix = selectedMatch ? (
-    IPL_2026_SCHEDULE.find(s => s.cricapi_match_id && selectedMatch.apiId === s.cricapi_match_id) ||
-    IPL_2026_SCHEDULE.find(s => s.date === _smDate && matchScheduleTeams(s, selectedMatch.label || ''))
-  ) : null;
-  const liveMatchLabel = selectedFix
-    ? `${ESPN_TEAM_MAP[selectedFix.home]||selectedFix.home} vs ${ESPN_TEAM_MAP[selectedFix.away]||selectedFix.away}, Match ${selectedFix.match}`
+  // Use todaySchedule[tabIdx] directly for header — schedule is authoritative for match number
+  // and team names. Never derive from selectedMatch.label (CricAPI label has wrong match number).
+  const headerFix = todaySchedule.length > 0 ? todaySchedule[tabIdx] : null;
+  const liveMatchLabel = headerFix
+    ? `${ESPN_TEAM_MAP[headerFix.home]||headerFix.home} vs ${ESPN_TEAM_MAP[headerFix.away]||headerFix.away}, Match ${headerFix.match}`
     : (selectedMatch?.label || 'Match in Progress');
+  const liveMatchDate = headerFix?.date || selectedMatch?.date || '';
   // Pending tab selected — show placeholder, still render sub-tabs
   if (tabMatch && tabMatch._pending && !selectedMatch) {
     const subHtml = todayActiveMatches.length > 1 ? subTabsHtml : '';
@@ -2290,7 +2286,8 @@ function renderLive() {
     <div style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap;">
       ${todayActiveMatches.map((m, i) => {
         const isActive = i === tabIdx;
-        const shortLabel = (m.label || 'Match').split(',')[0];
+        const sf = todaySchedule[i];
+        const shortLabel = sf ? `${sf.home} vs ${sf.away}` : (m.label || 'Match').split(',')[0];
         const mIsLive = m.status === 'live';
         const mIsPending = !!m._pending;
         const borderColor = isActive ? (mIsPending ? 'var(--gold)' : 'var(--green)') : 'var(--border)';
@@ -2304,7 +2301,7 @@ function renderLive() {
     <div class="live-match-header">
       ${liveBadgeMarkup}
       <div class="live-match-teams">${liveMatchLabel}</div>
-      <div class="live-match-score">${selectedMatch.date||''}${isVerifiedLive ? '' : ' · Showing latest scoring contributions'}</div>
+      <div class="live-match-score">${liveMatchDate}${isVerifiedLive ? '' : ' · Showing latest scoring contributions'}</div>
     </div>
     <div class="leaderboard-title" style="margin-top:20px">Fantasy Points Today</div>
     ${liveRows}`;
@@ -3835,7 +3832,7 @@ function renderAdmin() {
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
       <div>
         <div class="admin-section-title" style="margin:0;">Fantasy League Admin</div>
-        <div style="font-size:10px;color:var(--muted);letter-spacing:1px;margin-top:2px;">v5.20</div>
+        <div style="font-size:10px;color:var(--muted);letter-spacing:1px;margin-top:2px;">v5.23</div>
       </div>
       <div class="insights-subtabs" style="margin:0;padding:0;">
         <button class="insights-subtab ${_adminSubTab==='settings'?'active':''}" onclick="switchAdminSubTab('settings')">Settings</button>
