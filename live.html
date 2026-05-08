@@ -3803,7 +3803,7 @@ function renderAdmin() {
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
       <div>
         <div class="admin-section-title" style="margin:0;">Fantasy League Admin</div>
-        <div style="font-size:10px;color:var(--muted);letter-spacing:1px;margin-top:2px;">v5.14</div>
+        <div style="font-size:10px;color:var(--muted);letter-spacing:1px;margin-top:2px;">v5.15</div>
       </div>
       <div class="insights-subtabs" style="margin:0;padding:0;">
         <button class="insights-subtab ${_adminSubTab==='settings'?'active':''}" onclick="switchAdminSubTab('settings')">Settings</button>
@@ -4460,8 +4460,19 @@ function initMatchDayWatcher() {
   },60000);
   document.addEventListener('visibilitychange',()=>{
     if(document.visibilityState==='visible'&&isIPLMatchDay()&&isWithinAutoSyncWindowET()){
-      if(!_autoPolling&&apiCallsRemaining()>0)startAutoSync();
-      else if(_autoPolling)runSyncNow();
+      // Only sync if there is a live match or today has matches not yet marked done
+      const todayIST=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Kolkata'}).format(new Date());
+      const hasLive=(liveData.matches||[]).some(m=>m&&m.status==='live');
+      const hasTodayPending=IPL_2026_SCHEDULE.some(s=>{
+        if(!s||s.date!==todayIST)return false;
+        const resolvedId=s.cricapi_match_id||(liveData.cricapiIdMap&&s.espn_match_id?liveData.cricapiIdMap[String(s.espn_match_id)]:null);
+        if(!resolvedId)return true; // unknown ID — assume may be pending
+        return !(liveData.matches||[]).some(m=>m&&m.apiId===resolvedId&&m.status==='done');
+      });
+      if(hasLive||hasTodayPending){
+        if(!_autoPolling&&apiCallsRemaining()>0)startAutoSync();
+        else if(_autoPolling)runSyncNow();
+      }
     }
   });
 }
@@ -5312,7 +5323,7 @@ function extractRawScorecard(data) {
     teamName: inn.teamName||inn.team||inn.batTeamName||inn.batTeam||inn.inningsTeamName||'',
     score: inn.score||inn.scorecard||'',
     overs: String(inn.overs||inn.oversBowled||inn.oversDone||''),
-    extras: (() => { const e=inn.extras; if(typeof e==='number') return e; if(e&&typeof e==='object') return (e.wides||0)+(e.noBalls||0)+(e.byes||0)+(e.legByes||0)+(e.penalty||0); const ed=inn.extrasData; if(ed&&typeof ed==='object') return (ed.wides||0)+(ed.noBalls||0)+(ed.byes||0)+(ed.legByes||0)+(ed.penalty||0); return 0; })(),
+    extras: (() => { const e=inn.extras; if(typeof e==='number'&&e>0) return e; if(e&&typeof e==='object') return (e.wides||e.wd||0)+(e.noBalls||e.nb||0)+(e.byes||e.b||0)+(e.legByes||e.lb||0)+(e.penalty||e.p||0); const ed=inn.extrasData; if(ed&&typeof ed==='object') return (ed.wides||ed.wd||0)+(ed.noBalls||ed.nb||0)+(ed.byes||ed.b||0)+(ed.legByes||ed.lb||0)+(ed.penalty||ed.p||0); return 0; })(),
     batting: (inn.batting||[]).map(b=>({
       name: b.batsman?.name||b.batsmanName||b.name||'',
       r: gn(b,'r','runs','R'),
