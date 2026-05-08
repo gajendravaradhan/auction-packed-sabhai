@@ -1578,7 +1578,8 @@ function toggleRosterLive(id, headerEl) {
 
 // ── MATCHES ──
 function renderScorecardHtml(sv, fix) {
-  const isDone = sv.status === 'done' || !!(sv.potm || sv.matchResult);
+  const isMatchToday = fix?.date === new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Kolkata'}).format(new Date());
+  const isDone = isMatchToday ? !!(sv.potm) : (sv.status === 'done' || !!(sv.potm || sv.matchResult));
   const perfs = sv.performances || {};
   const norm = s => (s||'').toLowerCase().replace(/[^a-z]/g,'');
   function resolveDisplayName(apiName) {
@@ -1768,10 +1769,14 @@ function renderMatches() {
     });
     const isToday=fix.date===today, isPast=fix.date<today;
     const status=sv?.status||(isToday?'today':isPast?'past':'upcoming');
-    // hasConcluded: potm is authoritative; matchResult only counts for past/done matches
-    // (status='live' + matchResult can occur with stale Firebase data from live API responses)
-    const hasConcluded = !!(sv?.potm || (sv?.matchResult && (isPast || status === 'done')));
-    const isLive=status==='live'&&!hasConcluded, isDone=status==='done'||hasConcluded||(isPast&&!isToday&&!isLive);
+    // potm is the authoritative "match concluded" signal per spec (DONE = result + POTM)
+    // For today's match: ignore status='done' and matchResult — CricAPI can set matchEnded
+    // prematurely; only trust potm (set via ESPN scrape after actual conclusion)
+    // For past matches: also allow matchResult when status confirms done or match is past
+    const hasConcluded = isToday
+      ? !!(sv?.potm)
+      : !!(sv?.potm || (sv?.matchResult && (isPast || status === 'done')));
+    const isLive=status==='live'&&!hasConcluded, isDone=(status==='done'&&!isToday)||hasConcluded||(isPast&&!isToday&&!isLive);
     const bc=isLive?'var(--green)':isDone?'var(--muted)':isToday?'var(--gold)':'var(--surface2)';
     const bl=isLive?'LIVE':isDone?'DONE':isToday?'TODAY':'UPCOMING';
     const hasData = sv && (sv.scorecard_raw?.length || Object.keys(sv.performances||{}).length);
@@ -3639,7 +3644,7 @@ function renderAdmin() {
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
       <div>
         <div class="admin-section-title" style="margin:0;">Fantasy League Admin</div>
-        <div style="font-size:10px;color:var(--muted);letter-spacing:1px;margin-top:2px;">v5.6</div>
+        <div style="font-size:10px;color:var(--muted);letter-spacing:1px;margin-top:2px;">v5.7</div>
       </div>
       <div class="insights-subtabs" style="margin:0;padding:0;">
         <button class="insights-subtab ${_adminSubTab==='settings'?'active':''}" onclick="switchAdminSubTab('settings')">Settings</button>
