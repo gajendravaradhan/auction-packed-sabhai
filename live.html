@@ -1606,6 +1606,8 @@ function renderScorecardHtml(sv, fix) {
   // Match score header (ESPN-style 2-row scoreline)
   function deriveTeamName(inn) {
     if (inn.teamName) return inn.teamName;
+    // CricAPI top-level score[].inning = "Team Name Inning 1"
+    if (inn.scoreEntry?.inning) return inn.scoreEntry.inning.replace(/\s+Inning\s+\d+.*$/i,'').trim();
     for (const b of (inn.batting||[])) {
       const key = norm(b.name||'');
       const p = PLAYERS.find(p=>norm(p.cricapiName)===key||norm(p.displayName)===key);
@@ -1613,12 +1615,16 @@ function renderScorecardHtml(sv, fix) {
     }
     return '';
   }
-  // Derive score from batting data when inn.score is absent (CricAPI scorecard endpoint often omits it)
   function deriveScore(inn) {
     if (inn.score) return inn.score;
+    // Use CricAPI top-level score entry: {r, w, o}
+    if (inn.scoreEntry && inn.scoreEntry.r != null) {
+      const {r, w} = inn.scoreEntry;
+      return w != null ? `${r}/${w}` : `${r}`;
+    }
+    // Fallback: sum batting + extras
     const batRuns = (inn.batting||[]).reduce((s,b)=>s+(b.r||0),0);
     const wkts = (inn.batting||[]).filter(b=>b.out).length;
-    // extras stored explicitly → bat+extras; otherwise bowling sum (includes wides/no-balls, misses only byes/leg-byes)
     let total;
     if (inn.extras != null && inn.extras > 0) {
       total = batRuns + inn.extras;
@@ -1639,7 +1645,8 @@ function renderScorecardHtml(sv, fix) {
     const target = t0runs + 1;
     const isLiveMatch = !isDone;
     const row0Bold = !inn1;
-    const row0Overs = (inn0.overs && inn0.overs !== '0' && inn0.overs !== '') ? ` (${inn0.overs} ov)` : '';
+    const inn0overs = String(inn0.scoreEntry?.o ?? inn0.overs ?? '');
+    const row0Overs = (inn0overs && inn0overs !== '0' && inn0overs !== '') ? ` (${inn0overs} ov)` : '';
     html += `<div style="background:var(--surface2);border-radius:8px;padding:10px 14px;margin-bottom:10px;">`;
     html += `<div style="display:flex;align-items:center;justify-content:space-between;padding:3px 0;${!inn1?'':'opacity:0.72;'}">`;
     html += `<div style="display:flex;align-items:center;gap:8px;">`;
@@ -1653,7 +1660,7 @@ function renderScorecardHtml(sv, fix) {
       const t1short = Object.entries(ESPN_TEAM_MAP||{}).find(([k,v])=>norm(v)===norm(t1teamName))?.[0] || t1teamName;
       const t1full = ESPN_TEAM_MAP[t1short] || t1teamName;
       const t1score = deriveScore(inn1);
-      const t1overs = (inn1.overs && inn1.overs !== '0' && inn1.overs !== '') ? inn1.overs : '';
+      const t1overs = (() => { const o=String(inn1.scoreEntry?.o ?? inn1.overs ?? ''); return (o && o!=='0') ? o : ''; })();
       const ovLabel = t1overs ? `${t1overs}/20 ov` : '';
       const metaStr = isLiveMatch && (ovLabel||target) ? `(${[ovLabel, `T:${target}`].filter(Boolean).join(', ')}) ` : '';
       html += `<div style="display:flex;align-items:center;justify-content:space-between;padding:3px 0;margin-top:4px;border-top:1px solid var(--bg);">`;
@@ -3803,7 +3810,7 @@ function renderAdmin() {
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
       <div>
         <div class="admin-section-title" style="margin:0;">Fantasy League Admin</div>
-        <div style="font-size:10px;color:var(--muted);letter-spacing:1px;margin-top:2px;">v5.15</div>
+        <div style="font-size:10px;color:var(--muted);letter-spacing:1px;margin-top:2px;">v5.16</div>
       </div>
       <div class="insights-subtabs" style="margin:0;padding:0;">
         <button class="insights-subtab ${_adminSubTab==='settings'?'active':''}" onclick="switchAdminSubTab('settings')">Settings</button>
@@ -5318,10 +5325,12 @@ function resetESPNCheckpoint() {
 function extractRawScorecard(data) {
   const scorecard = data.scorecard || [];
   if (!scorecard.length) return [];
+  const topScore = Array.isArray(data.score) ? data.score : [];
   function gn(obj,...keys){for(const k of keys){const v=obj[k];if(v!=null&&v!==''&&v!=='-'){const n=+v;if(!isNaN(n))return n;}}return 0;}
-  return scorecard.map(inn=>({
+  return scorecard.map((inn,i)=>({
     teamName: inn.teamName||inn.team||inn.batTeamName||inn.batTeam||inn.inningsTeamName||'',
     score: inn.score||inn.scorecard||'',
+    scoreEntry: topScore[i]||null,
     overs: String(inn.overs||inn.oversBowled||inn.oversDone||''),
     extras: (() => { const e=inn.extras; if(typeof e==='number'&&e>0) return e; if(e&&typeof e==='object') return (e.wides||e.wd||0)+(e.noBalls||e.nb||0)+(e.byes||e.b||0)+(e.legByes||e.lb||0)+(e.penalty||e.p||0); const ed=inn.extrasData; if(ed&&typeof ed==='object') return (ed.wides||ed.wd||0)+(ed.noBalls||ed.nb||0)+(ed.byes||ed.b||0)+(ed.legByes||ed.lb||0)+(ed.penalty||ed.p||0); return 0; })(),
     batting: (inn.batting||[]).map(b=>({
