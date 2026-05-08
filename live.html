@@ -1605,9 +1605,10 @@ function renderScorecardHtml(sv, fix) {
 
   // Match score header (ESPN-style 2-row scoreline)
   function deriveTeamName(inn) {
-    if (inn.teamName) return inn.teamName;
-    // CricAPI top-level score[].inning = "Team Name Inning 1"
+    // scoreEntry.inning is the most reliable: "Team Name Inning 1" from CricAPI top-level score[]
     if (inn.scoreEntry?.inning) return inn.scoreEntry.inning.replace(/\s+Inning\s+\d+.*$/i,'').trim();
+    // teamName is safe only when it doesn't contain a comma (comma = match name leaked in, not a single team)
+    if (inn.teamName && !inn.teamName.includes(',')) return inn.teamName;
     for (const b of (inn.batting||[])) {
       const key = norm(b.name||'');
       const p = PLAYERS.find(p=>norm(p.cricapiName)===key||norm(p.displayName)===key);
@@ -3810,7 +3811,7 @@ function renderAdmin() {
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
       <div>
         <div class="admin-section-title" style="margin:0;">Fantasy League Admin</div>
-        <div style="font-size:10px;color:var(--muted);letter-spacing:1px;margin-top:2px;">v5.17</div>
+        <div style="font-size:10px;color:var(--muted);letter-spacing:1px;margin-top:2px;">v5.18</div>
       </div>
       <div class="insights-subtabs" style="margin:0;padding:0;">
         <button class="insights-subtab ${_adminSubTab==='settings'?'active':''}" onclick="switchAdminSubTab('settings')">Settings</button>
