@@ -2162,7 +2162,7 @@ function renderLive() {
         // Find imported match by cricapi_match_id, ESPN id mapping, or team name match
         const fb = allMatches.find(m =>
           (s.cricapi_match_id && m.apiId === s.cricapi_match_id) ||
-          matchScheduleTeams(s, m.label || '')
+          (String(m.date||'').slice(0,10) === today && matchScheduleTeams(s, m.label || ''))
         );
         return fb || { _pending: true, label: s.home + ' vs ' + s.away, date: today, status: 'upcoming', _scheduleMatch: s };
       })
@@ -3837,7 +3837,7 @@ function renderAdmin() {
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
       <div>
         <div class="admin-section-title" style="margin:0;">Fantasy League Admin</div>
-        <div style="font-size:10px;color:var(--muted);letter-spacing:1px;margin-top:2px;">v5.20</div>
+        <div style="font-size:10px;color:var(--muted);letter-spacing:1px;margin-top:2px;">v5.21</div>
       </div>
       <div class="insights-subtabs" style="margin:0;padding:0;">
         <button class="insights-subtab ${_adminSubTab==='settings'?'active':''}" onclick="switchAdminSubTab('settings')">Settings</button>
