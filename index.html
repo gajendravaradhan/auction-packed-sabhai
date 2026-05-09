@@ -1834,7 +1834,7 @@ function renderScorecardHtml(sv, fix) {
 
 function renderMatches() {
   const list = document.getElementById('matchList'); if (!list) return;
-  const today = new Date().toISOString().slice(0,10);
+  const today = new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Kolkata'}).format(new Date());
   const saved = liveData.matches||[];
   const sched = [...IPL_2026_SCHEDULE].sort((a,b)=>String(a.date).localeCompare(String(b.date)));
 
@@ -3834,7 +3834,7 @@ function renderAdmin() {
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
       <div>
         <div class="admin-section-title" style="margin:0;">Fantasy League Admin</div>
-        <div style="font-size:10px;color:var(--muted);letter-spacing:1px;margin-top:2px;">v5.23</div>
+        <div style="font-size:10px;color:var(--muted);letter-spacing:1px;margin-top:2px;">v5.24</div>
       </div>
       <div class="insights-subtabs" style="margin:0;padding:0;">
         <button class="insights-subtab ${_adminSubTab==='settings'?'active':''}" onclick="switchAdminSubTab('settings')">Settings</button>
@@ -4609,7 +4609,7 @@ async function runDailyFinalStackSyncIfNeeded() {
 }
 
 function getMatchesForToday() {
-  const today = new Date().toISOString().slice(0,10);
+  const today = new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Kolkata'}).format(new Date());
   const todayMatches = IPL_2026_SCHEDULE.filter(m => m.date === today);
   if (todayMatches.length === 0) return [];
   if (todayMatches.length === 1) return todayMatches;
