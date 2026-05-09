@@ -288,7 +288,7 @@ select.field-input{cursor:pointer;}
   <div class="landing-cards">
     <div class="landing-card viewer" onclick="showScreen('screenMain');setTimeout(()=>switchTab('leaderboard'),50)">
       <div class="landing-card-title">View</div>
-      <div class="landing-card-sub">Leaderboard · Scores · Live</div>
+      <div class="landing-card-sub">Leaderboard · Scores · Insights</div>
     </div>
     <div class="landing-card" style="border-color:var(--border);cursor:pointer;" onclick="showScreen('screenPickCV')"
       onmouseover="this.style.borderColor='#ff2d55';this.style.boxShadow='0 12px 40px #ff2d5525'"
@@ -298,7 +298,7 @@ select.field-input{cursor:pointer;}
     </div>
     <div class="landing-card admin" onclick="showScreen('screenAdminLogin')">
       <div class="landing-card-title">Admin</div>
-      <div class="landing-card-sub">Enter match results</div>
+      <div class="landing-card-sub">Settings · Performance · More</div>
     </div>
   </div>
 </div>
@@ -354,7 +354,7 @@ select.field-input{cursor:pointer;}
     </div>
   </div>
   <div id="tabContentLeaderboard" class="tab-content active"><div class="leaderboard-wrap"><div class="leaderboard-title">Fantasy Points Leaderboard</div><div id="lbList"></div></div></div>
-  <div id="tabContentMatches" class="tab-content"><div class="mbm-wrap"><div id="matchList"></div></div></div>
+  <div id="tabContentMatches" class="tab-content"><div class="mbm-wrap"><div class="leaderboard-title">IPL 2026 Fixtures and Results</div><div id="matchList"></div></div></div>
   <div id="tabContentPlayers" class="tab-content">
     <div class="ps-wrap">
       <div class="ps-filters" id="psFilters">
@@ -495,7 +495,7 @@ select.field-input{cursor:pointer;}
       </div>
     </div>
   </div>
-  <div id="tabContentInsights" class="tab-content"><div style="max-width:1100px;margin:0 auto;padding:20px 16px;" id="insightsView"></div></div>
+  <div id="tabContentInsights" class="tab-content"><div style="max-width:1100px;margin:0 auto;padding:20px 16px;"><div class="leaderboard-title">IPL 2026 Team and Player Insights</div><div id="insightsView"></div></div></div>
   <div id="tabContentLive" class="tab-content"><div class="live-wrap" id="liveWrap"><div class="no-live">No match in progress</div></div></div>
   <div id="tabContentAdmin" class="tab-content"><div class="admin-wrap" id="adminWrap"></div></div>
 </div>
@@ -3832,7 +3832,7 @@ function renderAdmin() {
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
       <div>
         <div class="admin-section-title" style="margin:0;">Fantasy League Admin</div>
-        <div style="font-size:10px;color:var(--muted);letter-spacing:1px;margin-top:2px;">v5.24</div>
+        <div style="font-size:10px;color:var(--muted);letter-spacing:1px;margin-top:2px;">v5.25</div>
       </div>
       <div class="insights-subtabs" style="margin:0;padding:0;">
         <button class="insights-subtab ${_adminSubTab==='settings'?'active':''}" onclick="switchAdminSubTab('settings')">Settings</button>
