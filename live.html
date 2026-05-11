@@ -2258,10 +2258,17 @@ function renderLive() {
         const pPts = playerTodayPts[p.name] || 0;
         const ptsCls = pPts > 0 ? 'color:var(--green)' : pPts < 0 ? 'color:var(--red)' : 'color:var(--muted)';
         const isLivePlayer = selectedTabTeams.length > 0 && isPlayerFromMatchTeams(p.name, selectedTabTeams);
+        const picks2 = cv[name] || {};
+        const isCap2 = picks2 && resolveCaptainName(picks2.captain) === p.name;
+        const isVC2 = picks2 && resolveCaptainName(picks2.viceCaptain) === p.name;
+        const pKey2 = normalizePlayerKey(p.name);
+        const potmMedals2 = allMatches.filter(m => m.potm && normalizePlayerKey(m.potm) === pKey2).map(() => isCap2 ? '🥇' : isVC2 ? '🥈' : '🥉').join('');
         return `<div class="team-roster-row" onclick="openPlayerModal('${p.name.replace(/'/g,"\\'")}')">
           <div style="flex:1;min-width:0;">
             <div style="display:flex;align-items:center;gap:5px;">
               <span class="roster-player-name${isLivePlayer?' player-live-glow':''}">${p.name}</span>
+              ${isCap2?'<span class="c-badge">C</span>':isVC2?'<span class="vc-badge">VC</span>':''}
+              ${potmMedals2?`<span style="font-size:12px;letter-spacing:1px;">${potmMedals2}</span>`:''}
             </div>
             <div style="font-size:10px;color:var(--muted);letter-spacing:1px;">${p.role}</div>
           </div>
@@ -3842,7 +3849,7 @@ function renderAdmin() {
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
       <div>
         <div class="admin-section-title" style="margin:0;">Fantasy League Admin</div>
-        <div style="font-size:10px;color:var(--muted);letter-spacing:1px;margin-top:2px;">v5.31</div>
+        <div style="font-size:10px;color:var(--muted);letter-spacing:1px;margin-top:2px;">v5.31a</div>
       </div>
       <div class="insights-subtabs" style="margin:0;padding:0;">
         <button class="insights-subtab ${_adminSubTab==='settings'?'active':''}" onclick="switchAdminSubTab('settings')">Settings</button>
@@ -4996,7 +5003,7 @@ async function downloadBackup() {
     const scCacheCount = Object.keys(localStorageSnap).filter(k => k.startsWith(_SC_CACHE_PFX)).length;
     const backup = {
       version: '1.2',
-      appVersion: 'v5.31',
+      appVersion: 'v5.31a',
       timestamp: new Date().toISOString(),
       description: 'AuctionPacked full backup — Firebase (/live + /auctions) + localStorage (providers, calls, scorecard cache)',
       firebase: { live: liveData, auctions },
@@ -7235,6 +7242,8 @@ function openPlayerModal(playerName){
       const pf={...perf,playerName,role:info.role};
       const pts=calcFantasyPoints(pf,info.teamName,match.potm);
       const lines=getPointsBreakdown(pf,info.teamName,match.potm);
+      const hasPotm=normalizePlayerKey(match.potm)&&normalizePlayerKey(playerName)===normalizePlayerKey(match.potm);
+      const potmMedal=hasPotm?(isCap?'🥇':isVC?'🥈':'🥉'):'';
       // Look up full schedule entry for rich match header
       const sched=(()=>{
         // ID match first (cricapi or cricbuzz)
@@ -7254,7 +7263,7 @@ function openPlayerModal(playerName){
       const matchSub=sched?`Match ${sched.match} &nbsp;·&nbsp; ${sched.date} &nbsp;·&nbsp; ${sched.venue}`:(match.date||'');
       return `<div class="match-breakdown-card">
         <div class="match-breakdown-title">
-          <span><div style="font-size:15px;">${matchTitle}</div><div style="font-size:11px;font-weight:400;color:var(--muted);letter-spacing:1px;margin-top:2px;">${matchSub}</div></span>
+          <span><div style="font-size:15px;">${potmMedal?potmMedal+' ':''}${matchTitle}</div><div style="font-size:11px;font-weight:400;color:var(--muted);letter-spacing:1px;margin-top:2px;">${matchSub}</div></span>
           <span style="${pts>0?'color:var(--green)':pts<0?'color:var(--red)':'color:var(--muted)'};font-family:Barlow Condensed,sans-serif;font-size:18px;font-weight:900;white-space:nowrap;margin-left:8px;">${pts>0?'+'+pts:pts}</span>
         </div>
         ${lines.map(l=>`<div class="stat-breakdown-row"><span>${l.label}</span><span class="val ${l.pts>0?'stat-val-pos':l.pts<0?'stat-val-neg':'stat-val-neu'}">${l.pts>0?'+':''}${l.pts}</span></div>`).join('')}
