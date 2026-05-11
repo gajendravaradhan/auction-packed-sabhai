@@ -3842,7 +3842,7 @@ function renderAdmin() {
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
       <div>
         <div class="admin-section-title" style="margin:0;">Fantasy League Admin</div>
-        <div style="font-size:10px;color:var(--muted);letter-spacing:1px;margin-top:2px;">v5.30</div>
+        <div style="font-size:10px;color:var(--muted);letter-spacing:1px;margin-top:2px;">v5.31</div>
       </div>
       <div class="insights-subtabs" style="margin:0;padding:0;">
         <button class="insights-subtab ${_adminSubTab==='settings'?'active':''}" onclick="switchAdminSubTab('settings')">Settings</button>
@@ -4996,7 +4996,7 @@ async function downloadBackup() {
     const scCacheCount = Object.keys(localStorageSnap).filter(k => k.startsWith(_SC_CACHE_PFX)).length;
     const backup = {
       version: '1.2',
-      appVersion: 'v5.30',
+      appVersion: 'v5.31',
       timestamp: new Date().toISOString(),
       description: 'AuctionPacked full backup — Firebase (/live + /auctions) + localStorage (providers, calls, scorecard cache)',
       firebase: { live: liveData, auctions },
@@ -5544,6 +5544,12 @@ function getActiveDataProvider() {
     if (selected) return selected;
   } catch(e) {}
   return PRESET_PROVIDERS.find(p => p.id === 'cricketdata');
+}
+
+function getProviderIdType() {
+  const pid = getActiveDataProvider().id;
+  if (pid === 'cricbuzz') return 'cricbuzz';
+  return 'cricapi';
 }
 
 function _isUUID(id) {
@@ -6589,7 +6595,7 @@ function upsertMatch(apiId,name,date,scorecardData) {
   const scheduleMatch = findScheduleMatchForCricapiMatch({ id: apiId, name, date });
   if (scheduleMatch) setCricapiIdForScheduleMatch(scheduleMatch, apiId);
   const safeScorecardData=scorecardData||{};
-  const parsedPerformances=parseScorecard(safeScorecardData);
+  const parsedPerformances=parseScorecard(safeScorecardData, getProviderIdType());
   const hasParsedPerformances=Object.keys(parsedPerformances).length>0;
   const incomingStatus=safeScorecardData.matchEnded?'done':safeScorecardData.matchStarted?'live':'upcoming';
   const ei=liveData.matches.findIndex(m=>m.apiId===apiId);
@@ -6665,16 +6671,21 @@ function upsertMatchMetaOnly(apiId,name,date,matchStarted,matchEnded) {
 // ═══════════════════════════════════════════════════════
 // SCORECARD PARSER
 // ═══════════════════════════════════════════════════════
-function parseScorecard(matchData) {
+function parseScorecard(matchData, providerIdType) {
   const performances={};
 
   function getInt(obj,...keys){for(const k of keys){const v=parseInt(obj[k]);if(!isNaN(v)&&v>=0)return v;}return 0;}
 
-  // Resolve player: CricAPI UUID → CricBuzz ID → ESPN ID → name fallback
+  // Resolve player: try active provider's ID type first, then full fallback chain
   const _normCache={};
   function _norm(s){return _normCache[s]||(_normCache[s]=(s||'').toLowerCase().replace(/[^a-z]/g,''));}
   function resolvePlayer(id,name){
     if(id){
+      // Active provider's ID type (avoids cross-provider numeric ID collisions)
+      if(providerIdType==='cricapi'&&PLAYER_BY_ID[id])return PLAYER_BY_ID[id];
+      if(providerIdType==='cricbuzz'&&PLAYER_BY_CRICBUZZ_ID[id])return PLAYER_BY_CRICBUZZ_ID[id];
+      if(providerIdType==='espn'&&PLAYER_BY_ESPN_NUM_ID[+id])return PLAYER_BY_ESPN_NUM_ID[+id];
+      // Full fallback chain for legacy/untyped data (order matters: UUID before numeric)
       if(PLAYER_BY_ID[id])return PLAYER_BY_ID[id];
       if(PLAYER_BY_CRICBUZZ_ID[id])return PLAYER_BY_CRICBUZZ_ID[id];
       if(PLAYER_BY_ESPN_NUM_ID[+id])return PLAYER_BY_ESPN_NUM_ID[+id];
@@ -7477,7 +7488,7 @@ async function forceResyncAllCricAPI() {
       const sc = d && d.data ? d.data : null;
       if (!sc) { failed++; continue; }
 
-      const freshPerfs = parseScorecard(sc);
+      const freshPerfs = parseScorecard(sc, getProviderIdType());
       // Preserve ESPN dots and POTM already stored; replace everything else
       const preserved = match.performances || {};
       Object.keys(preserved).forEach(player => {
