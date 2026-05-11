@@ -3837,7 +3837,7 @@ function renderAdmin() {
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
       <div>
         <div class="admin-section-title" style="margin:0;">Fantasy League Admin</div>
-        <div style="font-size:10px;color:var(--muted);letter-spacing:1px;margin-top:2px;">v5.27</div>
+        <div style="font-size:10px;color:var(--muted);letter-spacing:1px;margin-top:2px;">v5.28</div>
       </div>
       <div class="insights-subtabs" style="margin:0;padding:0;">
         <button class="insights-subtab ${_adminSubTab==='settings'?'active':''}" onclick="switchAdminSubTab('settings')">Settings</button>
@@ -4991,7 +4991,7 @@ async function downloadBackup() {
     const scCacheCount = Object.keys(localStorageSnap).filter(k => k.startsWith(_SC_CACHE_PFX)).length;
     const backup = {
       version: '1.2',
-      appVersion: 'v5.27',
+      appVersion: 'v5.28',
       timestamp: new Date().toISOString(),
       description: 'AuctionPacked full backup — Firebase (/live + /auctions) + localStorage (providers, calls, scorecard cache)',
       firebase: { live: liveData, auctions },
@@ -6732,7 +6732,9 @@ function parseScorecard(matchData) {
     (innings.batting||[]).forEach(b=>{
       const dt=(b.dismissal||'').toLowerCase().trim();
       const dr=String(b['dismissal-text']||b.dismissalText||b.dismissal_text||'').trim();
-      const isCB=dt==='cb'||/^c\s*(?:&|and)\s*b$/i.test(dt)||/caught.and.bowled/i.test(dt);
+      const dr_lc=dr.toLowerCase();
+      const isCB=dt==='cb'||/^c\s*(?:&|and)\s*b$/i.test(dt)||/caught.and.bowled/i.test(dt)
+               ||dr_lc.startsWith('c and b ')||dr_lc.startsWith('c & b ')||dr_lc.startsWith('caught and bowled ');
       if(!isCB)return;
       const fielder=_parseCBFielder(b,dr);
       if(fielder){
@@ -6818,7 +6820,9 @@ function parseScorecard(matchData) {
       (innings.batting||[]).forEach(b=>{
         const dt=(b.dismissal||'').toLowerCase().trim();
         const dr=String(b['dismissal-text']||b.dismissalText||b.dismissal_text||'').trim();
-        const isCB=dt==='cb'||/^c\s*(?:&|and)\s*b$/i.test(dt)||/caught.and.bowled/i.test(dt);
+        const dr_lc=dr.toLowerCase();
+        const isCB=dt==='cb'||/^c\s*(?:&|and)\s*b$/i.test(dt)||/caught.and.bowled/i.test(dt)
+                 ||dr_lc.startsWith('c and b ')||dr_lc.startsWith('c & b ')||dr_lc.startsWith('caught and bowled ');
 
         // Regular catch (not C&B — already handled in Step 1a)
         if((dt==='catch'||dt==='caught')&&!isCB){
