@@ -1072,12 +1072,14 @@ function ensureCricapiIdMap() {
     const key = String(scheduleMatch.espn_match_id);
     const mappedId = liveData.cricapiIdMap[key] || null;
 
-    if (!scheduleMatch.cricapi_match_id && mappedId) {
-      scheduleMatch.cricapi_match_id = mappedId;
-      return;
-    }
-
-    if (scheduleMatch.cricapi_match_id && !mappedId) {
+    // Always prefer the cricapiIdMap value (numeric CricAPI IDs) which matches
+    // the apiId format stored in Firebase match records. Hardcoded UUIDs in the
+    // schedule for matches 1-15 are a different format and won't match Firebase.
+    if (mappedId) {
+      if (scheduleMatch.cricapi_match_id !== mappedId) {
+        scheduleMatch.cricapi_match_id = mappedId;
+      }
+    } else if (scheduleMatch.cricapi_match_id) {
       liveData.cricapiIdMap[key] = scheduleMatch.cricapi_match_id;
       mapChanged = true;
     }
@@ -3837,7 +3839,7 @@ function renderAdmin() {
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
       <div>
         <div class="admin-section-title" style="margin:0;">Fantasy League Admin</div>
-        <div style="font-size:10px;color:var(--muted);letter-spacing:1px;margin-top:2px;">v5.28</div>
+        <div style="font-size:10px;color:var(--muted);letter-spacing:1px;margin-top:2px;">v5.29</div>
       </div>
       <div class="insights-subtabs" style="margin:0;padding:0;">
         <button class="insights-subtab ${_adminSubTab==='settings'?'active':''}" onclick="switchAdminSubTab('settings')">Settings</button>
@@ -4991,7 +4993,7 @@ async function downloadBackup() {
     const scCacheCount = Object.keys(localStorageSnap).filter(k => k.startsWith(_SC_CACHE_PFX)).length;
     const backup = {
       version: '1.2',
-      appVersion: 'v5.28',
+      appVersion: 'v5.29',
       timestamp: new Date().toISOString(),
       description: 'AuctionPacked full backup — Firebase (/live + /auctions) + localStorage (providers, calls, scorecard cache)',
       firebase: { live: liveData, auctions },
