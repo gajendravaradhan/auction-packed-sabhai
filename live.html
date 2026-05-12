@@ -3849,7 +3849,7 @@ function renderAdmin() {
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
       <div>
         <div class="admin-section-title" style="margin:0;">Fantasy League Admin</div>
-        <div style="font-size:10px;color:var(--muted);letter-spacing:1px;margin-top:2px;">v5.31a</div>
+        <div style="font-size:10px;color:var(--muted);letter-spacing:1px;margin-top:2px;">v5.31b</div>
       </div>
       <div class="insights-subtabs" style="margin:0;padding:0;">
         <button class="insights-subtab ${_adminSubTab==='settings'?'active':''}" onclick="switchAdminSubTab('settings')">Settings</button>
@@ -4546,10 +4546,6 @@ function renderAdminSettings() {
     : `<div style="font-size:11px;color:var(--muted);letter-spacing:1px;margin-top:2px;">Server quota updates automatically on next API call</div>`;
 
   el.innerHTML = `
-    <div style="display:flex;justify-content:flex-end;margin-bottom:12px;">
-      <button onclick="resetAllCVPicks()" style="background:var(--red);color:#fff;border:none;border-radius:7px;padding:7px 14px;cursor:pointer;font-family:Barlow Condensed,sans-serif;font-size:13px;font-weight:700;letter-spacing:2px;">RESET ALL C/VC PICKS</button>
-    </div>
-
     <div class="admin-section-title">Backup &amp; Restore</div>
     <div id="adminBackupSection" style="margin-bottom:20px;"></div>
 
@@ -4563,10 +4559,7 @@ function renderAdminSettings() {
             <strong style="color:var(--gold);">${cached}</strong> concluded match scorecard${cached !== 1 ? 's' : ''} cached locally for <strong>${prov.name}</strong>.<br>
             Cached matches load instantly — zero API calls. Cache persists across reloads and Firebase resets.
           </div>
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-            <button onclick="showCacheManagementModal('${prov.id}')" style="background:var(--blue);color:#fff;border:none;border-radius:8px;padding:13px 8px;cursor:pointer;font-family:Barlow Condensed,sans-serif;font-size:14px;font-weight:700;letter-spacing:2px;text-transform:uppercase;">MANAGE CACHE</button>
-            <button onclick="clearScorecardCacheForProvider('${prov.id}');showToast('Cache cleared for ${prov.name}','success');renderAdminSettings();" style="background:var(--surface2);color:var(--red);border:1px solid var(--border);border-radius:8px;padding:13px 8px;cursor:pointer;font-family:Barlow Condensed,sans-serif;font-size:14px;font-weight:700;letter-spacing:2px;text-transform:uppercase;">CLEAR CACHE</button>
-          </div>`;
+          <button onclick="showCacheManagementModal('${prov.id}')" style="width:100%;background:var(--surface2);color:var(--gold);border:1px solid var(--border);border-radius:8px;padding:10px 8px;cursor:pointer;font-family:Barlow Condensed,sans-serif;font-size:14px;font-weight:700;letter-spacing:2px;text-transform:uppercase;">MANAGE CACHE</button>`;
       })()}
     </div>
 
@@ -4602,39 +4595,25 @@ function renderAdminSettings() {
       ${isStopped ? '<p style="color:var(--red);font-size:12px;letter-spacing:1px;margin-top:8px;">Daily limit reached. Resets at midnight.</p>' : ''}
     </div>
 
-    <div class="admin-section-title" id="iplYearScheduleTitle">IPL 2026 Schedule</div>
-    <div class="match-input-card" style="margin-bottom:16px;">
-      <p id="iplYearScheduleDesc" style="font-size:13px;color:var(--muted);letter-spacing:1px;margin-bottom:12px;line-height:1.6;">All IPL 2026 matches are fetched automatically. Live and completed matches sync every 30 minutes.</p>
+    <div class="admin-section-title">Data Sync</div>
+    <div class="match-input-card" style="margin-bottom:12px;">
+      <p id="iplYearScheduleDesc" style="font-size:13px;color:var(--muted);letter-spacing:1px;margin-bottom:12px;line-height:1.6;">Fetch ${_activeProviderName} scorecards for all scheduled matches, or force a full resync that clears and refetches all performance data.</p>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
-        <button onclick="fetchAndShowSchedule()" id="fetchScheduleBtn" style="background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:12px 8px;cursor:pointer;font-family:Barlow Condensed,sans-serif;font-size:15px;font-weight:700;letter-spacing:2px;text-transform:uppercase;">Refresh Schedule</button>
         <button onclick="fetchCricapiResults()" id="importAllScheduledBtn" style="background:var(--surface2);border:1px solid var(--blue);color:var(--blue);border-radius:8px;padding:12px 8px;cursor:pointer;font-family:Barlow Condensed,sans-serif;font-size:15px;font-weight:700;letter-spacing:2px;text-transform:uppercase;">Fetch ${_activeProviderName} Results</button>
+        <button onclick="forceResyncAllCricAPI()" id="forceResyncBtn" style="background:var(--surface2);border:1px solid #ff7b2f;color:#ff7b2f;border-radius:8px;padding:12px 8px;cursor:pointer;font-family:Barlow Condensed,sans-serif;font-size:15px;font-weight:700;letter-spacing:2px;text-transform:uppercase;">Force Resync All (Clear + Refetch)</button>
       </div>
-      <div style="margin-bottom:8px;">
-        <button onclick="forceResyncAllCricAPI()" id="forceResyncBtn" style="background:var(--surface2);border:1px solid #ff7b2f;color:#ff7b2f;border-radius:8px;padding:12px 8px;cursor:pointer;font-family:Barlow Condensed,sans-serif;font-size:15px;font-weight:700;letter-spacing:2px;text-transform:uppercase;width:100%;">Force Resync All ${_activeProviderName} Performances (Clear + Refetch)</button>
-        <div id="forceResyncStatus" style="margin-top:6px;font-size:12px;color:var(--muted);letter-spacing:1px;"></div>
-      </div>
+      <div id="forceResyncStatus" style="margin-top:6px;font-size:12px;color:var(--muted);letter-spacing:1px;"></div>
       <div id="importAllStatus" style="margin-top:8px;">${getImportAllScheduledStatusMarkup()}</div>
-      <div id="scheduleList" style="margin-top:8px;max-height:300px;overflow-y:auto;"></div>
     </div>
 
     <div class="admin-section-title">ESPN CricInfo Data</div>
-    <div class="match-input-card" style="margin-bottom:16px;">
+    <div class="match-input-card" style="margin-bottom:12px;">
       <p style="font-size:13px;color:var(--muted);letter-spacing:1px;margin-bottom:12px;line-height:1.6;">Manually fetch live dot balls and POTM data from ESPN for all matches since last update. This runs independently of auto-sync.</p>
       ${liveData.espnLastUpdate ? `<p style="font-size:12px;color:var(--muted);letter-spacing:1px;margin-bottom:8px;">Last updated: ${new Date(liveData.espnLastUpdate).toLocaleString()}</p>` : '<p style="font-size:12px;color:var(--muted);letter-spacing:1px;margin-bottom:8px;">No previous ESPN updates</p>'}
-      <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
         <button onclick="fetchESPNDataManual()" id="fetchESPNBtn" style="background:var(--surface2);border:1px solid var(--blue);color:var(--blue);border-radius:8px;padding:12px 16px;cursor:pointer;font-family:Barlow Condensed,sans-serif;font-size:15px;font-weight:700;letter-spacing:2px;text-transform:uppercase;">Fetch ESPN Data</button>
-        <button onclick="resetESPNCheckpoint()" style="background:none;border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:12px 16px;cursor:pointer;font-family:Barlow Condensed,sans-serif;font-size:13px;font-weight:700;letter-spacing:2px;">Reset Checkpoint</button>
       </div>
       <div id="espnStatus" style="margin-top:8px;font-size:12px;color:var(--muted);letter-spacing:1px;"></div>
-    </div>
-
-    <div class="admin-section-title">Data Integrity</div>
-    <div class="match-input-card" style="margin-bottom:16px;">
-      <p style="font-size:13px;color:var(--muted);letter-spacing:1px;margin-bottom:12px;line-height:1.6;">Scan and fix misclassified runout credits where CricAPI's fielder (often the wicketkeeper) was credited as direct instead of honoring the dismissal text (INDIRECT/DIRECT) format.</p>
-      <div style="display:flex;gap:8px;">
-        <button onclick="fixRunoutMismatches()" style="background:var(--surface2);border:1px solid var(--red);color:var(--red);border-radius:8px;padding:12px 16px;cursor:pointer;font-family:Barlow Condensed,sans-serif;font-size:15px;font-weight:700;letter-spacing:2px;text-transform:uppercase;">Fix Runout Credits</button>
-        <div id="runoutFixStatus" style="flex:1;font-size:12px;color:var(--muted);letter-spacing:1px;display:flex;align-items:center;padding-left:8px;"></div>
-      </div>
     </div>
 
     <div class="admin-section-title">Saved Matches (${matches.length})</div>
@@ -4651,10 +4630,24 @@ function renderAdminSettings() {
         <button onclick="collapseAllMatches(true)" style="background:none;border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:5px 12px;cursor:pointer;font-family:Barlow Condensed,sans-serif;font-size:12px;font-weight:700;letter-spacing:2px;">COLLAPSE ALL</button>
         <button onclick="collapseSectionToLatestMatch()" style="background:none;border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:5px 12px;cursor:pointer;font-family:Barlow Condensed,sans-serif;font-size:12px;font-weight:700;letter-spacing:2px;">COLLAPSE SECTION</button>
         <button onclick="collapseAllMatches(false)" style="background:none;border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:5px 12px;cursor:pointer;font-family:Barlow Condensed,sans-serif;font-size:12px;font-weight:700;letter-spacing:2px;">EXPAND ALL</button>
-        <button id="refreshAllBtn" onclick="refreshAllMatches()" style="background:none;border:1px solid var(--gold);color:var(--gold);border-radius:6px;padding:5px 12px;cursor:pointer;font-family:Barlow Condensed,sans-serif;font-size:12px;font-weight:700;letter-spacing:2px;">REFRESH ALL</button>
       </div>
       ${[...matches].reverse().map((m, i) => renderAdminMatch(m, matches.length - 1 - i)).join('')}
     ` : '<p style="color:var(--muted);font-size:13px;letter-spacing:1px;">No matches imported yet.</p>'}
+
+    <div class="admin-section-title" style="cursor:pointer;" onclick="var d=document.getElementById('adminAdvancedSection');var open=d.style.display!=='none';d.style.display=open?'none':'block';this.querySelector('.adv-chevron').textContent=open?'▶':'▼';">▶ <span class="adv-chevron">▶</span> Advanced</div>
+    <div id="adminAdvancedSection" style="display:none;">
+      <div class="match-input-card" style="margin-bottom:12px;">
+        <p style="font-size:13px;color:var(--muted);letter-spacing:1px;margin-bottom:12px;line-height:1.6;">One-time data fix: corrects runout credits where CricAPI's fielder was misattributed. Also includes ESPN checkpoint reset and C/VC reset for recovery scenarios.</p>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          <button onclick="fixRunoutMismatches()" style="background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:12px 8px;cursor:pointer;font-family:Barlow Condensed,sans-serif;font-size:14px;font-weight:700;letter-spacing:2px;text-transform:uppercase;">Fix Runout Credits</button>
+          <button onclick="resetESPNCheckpoint()" style="background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:12px 8px;cursor:pointer;font-family:Barlow Condensed,sans-serif;font-size:14px;font-weight:700;letter-spacing:2px;text-transform:uppercase;">Reset ESPN Checkpoint</button>
+        </div>
+        <div style="margin-top:8px;">
+          <button onclick="resetAllCVPicks()" style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:12px 8px;cursor:pointer;font-family:Barlow Condensed,sans-serif;font-size:14px;font-weight:700;letter-spacing:2px;text-transform:uppercase;">Reset All C/VC Picks</button>
+        </div>
+        <div id="runoutFixStatus" style="font-size:12px;color:var(--muted);letter-spacing:1px;margin-top:8px;"></div>
+      </div>
+    </div>
   `;
   setTimeout(startCountdown, 50);
   renderAdminBackup();
@@ -5003,7 +4996,7 @@ async function downloadBackup() {
     const scCacheCount = Object.keys(localStorageSnap).filter(k => k.startsWith(_SC_CACHE_PFX)).length;
     const backup = {
       version: '1.2',
-      appVersion: 'v5.31a',
+      appVersion: 'v5.31b',
       timestamp: new Date().toISOString(),
       description: 'AuctionPacked full backup — Firebase (/live + /auctions) + localStorage (providers, calls, scorecard cache)',
       firebase: { live: liveData, auctions },
@@ -5506,20 +5499,11 @@ function showCacheManagementModal(newProviderId) {
         ${cached > 0 ? '<br><span style="color:var(--green);font-size:11px;">● Cached matches will load without API calls</span>' : ''}
       </div>
       <div style="display:grid;gap:10px;">
-        <label style="display:flex;align-items:center;justify-content:center;background:var(--blue);color:#fff;border:none;border-radius:10px;padding:14px;cursor:pointer;font-family:Barlow Condensed,sans-serif;font-size:15px;font-weight:700;letter-spacing:2px;text-align:center;">
-          RESTORE FROM BACKUP FILE
-          <input type="file" accept=".json" onchange="restoreFromBackupViaCacheModal(this)" style="display:none;">
-        </label>
-        <button onclick="clearAndRefetchFromModal()" style="background:var(--surface2);color:var(--gold);border:1px solid var(--border);border-radius:10px;padding:14px;cursor:pointer;font-family:Barlow Condensed,sans-serif;font-size:15px;font-weight:700;letter-spacing:2px;">CLEAR CACHE &amp; REFETCH</button>
+        <button onclick="clearAndRefetchFromModal()" style="background:var(--orange);color:#fff;border:none;border-radius:10px;padding:14px;cursor:pointer;font-family:Barlow Condensed,sans-serif;font-size:15px;font-weight:700;letter-spacing:2px;">CLEAR CACHE &amp; REFETCH</button>
         <button onclick="document.getElementById('cacheManagementModal').remove()" style="background:transparent;color:var(--muted);border:none;padding:8px;cursor:pointer;font-size:13px;letter-spacing:1px;">DISMISS</button>
       </div>
     </div>`;
   document.body.appendChild(modal);
-}
-
-async function restoreFromBackupViaCacheModal(input) {
-  document.getElementById('cacheManagementModal')?.remove();
-  await restoreFromBackup(input);
 }
 
 async function clearAndRefetchFromModal() {
