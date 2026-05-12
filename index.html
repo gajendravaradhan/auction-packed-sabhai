@@ -6100,6 +6100,20 @@ async function runSyncNow() {
     const stackAdded = backfillResult.added || 0;
     espnSynced += backfillResult.espnSynced || 0;
 
+    // Re-check today's concluded matches for missing POTM — ESPN may have published it after main sync
+    const todayIST = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
+    const todayDone = (liveData.matches || []).filter(m => m && m.status === 'done' && m.date && m.date.slice(0, 10) === todayIST);
+    for (const doneMatch of todayDone) {
+      if (!doneMatch.potm) {
+        const sched = IPL_2026_SCHEDULE.find(s => s && (s.cricapi_match_id === doneMatch.apiId || s.cricbuzz_match_id === doneMatch.apiId) || (s.date === todayIST && matchScheduleTeams(s, doneMatch.label || '')));
+        if (sched) {
+          const potmResult = await syncEspnForScheduleMatchesAtomic([sched], { persistEach: true });
+          espnSynced += potmResult.synced;
+          if (potmResult.synced > 0) console.log('[AP] Post-sync POTM re-fetch synced for ' + doneMatch.label);
+        }
+      }
+    }
+
     showToast(
       'Synced '+synced+' match'+(synced!==1?'es':'')+
       (stackAdded>0?', stack +'+stackAdded:'')+
