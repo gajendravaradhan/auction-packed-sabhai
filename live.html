@@ -756,6 +756,7 @@ const TEAM_SLUGS = {
 
 const ADMIN_PASSWORD = 'auctionpacked2026';
 const CV_LOCK_DEADLINE = new Date('2026-03-29T13:30:00Z');
+const APP_VERSION = 'v5.31h';
 const API_BASE = 'https://api.cricapi.com/v1';
 const IPL_2026_SERIES_ID = '87c62aac-bc3c-4738-ab93-19da0690488f';
 
@@ -3049,16 +3050,16 @@ function setInsightsDotOrder(order) {
   renderInsights();
 }
 
-async function loadBattingPositionBuckets() {
+function loadBattingPositionBuckets() {
   if (insightsBatPosLoaded || insightsBatPosLoading) return;
   insightsBatPosLoading = true;
   insightsBatPosReloadRequested = false;
   const targetSignature = getCompletedMatchesSignature();
 
-  // Use localStorage cache when the completed-match set hasn't changed — avoids ESPN calls on every tab open.
+  // Use localStorage cache when the completed-match set hasn't changed — avoids recomputation on every tab open.
   try {
     const cached = JSON.parse(localStorage.getItem(LS_BATPOS_CACHE_KEY) || '{}');
-    if (cached.sig === targetSignature && cached.byPlayer && cached.events) {
+    if (cached.sig === targetSignature && cached.appVer === APP_VERSION && cached.byPlayer && cached.events) {
       Object.assign(insightsBatPosByPlayer, cached.byPlayer);
       insightsBatPosEvents = cached.events;
       insightsBatPosCoveredMatches = cached.coveredMatches || {};
@@ -3075,99 +3076,49 @@ async function loadBattingPositionBuckets() {
   const events = [];
   const coveredMatches = {};
 
-  function findPerfKey(match, playerName) {
-    if (!match || !match.performances) return null;
-    const target = normalizePlayerKey(playerName);
-    const keys = Object.keys(match.performances);
-    return keys.find(k => normalizePlayerKey(k) === target) || null;
-  }
-
-  function fullTeamName(codeOrName) {
-    const m = {
-      MI: 'Mumbai Indians', KKR: 'Kolkata Knight Riders', SRH: 'Sunrisers Hyderabad',
-      RCB: 'Royal Challengers Bengaluru', CSK: 'Chennai Super Kings', RR: 'Rajasthan Royals',
-      PBKS: 'Punjab Kings', LSG: 'Lucknow Super Giants', GT: 'Gujarat Titans', DC: 'Delhi Capitals'
-    };
-    return m[codeOrName] || codeOrName;
-  }
-
-  function resolveLiveMatchForSchedule(sm) {
-    const idx = findLiveMatchIndexForScheduleMatch(sm);
-    if (idx >= 0) return (liveData.matches || [])[idx] || null;
-    const all = liveData.matches || [];
-    const home = fullTeamName(sm.home || '');
-    const away = fullTeamName(sm.away || '');
-    const sd = String(sm.date || '');
-    return all.find(m => {
-      const lbl = String(m.label || '').toLowerCase();
-      const md = String(m.date || '').slice(0, 10);
-      if (sd && md && sd !== md) return false;
-      return lbl.includes(home.toLowerCase()) && lbl.includes(away.toLowerCase());
-    }) || null;
-  }
-
   const roster = getRosterLookup();
   try {
-    const today = new Date().toISOString().slice(0, 10);
-    const allSchedule = (IPL_2026_SCHEDULE || []).filter(m => m && m.date && m.date <= today);
-    // Only process matches that have imported performance data — skip future/unimported
-    const matches = allSchedule.filter(sm => {
-      const importId = getProviderMatchId(sm);
-      return importId && (liveData.matches || []).some(lm => lm.apiId === importId && lm.performances && Object.keys(lm.performances).length > 0);
-    });
-    // Batch ESPN calls in chunks of 5 to parallelize while respecting rate limits
-    const CHUNK = 6;
-    for (let i = 0; i < matches.length; i += CHUNK) {
-      const chunk = matches.slice(i, i + CHUNK);
-      if (matches.length > CHUNK) insightsBatPosLoadingMessage = 'Loading batting positions (' + Math.min(i + CHUNK, matches.length) + '/' + matches.length + ' matches)...';
-      const results = await Promise.all(chunk.map(async sm => {
-        const espnInfo = resolveESPNMatchInfo(sm);
-        if (!espnInfo.match_id || !espnInfo.slug) return null;
-        const data = await fetchESPNMatchDetails(espnInfo.match_id, espnInfo.slug);
-        return { sm, data };
-      }));
-      for (const r of results) {
-        if (!r || !r.data || r.data._error || r.data._notFound) continue;
-        const { sm, data } = r;
-        const match = resolveLiveMatchForSchedule(sm);
-        const innings = getESPNInnings(data) || [];
-        if (match && innings.length) {
-          coveredMatches[match.label || (sm.home + ' vs ' + sm.away)] = true;
-        }
-        innings.forEach(inn => {
-          const bat = inn && inn.batting ? inn.batting : [];
-          let pos = 0;
-          bat.forEach(b => {
-            const bt = String(b.batted_type || b.battedType || '').toLowerCase();
-            if (bt !== 'yes') return;
-            const _bpPlayer = PLAYER_BY_ESPN_NUM_ID[+b.player_id];
-            const nm = _bpPlayer ? _bpPlayer.displayName : '';
-            if (!nm) return;
-            pos++;
-            if (!acc[nm]) acc[nm] = [];
-            acc[nm].push(pos);
-            if (match) {
-              const ro = roster[nm];
-              const perfKey = findPerfKey(match, nm);
-              if (ro && perfKey) {
-                const perf = match.performances[perfKey] || null;
-                if (perf) {
-                  const pts = calcBattingOnlyPoints({ ...perf, playerName: perfKey, role: ro.role });
-                  events.push({
-                    playerName: nm,
-                    perfKey,
-                    position: pos,
-                    matchLabel: match.label || (sm.home + ' vs ' + sm.away),
-                    matchDate: match.date || sm.date || '',
-                    points: pts
-                  });
-                }
-              }
-            }
-          });
+    // Derive batting positions from stored scorecard_raw — no API calls needed.
+    // Batting entries are already in batting order; filter DNB (r=0,b=0) players.
+    (liveData.matches || []).forEach(match => {
+      if (!match || !match.scorecard_raw) return;
+      const matchLabel = match.label || '';
+      const matchDate = (match.date || '').slice(0, 10);
+      let anyPlayerFound = false;
+
+      match.scorecard_raw.forEach(inn => {
+        let pos = 0;
+        (inn.batting || []).forEach(b => {
+          const runs = b.r || 0;
+          const balls = b.b || 0;
+          if (runs === 0 && balls === 0) return; // DNB — didn't bat, skip
+          // Resolve stored batter name to fantasy displayName
+          const nm = normalizePlayerName(b.name || '');
+          if (!nm) return;
+          const ro = roster[nm];
+          if (!ro) return; // not a fantasy player
+          pos++;
+          anyPlayerFound = true;
+          if (!acc[nm]) acc[nm] = [];
+          acc[nm].push(pos);
+
+          const perf = (match.performances || {})[nm];
+          if (perf) {
+            const pts = calcBattingOnlyPoints({ ...perf, playerName: nm, role: ro.role });
+            events.push({
+              playerName: nm,
+              perfKey: nm,
+              position: pos,
+              matchLabel,
+              matchDate,
+              points: pts
+            });
+          }
         });
-      }
-    }
+      });
+
+      if (anyPlayerFound) coveredMatches[matchLabel] = true;
+    });
     Object.entries(acc).forEach(([name, arr]) => {
       const avg = arr.reduce((s, v) => s + v, 0) / arr.length;
       let bucket = '9-11';
@@ -3189,6 +3140,7 @@ async function loadBattingPositionBuckets() {
   try {
     localStorage.setItem(LS_BATPOS_CACHE_KEY, JSON.stringify({
       sig: targetSignature,
+      appVer: APP_VERSION,
       byPlayer: insightsBatPosByPlayer,
       events,
       coveredMatches
