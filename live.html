@@ -757,6 +757,7 @@ const TEAM_SLUGS = {
 const ADMIN_PASSWORD = 'auctionpacked2026';
 const CV_LOCK_DEADLINE = new Date('2026-03-29T13:30:00Z');
 const APP_VERSION = 'v5.31k';
+const RAPIDAPI_KEY = '9303df28b9msh5c73e8cc7014cdcp1187ccjsncb4f2053386e';
 const API_BASE = 'https://api.cricapi.com/v1';
 const IPL_2026_SERIES_ID = '87c62aac-bc3c-4738-ab93-19da0690488f';
 
@@ -1157,7 +1158,7 @@ async function fetchAndStoreESPNLiveMatchIds() {
       headers: {
         'Content-Type': 'application/json',
         'x-rapidapi-host': 'espncricinfo-api.p.rapidapi.com',
-        'x-rapidapi-key': 'ab1d0f5e94mshbb65ad32bc5b28ep12a94fjsn11d3ec803de9'
+        'x-rapidapi-key': RAPIDAPI_KEY
       },
       signal: AbortSignal.timeout(10000)
     });
@@ -5546,8 +5547,7 @@ function _cricbuzzTeamAbbrev(fullName) {
 async function fetchCricbuzzJson(path, options = {}) {
   const providers = getApiProviders();
   const cb = providers.find(p => p.id === 'cricbuzz');
-  const apiKey = cb && cb.apiKey ? cb.apiKey : '';
-  if (!apiKey) throw new Error('CricBuzz API key not configured — add it in Admin → API Providers.');
+  const apiKey = (cb && cb.apiKey) || RAPIDAPI_KEY;
   const host = 'cricbuzz-cricket.p.rapidapi.com';
   incrementApiCalls(1);
   for (let attempt = 0; attempt < 3; attempt++) {
@@ -5839,7 +5839,7 @@ async function fetchESPNMatchDetails(matchId, slug, _attempt = 1) {
       headers: {
         'Content-Type': 'application/json',
         'x-rapidapi-host': 'espncricinfo-api.p.rapidapi.com',
-        'x-rapidapi-key': 'ab1d0f5e94mshbb65ad32bc5b28ep12a94fjsn11d3ec803de9'
+        'x-rapidapi-key': RAPIDAPI_KEY
       },
       signal: AbortSignal.timeout(15000)
     });
