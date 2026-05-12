@@ -2900,6 +2900,7 @@ let insightsBatPosEvents = [];
 let insightsBatPosCoveredMatches = {};
 let insightsBatPosLoaded = false;
 let insightsBatPosLoading = false;
+let insightsBatPosLoadingMessage = '';
 let insightsBatPosReloadRequested = false;
 let insightsBatPosLoadedSignature = '';
 
@@ -3063,6 +3064,7 @@ async function loadBattingPositionBuckets() {
       insightsBatPosLoadedSignature = targetSignature;
       insightsBatPosLoaded = true;
       insightsBatPosLoading = false;
+      insightsBatPosLoadingMessage = '';
       if (currentTab === 'insights' && insightsSubTab === 'roleEfficiency') renderInsights();
       return;
     }
@@ -3106,50 +3108,64 @@ async function loadBattingPositionBuckets() {
   const roster = getRosterLookup();
   try {
     const today = new Date().toISOString().slice(0, 10);
-    const matches = (IPL_2026_SCHEDULE || []).filter(m => m && m.date && m.date <= today);
-    for (const sm of matches) {
-      const espnInfo = resolveESPNMatchInfo(sm);
-      if (!espnInfo.match_id || !espnInfo.slug) continue;
-      const data = await fetchESPNMatchDetails(espnInfo.match_id, espnInfo.slug);
-      if (!data || data._error || data._notFound) continue;
-      const match = resolveLiveMatchForSchedule(sm);
-      const innings = getESPNInnings(data) || [];
-      if (match && innings.length) {
-        coveredMatches[match.label || (sm.home + ' vs ' + sm.away)] = true;
-      }
-      innings.forEach(inn => {
-        const bat = inn && inn.batting ? inn.batting : [];
-        let pos = 0;
-        bat.forEach(b => {
-          const bt = String(b.batted_type || b.battedType || '').toLowerCase();
-          if (bt !== 'yes') return;
-          const _bpPlayer = PLAYER_BY_ESPN_NUM_ID[+b.player_id];
-          const nm = _bpPlayer ? _bpPlayer.displayName : '';
-          if (!nm) return;
-          pos++;
-          if (!acc[nm]) acc[nm] = [];
-          acc[nm].push(pos);
-
-          if (match) {
-            const ro = roster[nm];
-            const perfKey = findPerfKey(match, nm);
-            if (ro && perfKey) {
-              const perf = match.performances[perfKey] || null;
-              if (perf) {
-                const pts = calcBattingOnlyPoints({ ...perf, playerName: perfKey, role: ro.role });
-                events.push({
-                  playerName: nm,
-                  perfKey,
-                  position: pos,
-                  matchLabel: match.label || (sm.home + ' vs ' + sm.away),
-                  matchDate: match.date || sm.date || '',
-                  points: pts
-                });
+    const allSchedule = (IPL_2026_SCHEDULE || []).filter(m => m && m.date && m.date <= today);
+    // Only process matches that have imported performance data — skip future/unimported
+    const matches = allSchedule.filter(sm => {
+      const importId = getProviderMatchId(sm);
+      return importId && (liveData.matches || []).some(lm => lm.apiId === importId && lm.performances && Object.keys(lm.performances).length > 0);
+    });
+    // Batch ESPN calls in chunks of 5 to parallelize while respecting rate limits
+    const CHUNK = 6;
+    for (let i = 0; i < matches.length; i += CHUNK) {
+      const chunk = matches.slice(i, i + CHUNK);
+      if (matches.length > CHUNK) insightsBatPosLoadingMessage = 'Loading batting positions (' + Math.min(i + CHUNK, matches.length) + '/' + matches.length + ' matches)...';
+      const results = await Promise.all(chunk.map(async sm => {
+        const espnInfo = resolveESPNMatchInfo(sm);
+        if (!espnInfo.match_id || !espnInfo.slug) return null;
+        const data = await fetchESPNMatchDetails(espnInfo.match_id, espnInfo.slug);
+        return { sm, data };
+      }));
+      for (const r of results) {
+        if (!r || !r.data || r.data._error || r.data._notFound) continue;
+        const { sm, data } = r;
+        const match = resolveLiveMatchForSchedule(sm);
+        const innings = getESPNInnings(data) || [];
+        if (match && innings.length) {
+          coveredMatches[match.label || (sm.home + ' vs ' + sm.away)] = true;
+        }
+        innings.forEach(inn => {
+          const bat = inn && inn.batting ? inn.batting : [];
+          let pos = 0;
+          bat.forEach(b => {
+            const bt = String(b.batted_type || b.battedType || '').toLowerCase();
+            if (bt !== 'yes') return;
+            const _bpPlayer = PLAYER_BY_ESPN_NUM_ID[+b.player_id];
+            const nm = _bpPlayer ? _bpPlayer.displayName : '';
+            if (!nm) return;
+            pos++;
+            if (!acc[nm]) acc[nm] = [];
+            acc[nm].push(pos);
+            if (match) {
+              const ro = roster[nm];
+              const perfKey = findPerfKey(match, nm);
+              if (ro && perfKey) {
+                const perf = match.performances[perfKey] || null;
+                if (perf) {
+                  const pts = calcBattingOnlyPoints({ ...perf, playerName: perfKey, role: ro.role });
+                  events.push({
+                    playerName: nm,
+                    perfKey,
+                    position: pos,
+                    matchLabel: match.label || (sm.home + ' vs ' + sm.away),
+                    matchDate: match.date || sm.date || '',
+                    points: pts
+                  });
+                }
               }
             }
-          }
+          });
         });
-      });
+      }
     }
     Object.entries(acc).forEach(([name, arr]) => {
       const avg = arr.reduce((s, v) => s + v, 0) / arr.length;
@@ -3167,6 +3183,7 @@ async function loadBattingPositionBuckets() {
   insightsBatPosLoadedSignature = targetSignature;
   insightsBatPosLoaded = true;
   insightsBatPosLoading = false;
+  insightsBatPosLoadingMessage = '';
   // Persist computed results so future loads skip ESPN calls when the match set is unchanged.
   try {
     localStorage.setItem(LS_BATPOS_CACHE_KEY, JSON.stringify({
@@ -3440,7 +3457,7 @@ function renderInsightsRoleEfficiency() {
     const chartContent = insightsRoleChartType === 'line' ? batLineChart : bucketCards;
 
     return '<div class="insight-card"><div class="insight-title">Role Efficiency · Batting Position</div>' + controls
-      + (insightsBatPosLoading ? '<div style="font-size:12px;color:var(--muted);margin-bottom:8px;">Loading batting positions from ESPN...</div>' : '')
+      + (insightsBatPosLoading ? '<div style="font-size:12px;color:var(--muted);margin-bottom:8px;">' + (insightsBatPosLoadingMessage || 'Loading batting positions from ESPN...') + '</div>' : '')
       + chartContent + (insightsRoleChartType === 'bar' ? unknownDetails : '')
       + renderInsightExplain('roleEfficiency') + '</div>';
   }
@@ -3849,7 +3866,7 @@ function renderAdmin() {
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
       <div>
         <div class="admin-section-title" style="margin:0;">Fantasy League Admin</div>
-        <div style="font-size:10px;color:var(--muted);letter-spacing:1px;margin-top:2px;">v5.31b</div>
+        <div style="font-size:10px;color:var(--muted);letter-spacing:1px;margin-top:2px;">v5.31c</div>
       </div>
       <div class="insights-subtabs" style="margin:0;padding:0;">
         <button class="insights-subtab ${_adminSubTab==='settings'?'active':''}" onclick="switchAdminSubTab('settings')">Settings</button>
@@ -4996,7 +5013,7 @@ async function downloadBackup() {
     const scCacheCount = Object.keys(localStorageSnap).filter(k => k.startsWith(_SC_CACHE_PFX)).length;
     const backup = {
       version: '1.2',
-      appVersion: 'v5.31b',
+      appVersion: 'v5.31c',
       timestamp: new Date().toISOString(),
       description: 'AuctionPacked full backup — Firebase (/live + /auctions) + localStorage (providers, calls, scorecard cache)',
       firebase: { live: liveData, auctions },
