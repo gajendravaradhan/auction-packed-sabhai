@@ -957,6 +957,7 @@ const LS_ESPN_CALLS_KEY    = 'ap_live_espn_calls';
 const LS_API_PROVIDERS_KEY = 'ap_api_providers';
 const ESPN_DAILY_LIMIT     = 500;
 const LS_BATPOS_CACHE_KEY  = 'ap_batpos_cache';
+const LS_SERIES_CACHE_KEY  = 'ap_series_cache';
 let _pollTimer = null;
 let _autoPolling = false;
 let _lastSyncTime = null;
@@ -3866,7 +3867,7 @@ function renderAdmin() {
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;flex-wrap:wrap;gap:12px;">
       <div>
         <div class="admin-section-title" style="margin:0;">Fantasy League Admin</div>
-        <div style="font-size:10px;color:var(--muted);letter-spacing:1px;margin-top:2px;">v5.31c</div>
+        <div style="font-size:10px;color:var(--muted);letter-spacing:1px;margin-top:2px;">v5.31d</div>
       </div>
       <div class="insights-subtabs" style="margin:0;padding:0;">
         <button class="insights-subtab ${_adminSubTab==='settings'?'active':''}" onclick="switchAdminSubTab('settings')">Settings</button>
@@ -4974,7 +4975,7 @@ async function clearAllDataExceptCaptains() {
     const nodes = ['matches', 'cricapiIdMap', 'espnMatchSlugMap', 'importAllScheduledStatus', 'espnLastUpdate', 'lastDailyStackSyncDateEt'];
     await Promise.all(nodes.map(n => window._db.ref('live/' + n).remove().catch(() => {})));
     clearScorecardCacheForProvider('');
-    [LS_API_CALLS_KEY, LS_ESPN_CALLS_KEY, LS_BATPOS_CACHE_KEY].forEach(k => { try { localStorage.removeItem(k); } catch(e) {} });
+    [LS_API_CALLS_KEY, LS_ESPN_CALLS_KEY, LS_BATPOS_CACHE_KEY, LS_SERIES_CACHE_KEY].forEach(k => { try { localStorage.removeItem(k); } catch(e) {} });
     liveData.matches = [];
     liveData.cricapiIdMap = {};
     liveData.espnMatchSlugMap = {};
@@ -4992,7 +4993,7 @@ async function clearAllDataExceptCaptains() {
 
 function _snapshotLocalStorage() {
   const snap = {};
-  const named = [LS_API_PROVIDERS_KEY, LS_API_CALLS_KEY, LS_ESPN_CALLS_KEY, LS_BATPOS_CACHE_KEY];
+  const named = [LS_API_PROVIDERS_KEY, LS_API_CALLS_KEY, LS_ESPN_CALLS_KEY, LS_BATPOS_CACHE_KEY, LS_SERIES_CACHE_KEY];
   named.forEach(k => { try { const v = localStorage.getItem(k); if (v != null) snap[k] = v; } catch(e) {} });
   try {
     for (let i = 0; i < localStorage.length; i++) {
@@ -5013,7 +5014,7 @@ async function downloadBackup() {
     const scCacheCount = Object.keys(localStorageSnap).filter(k => k.startsWith(_SC_CACHE_PFX)).length;
     const backup = {
       version: '1.2',
-      appVersion: 'v5.31c',
+      appVersion: 'v5.31d',
       timestamp: new Date().toISOString(),
       description: 'AuctionPacked full backup — Firebase (/live + /auctions) + localStorage (providers, calls, scorecard cache)',
       firebase: { live: liveData, auctions },
@@ -5060,7 +5061,7 @@ async function restoreFromBackup(input) {
     if (auctions) await window._db.ref('auctions').set(auctions);
     if (lsSnap) {
       clearScorecardCacheForProvider('');
-      [LS_API_PROVIDERS_KEY, LS_API_CALLS_KEY, LS_ESPN_CALLS_KEY, LS_BATPOS_CACHE_KEY].forEach(k => { try { localStorage.removeItem(k); } catch(e) {} });
+      [LS_API_PROVIDERS_KEY, LS_API_CALLS_KEY, LS_ESPN_CALLS_KEY, LS_BATPOS_CACHE_KEY, LS_SERIES_CACHE_KEY].forEach(k => { try { localStorage.removeItem(k); } catch(e) {} });
       Object.entries(lsSnap).forEach(([k, v]) => { try { localStorage.setItem(k, v); } catch(e) {} });
     }
     const auctionCount = auctions ? Object.keys(auctions).length : 0;
@@ -5747,17 +5748,26 @@ async function fetchMatchScorecardData(matchId, nameHint, dateHint, options = {}
 }
 
 async function fetchProviderSeriesMatchList() {
+  // Series match list is static for the season — cache indefinitely
+  try {
+    const cached = JSON.parse(localStorage.getItem(LS_SERIES_CACHE_KEY));
+    if (cached && cached.providerId === getActiveDataProvider().id) return cached.data || [];
+  } catch(e) {}
   const provider = getActiveDataProvider();
+  let data;
   if (provider.id === 'cricbuzz') {
     try {
       const raw = await fetchCricbuzzJson('/series/v1/9241');
-      return _normCricbuzzSeriesMatches(raw);
+      data = _normCricbuzzSeriesMatches(raw);
     } catch(e) {
       console.warn('[AP] CricBuzz series fetch failed:', e.message);
-      return [];
+      data = [];
     }
+  } else {
+    data = await fetchSeriesMatchList();
   }
-  return fetchSeriesMatchList();
+  try { localStorage.setItem(LS_SERIES_CACHE_KEY, JSON.stringify({ providerId: provider.id, data })); } catch(e) {}
+  return data;
 }
 
 function getProviderMatchId(scheduleMatch) {
@@ -6051,15 +6061,26 @@ async function runSyncNow() {
     });
 
     let synced=0;
+    const _syncProvId = getActiveDataProvider().id;
     for(const m of iplMatches){
       if(!m.matchStarted&&!m.matchEnded)continue;
       try{
-        const sc=await fetchMatchScorecardData(m.id,m.name,m.date);
-        const scorecardData = sc.data ? { ...sc.data } : { scorecard: [] };
+        // Check scorecard cache for concluded matches before making an API call
+        const _cachedSc = m.matchEnded ? readScorecardCache(_syncProvId, m.id) : null;
+        let sc, scorecardData;
+        if (_cachedSc && _cachedSc.data) {
+          sc = _cachedSc;
+          scorecardData = { ...sc.data };
+        } else {
+          sc = await fetchMatchScorecardData(m.id, m.name, m.date);
+          scorecardData = sc.data ? { ...sc.data } : { scorecard: [] };
+        }
         // Prefer explicit scorecard flags, but fall back to currentMatches flags when needed.
         scorecardData.matchStarted = !!(scorecardData.matchStarted || m.matchStarted);
         scorecardData.matchEnded = !!(scorecardData.matchEnded || m.matchEnded);
         upsertMatch(m.id,m.name||'',m.date||'',scorecardData); synced++;
+        // Cache concluded matches that weren't already cached
+        if (scorecardData.matchEnded && !_cachedSc) writeScorecardCache(_syncProvId, m.id, sc);
         const scheduleMatch = findScheduleMatchForCricapiMatch({ id: m.id, name: m.name || '', date: m.date || '' });
         if (scheduleMatch) {
           const espnResult = await syncEspnForScheduleMatchesAtomic([scheduleMatch], { persistEach: true });
@@ -6350,6 +6371,16 @@ async function syncEspnForScheduleMatchesAtomic(scheduleMatches, options = {}) {
       matchIndex = await ensureScorecardImportedForScheduleMatch(scheduleMatch);
     }
     if (matchIndex === -1) continue;
+
+    // Skip ESPN fetch for concluded matches that are already enriched (dots + POTM)
+    const existingMatch = liveData.matches[matchIndex];
+    if (existingMatch) {
+      const hasDots = existingMatch.performances && Object.values(existingMatch.performances).some(p => (p.dots || 0) > 0);
+      const hasPotm = !!existingMatch.potm;
+      if (hasDots && hasPotm && existingMatch.status === 'done') {
+        continue;
+      }
+    }
 
     const espnData = await fetchESPNMatchDetails(espnInfo.match_id, espnInfo.slug);
     if (!espnData || espnData._error || espnData._notFound) continue;
