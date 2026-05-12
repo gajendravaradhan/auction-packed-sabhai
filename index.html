@@ -756,9 +756,11 @@ const TEAM_SLUGS = {
 
 const ADMIN_PASSWORD = 'auctionpacked2026';
 const CV_LOCK_DEADLINE = new Date('2026-03-29T13:30:00Z');
-const APP_VERSION = 'v5.31k';
+const APP_VERSION = 'v5.31l';
 const RAPIDAPI_KEY = '9303df28b9msh5c73e8cc7014cdcp1187ccjsncb4f2053386e';
 const API_BASE = 'https://api.cricapi.com/v1';
+
+function getEspnApiKey() { return (liveData.apiKeys && liveData.apiKeys.espn) || RAPIDAPI_KEY; }
 const IPL_2026_SERIES_ID = '87c62aac-bc3c-4738-ab93-19da0690488f';
 
 // ═══════════════════════════════════════════════════════
@@ -1158,7 +1160,7 @@ async function fetchAndStoreESPNLiveMatchIds() {
       headers: {
         'Content-Type': 'application/json',
         'x-rapidapi-host': 'espncricinfo-api.p.rapidapi.com',
-        'x-rapidapi-key': RAPIDAPI_KEY
+        'x-rapidapi-key': getEspnApiKey()
       },
       signal: AbortSignal.timeout(10000)
     });
@@ -1360,6 +1362,7 @@ function initFirebaseListener() {
     const d = snap.val();
     liveData = d || { matches: [] };
     if (!liveData.matches) liveData.matches = [];
+    if (!liveData.apiKeys) liveData.apiKeys = {};
     syncInsightsBatPosCacheWithLiveData();
     migrateCaptainNamesToIds();
     if (liveData.captains && typeof liveData.captains === 'object' && !Array.isArray(liveData.captains)) {
@@ -4058,11 +4061,12 @@ function _renderFMS(epKey, savedMap) {
 function getApiProviders() {
   try {
     const stored = JSON.parse(localStorage.getItem(LS_API_PROVIDERS_KEY) || '[]');
+    const apiKeys = liveData.apiKeys || {};
     const presets = PRESET_PROVIDERS.map(p => {
       const saved = stored.find(s => s.id === p.id) || {};
       const defaultSelected = p.id === 'espncricinfo';
       const alwaysOn = p.id === 'espncricinfo';
-      return { ...p, selected: alwaysOn || (saved.selected !== undefined ? saved.selected : defaultSelected), apiKey: saved.apiKey || '' };
+      return { ...p, selected: alwaysOn || (saved.selected !== undefined ? saved.selected : defaultSelected), apiKey: apiKeys[p.id] || '' };
     });
     const REMOVED_IDS = new Set(['cricbuzz']);
     const customs = stored.filter(s => !PRESET_PROVIDERS.find(p => p.id === s.id) && !REMOVED_IDS.has(s.id));
@@ -4093,11 +4097,13 @@ function toggleApiProvider(id) {
 }
 
 function saveProviderApiKey(id) {
-  const providers = getApiProviders();
-  const p = providers.find(p => p.id === id);
-  if (!p) return;
-  const keyEl = document.getElementById(`providerKey_${id}`);
-  if (keyEl) { p.apiKey = keyEl.value.trim(); saveApiProviders(providers); showToast(`Saved API key for ${p.name}`, 'success'); }
+  const keyEl = document.getElementById('providerKey_' + id);
+  if (!keyEl) return;
+  const key = keyEl.value.trim();
+  liveData.apiKeys = liveData.apiKeys || {};
+  liveData.apiKeys[id] = key;
+  if (window._db) window._db.ref('live/apiKeys').set(liveData.apiKeys).catch(() => {});
+  showToast('Saved', 'success');
 }
 
 function deleteCustomProvider(id) {
@@ -5839,7 +5845,7 @@ async function fetchESPNMatchDetails(matchId, slug, _attempt = 1) {
       headers: {
         'Content-Type': 'application/json',
         'x-rapidapi-host': 'espncricinfo-api.p.rapidapi.com',
-        'x-rapidapi-key': RAPIDAPI_KEY
+        'x-rapidapi-key': getEspnApiKey()
       },
       signal: AbortSignal.timeout(15000)
     });
