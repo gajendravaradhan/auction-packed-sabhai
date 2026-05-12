@@ -756,7 +756,7 @@ const TEAM_SLUGS = {
 
 const ADMIN_PASSWORD = 'auctionpacked2026';
 const CV_LOCK_DEADLINE = new Date('2026-03-29T13:30:00Z');
-const APP_VERSION = 'v5.31l';
+const APP_VERSION = 'v5.31m';
 const RAPIDAPI_KEY = '9303df28b9msh5c73e8cc7014cdcp1187ccjsncb4f2053386e';
 const API_BASE = 'https://api.cricapi.com/v1';
 
@@ -5776,7 +5776,12 @@ async function syncMissingScheduledMatchesUpToToday(startedOrEndedIds = null) {
     }
     const providerMatchId = getProviderMatchId(scheduleMatch);
     if (!providerMatchId) continue;
-    if ((liveData.matches || []).some(m => m.apiId === providerMatchId)) continue;
+    const existingForBackfill = (liveData.matches || []).find(m => m.apiId === providerMatchId);
+    if (existingForBackfill) {
+      // Skip concluded and non-today matches; re-fetch today's live/in-progress matches for score updates
+      const hasStarted = existingForBackfill.performances && Object.keys(existingForBackfill.performances).length > 0;
+      if (existingForBackfill.status === 'done' || scheduleMatch.date !== today || !hasStarted) continue;
+    }
 
     try {
       const d = await fetchMatchScorecardData(providerMatchId, scheduleMatch.home + ' vs ' + scheduleMatch.away, scheduleMatch.date);
