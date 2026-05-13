@@ -6652,7 +6652,13 @@ function upsertMatch(apiId,name,date,scorecardData) {
   const parsedPerformances=parseScorecard(safeScorecardData, getProviderIdType());
   const hasParsedPerformances=Object.keys(parsedPerformances).length>0;
   const incomingStatus=safeScorecardData.matchEnded?'done':safeScorecardData.matchStarted?'live':'upcoming';
-  const ei=liveData.matches.findIndex(m=>m.apiId===apiId);
+  let ei=liveData.matches.findIndex(m=>m.apiId===apiId);
+  // Cross-provider: if not found by apiId, search by date + teams (same match, different provider ID)
+  if(ei===-1&&scheduleMatch){
+    const dt=(date||'').slice(0,10);
+    ei=liveData.matches.findIndex(m=>m&&m.date&&m.date.slice(0,10)===dt&&matchScheduleTeams(scheduleMatch,m.label||''));
+    if(ei>=0)liveData.matches[ei].apiId=apiId;
+  }
   if(ei>=0){
     const existing=liveData.matches[ei];
     const status=(incomingStatus==='upcoming'&&(existing.status==='live'||existing.status==='done'))?existing.status:incomingStatus;
@@ -7725,7 +7731,8 @@ async function fetchCricapiResults(options = {}) {
       try {
         const d = await fetchMatchScorecardData(_provId, scheduleMatch.home + ' vs ' + scheduleMatch.away, scheduleMatch.date);
         if (d && d.data && typeof d.data === 'object') {
-          const existed = (liveData.matches || []).some(m => m.apiId === _provId);
+          const existed = (liveData.matches || []).some(m => m.apiId === _provId) ||
+            (liveData.matches || []).some(m => m && m.date && m.date.slice(0,10) === scheduleMatch.date && matchScheduleTeams(scheduleMatch, m.label || ''));
           upsertMatch(
             _provId,
             d.data.name || (scheduleMatch.home + ' vs ' + scheduleMatch.away),
@@ -7739,10 +7746,25 @@ async function fetchCricapiResults(options = {}) {
           if (existed) refreshed++;
           else imported++;
         } else {
-          failed++;
+          console.warn('[AP] fetchCricapiResults: invalid data for ' + (scheduleMatch.home + ' vs ' + scheduleMatch.away) + ' (id=' + _provId + ')');
+          // Fallback: use existing Firebase data by team match
+          const existingByTeams = (liveData.matches || []).find(m => m && m.date && m.date.slice(0,10) === scheduleMatch.date && matchScheduleTeams(scheduleMatch, m.label || ''));
+          if (existingByTeams && existingByTeams.performances && Object.keys(existingByTeams.performances).length > 0) {
+            existingByTeams.apiId = _provId;
+            refreshed++;
+          } else { failed++; }
         }
       } catch (e) {
-        failed++;
+        console.warn('[AP] fetchCricapiResults failed: ' + (scheduleMatch.home + ' vs ' + scheduleMatch.away) + ' (id=' + _provId + ') — ' + (e.message || e));
+        // Fallback: if match exists in Firebase under a different apiId, use its data instead of marking failed
+        const existingByTeams = (liveData.matches || []).find(m => m && m.date && m.date.slice(0,10) === scheduleMatch.date && matchScheduleTeams(scheduleMatch, m.label || ''));
+        if (existingByTeams && existingByTeams.performances && Object.keys(existingByTeams.performances).length > 0) {
+          console.warn('[AP]  → using existing Firebase data for ' + (scheduleMatch.home + ' vs ' + scheduleMatch.away));
+          existingByTeams.apiId = _provId;
+          refreshed++;
+        } else {
+          failed++;
+        }
       }
 
       liveData.importAllScheduledStatus.processed = processed;
