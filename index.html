@@ -1076,16 +1076,17 @@ function ensureCricapiIdMap() {
     liveData.cricapiIdMap = {};
   }
 
+  // Don't populate cricapi_match_id when CricBuzz is the active provider — the user
+  // may have deliberately cleared them to prevent accidental CricAPI usage.
+  const isCricbuzz = getActiveDataProvider().id === 'cricbuzz';
+
   let mapChanged = false;
   IPL_2026_SCHEDULE.forEach(scheduleMatch => {
     if (!scheduleMatch || !scheduleMatch.espn_match_id) return;
     const key = String(scheduleMatch.espn_match_id);
     const mappedId = liveData.cricapiIdMap[key] || null;
 
-    // Always prefer the cricapiIdMap value (numeric CricAPI IDs) which matches
-    // the apiId format stored in Firebase match records. Hardcoded UUIDs in the
-    // schedule for matches 1-15 are a different format and won't match Firebase.
-    if (mappedId) {
+    if (mappedId && !isCricbuzz) {
       if (scheduleMatch.cricapi_match_id !== mappedId) {
         scheduleMatch.cricapi_match_id = mappedId;
       }
@@ -1103,7 +1104,8 @@ function setCricapiIdForScheduleMatch(scheduleMatch, cricapiMatchId) {
   ensureCricapiIdMap();
 
   let changed = false;
-  if (scheduleMatch.cricapi_match_id !== cricapiMatchId) {
+  // Only set cricapi_match_id when NOT using CricBuzz — user may have cleared them deliberately
+  if (getActiveDataProvider().id !== 'cricbuzz' && scheduleMatch.cricapi_match_id !== cricapiMatchId) {
     scheduleMatch.cricapi_match_id = cricapiMatchId;
     changed = true;
   }
