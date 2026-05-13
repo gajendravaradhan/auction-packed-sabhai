@@ -968,8 +968,6 @@ let _lastSyncTime = null;
 let _countdownTimer = null;
 let _adminCVExpanded = false;
 let _lastKnownCaptains = null;
-let _firebaseReady = false;
-let _pendingFirebaseSave = false;
 let _lastCurrentMatchesFeedError = '';
 let _lastCurrentMatchesFeedErrorAt = 0;
 
@@ -1365,7 +1363,6 @@ function initFirebaseListener() {
   window._db.ref('live').on('value', snap => {
     const d = snap.val();
     liveData = d || { matches: [] };
-    _firebaseReady = true;
     if (!liveData.matches) liveData.matches = [];
     if (!liveData.apiKeys) liveData.apiKeys = {};
     syncInsightsBatPosCacheWithLiveData();
@@ -1376,8 +1373,6 @@ function initFirebaseListener() {
     const mapChanged = ensureCricapiIdMap();
     if (mapChanged) persistCricapiIdMapSilently();
     ensureEspnMatchSlugMap();
-    // Flush any pending save that was blocked before the first Firebase snapshot
-    if (_pendingFirebaseSave) { _pendingFirebaseSave = false; saveLiveData(true); }
     renderTab(currentTab);
   });
 }
@@ -1392,12 +1387,6 @@ function saveLiveData(silent = false) {
   }
   ensureCricapiIdMap();
   ensureEspnMatchSlugMap();
-  // Block writes before the first Firebase snapshot arrives — prevents race-condition
-  // corruption of captains and matches on page-load auto-sync.
-  if (!_firebaseReady) {
-    _pendingFirebaseSave = true;
-    return;
-  }
   window._db.ref('live').set(liveData)
     .then(() => { if(!silent) showToast('Saved!','success'); })
     .catch(() => { if(!silent) showToast('Save failed','error'); });
@@ -7509,14 +7498,24 @@ window.addEventListener('DOMContentLoaded',()=>{
   };
   Object.entries(_yearEls).forEach(([id,text])=>{const el=document.getElementById(id);if(el)el.textContent=text;});
 
-  if(window._db) initFirebaseListener();
+  if(window._db){
+    initFirebaseListener();
+    // Pre-load captains before allowing any writes — prevents race-condition wipe on page-load sync
+    window._db.ref('live/captains').once('value').then(snap => {
+      const caps = snap.val();
+      if (caps && typeof caps === 'object' && !Array.isArray(caps)) {
+        _lastKnownCaptains = JSON.parse(JSON.stringify(caps));
+      }
+      initMatchDayWatcher();
+    }).catch(() => { initMatchDayWatcher(); });
+  } else {
+    initMatchDayWatcher();
+  }
   if(!liveData.matches) liveData.matches=[];
   renderTab(currentTab);
 
   const cvSel=document.getElementById('cvTeamSelect');
   if(cvSel)TEAMS.forEach(t=>{const o=document.createElement('option');o.value=t.name;o.textContent=t.name;cvSel.appendChild(o);});
-
-  initMatchDayWatcher();
 });
 window.addEventListener('resize',()=>{
   if (currentTab === 'players') updatePlayersStickyColumns();
