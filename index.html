@@ -968,6 +968,8 @@ let _lastSyncTime = null;
 let _countdownTimer = null;
 let _adminCVExpanded = false;
 let _lastKnownCaptains = null;
+let _firebaseReady = false;
+let _pendingFirebaseSave = false;
 let _lastCurrentMatchesFeedError = '';
 let _lastCurrentMatchesFeedErrorAt = 0;
 
@@ -1361,6 +1363,7 @@ function initFirebaseListener() {
   window._db.ref('live').on('value', snap => {
     const d = snap.val();
     liveData = d || { matches: [] };
+    _firebaseReady = true;
     if (!liveData.matches) liveData.matches = [];
     if (!liveData.apiKeys) liveData.apiKeys = {};
     syncInsightsBatPosCacheWithLiveData();
@@ -1371,6 +1374,8 @@ function initFirebaseListener() {
     const mapChanged = ensureCricapiIdMap();
     if (mapChanged) persistCricapiIdMapSilently();
     ensureEspnMatchSlugMap();
+    // Flush any pending save that was blocked before the first Firebase snapshot
+    if (_pendingFirebaseSave) { _pendingFirebaseSave = false; saveLiveData(true); }
     renderTab(currentTab);
   });
 }
@@ -1385,6 +1390,12 @@ function saveLiveData(silent = false) {
   }
   ensureCricapiIdMap();
   ensureEspnMatchSlugMap();
+  // Block writes before the first Firebase snapshot arrives — prevents race-condition
+  // corruption of captains and matches on page-load auto-sync.
+  if (!_firebaseReady) {
+    _pendingFirebaseSave = true;
+    return;
+  }
   window._db.ref('live').set(liveData)
     .then(() => { if(!silent) showToast('Saved!','success'); })
     .catch(() => { if(!silent) showToast('Save failed','error'); });
@@ -4577,11 +4588,12 @@ function renderAdminSettings() {
 
     <div class="admin-section-title">Data Sync</div>
     <div class="match-input-card" style="margin-bottom:12px;">
-      <p id="iplYearScheduleDesc" style="font-size:13px;color:var(--muted);letter-spacing:1px;margin-bottom:12px;line-height:1.6;">Fetch ${_activeProviderName} scorecards for all scheduled matches, or force a full resync that clears and refetches all performance data.</p>
+      <p id="iplYearScheduleDesc" style="font-size:13px;color:var(--muted);letter-spacing:1px;margin-bottom:12px;line-height:1.6;">Fetch ${_activeProviderName} scorecards for all scheduled matches, force a full resync, or recompute points from cached scorecards (no API calls).</p>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
         <button onclick="fetchCricapiResults()" id="importAllScheduledBtn" style="background:var(--surface2);border:1px solid var(--blue);color:var(--blue);border-radius:8px;padding:12px 8px;cursor:pointer;font-family:Barlow Condensed,sans-serif;font-size:15px;font-weight:700;letter-spacing:2px;text-transform:uppercase;">Fetch ${_activeProviderName} Results</button>
         <button onclick="forceResyncAllCricAPI()" id="forceResyncBtn" style="background:var(--surface2);border:1px solid #ff7b2f;color:#ff7b2f;border-radius:8px;padding:12px 8px;cursor:pointer;font-family:Barlow Condensed,sans-serif;font-size:15px;font-weight:700;letter-spacing:2px;text-transform:uppercase;">Force Resync All (Clear + Refetch)</button>
       </div>
+      <button onclick="recomputeAllPointsFromCache()" id="recomputeBtn" style="width:100%;background:var(--surface2);border:1px solid var(--green);color:var(--green);border-radius:8px;padding:12px 8px;cursor:pointer;font-family:Barlow Condensed,sans-serif;font-size:15px;font-weight:700;letter-spacing:2px;text-transform:uppercase;">Recompute All Points From Cache (Zero API)</button>
       <div id="forceResyncStatus" style="margin-top:6px;font-size:12px;color:var(--muted);letter-spacing:1px;"></div>
       <div id="importAllStatus" style="margin-top:8px;">${getImportAllScheduledStatusMarkup()}</div>
     </div>
@@ -7558,6 +7570,42 @@ async function forceResyncAllCricAPI() {
   if (btn) { btn.disabled = false; btn.textContent = 'Force Resync All ' + getActiveDataProvider().name + ' Performances (Clear + Refetch)'; }
   if (status) status.textContent = `Done: ${done} resynced, ${failed} failed.`;
   showToast(`Resync complete: ${done} matches`, 'success');
+  renderTab(currentTab);
+}
+
+function recomputeAllPointsFromCache() {
+  const provId = getActiveDataProvider().id;
+  const matches = (liveData.matches || []).filter(m => m && m.apiId && m.status === 'done');
+  if (matches.length === 0) { showToast('No concluded matches to recompute', ''); return; }
+  const btn = document.getElementById('recomputeBtn');
+  if (btn) { btn.textContent = 'Recomputing...'; btn.disabled = true; }
+  let done = 0, skipped = 0;
+  for (const match of matches) {
+    const cached = readScorecardCache(provId, match.apiId);
+    if (!cached || !cached.data) { skipped++; continue; }
+    try {
+      const freshPerfs = parseScorecard(cached.data, getProviderIdType());
+      const preserved = match.performances || {};
+      // Preserve ESPN dots and POTM
+      Object.keys(preserved).forEach(player => {
+        if (preserved[player].dots != null) {
+          if (freshPerfs[player]) freshPerfs[player].dots = preserved[player].dots;
+        }
+      });
+      match.performances = freshPerfs;
+      const rawSc = extractRawScorecard(cached.data);
+      if (rawSc.length) match.scorecard_raw = rawSc;
+      const matchResult = cached.data.matchEnded ? (cached.data.result || cached.data.status || '') : '';
+      if (matchResult) match.matchResult = matchResult;
+      done++;
+    } catch (e) {
+      console.warn('[AP] recompute failed:', match.apiId, e.message);
+      skipped++;
+    }
+  }
+  saveLiveData();
+  if (btn) { btn.textContent = 'Recompute All Points From Cache (Zero API)'; btn.disabled = false; }
+  showToast('Recomputed ' + done + ' matches, ' + skipped + ' skipped (not cached)', done > 0 ? 'success' : '');
   renderTab(currentTab);
 }
 
