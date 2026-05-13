@@ -756,7 +756,7 @@ const TEAM_SLUGS = {
 
 const ADMIN_PASSWORD = 'auctionpacked2026';
 const CV_LOCK_DEADLINE = new Date('2026-03-29T13:30:00Z');
-const APP_VERSION = 'v5.31o';
+const APP_VERSION = 'v5.31p';
 const RAPIDAPI_KEY = '9303df28b9msh5c73e8cc7014cdcp1187ccjsncb4f2053386e';
 const API_BASE = 'https://api.cricapi.com/v1';
 
@@ -6637,8 +6637,10 @@ function upsertMatch(apiId,name,date,scorecardData) {
   if(ei>=0){
     const existing=liveData.matches[ei];
     const status=(incomingStatus==='upcoming'&&(existing.status==='live'||existing.status==='done'))?existing.status:incomingStatus;
+    // Don't overwrite performance data for concluded matches — stats are final
+    const isConcluded = existing.status === 'done';
     const performances={...(existing.performances||{})};
-    if(hasParsedPerformances){
+    if(hasParsedPerformances && !isConcluded){
       Object.keys(parsedPerformances).forEach(player=>{
         const ex=performances[player]||{};
         performances[player]={...ex,...parsedPerformances[player]};
