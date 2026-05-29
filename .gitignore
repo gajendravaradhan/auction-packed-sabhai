@@ -2,3 +2,45 @@ index.html.bak
 
 # AgentOps session artifacts
 .agents/
+
+# macOS / editor / lock files
+.DS_Store
+~$*
+*.swp
+*.swo
+
+# Python environment
+.venv/
+__pycache__/
+*.pyc
+
+# Node
+node_modules/
+
+# Local backups (Firebase snapshots, CSV snapshots)
+backups/
+
+# Dev-only working copies
+live-1.html
+live_working.html
+auctionsite/
+
+# Developer scripts (contain credentials or are local-only tooling)
+scrape_fanzania.py
+audit_all_scoring.js
+audit_ap_points.js
+audit_formulas.py
+backfill_apply.js
+backfill_espn.js
+export_ap_base_points.js
+export_match_stats.py
+
+# Generated reports / exports (regenerable from app data)
+ap_base_points.json
+audit_report.json
+backfill_report.json
+match_stats_export.xlsx
+
+# Player data CSVs (developer artifacts, may contain Fanzania scrape results)
+player_guids.csv
+player_guids copy.csv
