@@ -594,9 +594,9 @@ const IPL_2026_SCHEDULE = [
   {match:68,espn_match_id:1529311,date:'2026-05-23',home:'LSG',away:'PBKS',venue:'Lucknow',time:'19:30',slug:'punjab-kings-vs-lucknow-super-giants-68th-match-1529311',cricapi_match_id:null},
   {match:69,espn_match_id:1529312,date:'2026-05-24',home:'MI',away:'RR',venue:'Mumbai',time:'15:30',slug:'rajasthan-royals-vs-mumbai-indians-69th-match-1529312',cricapi_match_id:null},
   {match:70,espn_match_id:1529313,date:'2026-05-24',home:'KKR',away:'DC',venue:'Kolkata',time:'19:30',slug:'delhi-capitals-vs-kolkata-knight-riders-70th-match-1529313',cricapi_match_id:null},
-  {match:'Q1',espn_match_id:1529314,date:'2026-05-26',home:'TBD',away:'TBD',venue:'Dharamsala',time:'19:30',slug:'',cricapi_match_id:null},
-  {match:'EL',espn_match_id:1529315,date:'2026-05-27',home:'TBD',away:'TBD',venue:'New Chandigarh',time:'19:30',slug:'',cricapi_match_id:null},
-  {match:'Q2',espn_match_id:1529316,date:'2026-05-29',home:'TBD',away:'TBD',venue:'New Chandigarh',time:'19:30',slug:'',cricapi_match_id:null},
+  {match:'Q1',espn_match_id:1529314,date:'2026-05-26',home:'RCB',away:'GT',venue:'Dharamsala',time:'19:30',slug:'',cricapi_match_id:null},
+  {match:'EL',espn_match_id:1529315,date:'2026-05-27',home:'RR',away:'SRH',venue:'New Chandigarh',time:'19:30',slug:'',cricapi_match_id:null},
+  {match:'Q2',espn_match_id:1529316,date:'2026-05-29',home:'RR',away:'GT',venue:'New Chandigarh',time:'19:30',slug:'',cricapi_match_id:null},
   {match:'F',espn_match_id:1529317,date:'2026-05-31',home:'TBD',away:'TBD',venue:'Ahmedabad',time:'19:30',slug:'',cricapi_match_id:null}
 ];
 
@@ -756,7 +756,7 @@ const TEAM_SLUGS = {
 
 const ADMIN_PASSWORD = 'auctionpacked2026';
 const CV_LOCK_DEADLINE = new Date('2026-03-29T13:30:00Z');
-const APP_VERSION = 'v5.32b';
+const APP_VERSION = 'v5.34';
 const RAPIDAPI_KEY = '9303df28b9msh5c73e8cc7014cdcp1187ccjsncb4f2053386e';
 const API_BASE = 'https://api.cricapi.com/v1';
 
@@ -952,7 +952,7 @@ let playersSortChain = [
 ];
 let playersColumnFilters = { rank: '', name: '', role: '', team: '', iplTeam: '', pts: '' };
 
-const POLL_INTERVAL_NORMAL = 3 * 60 * 1000;
+const POLL_INTERVAL_NORMAL = 10 * 60 * 1000;
 const POLL_INTERVAL_SLOW   = 30 * 60 * 1000;
 const DAILY_LIMIT          = 2000;
 const DAILY_LIMIT_SLOW_AT  = 1800;
@@ -967,7 +967,7 @@ let _autoPolling = false;
 let _lastSyncTime = null;
 let _countdownTimer = null;
 let _adminCVExpanded = false;
-let _lastKnownCaptains = null;
+let _renderDebounceTimer = null;
 let _lastCurrentMatchesFeedError = '';
 let _lastCurrentMatchesFeedErrorAt = 0;
 
@@ -988,6 +988,36 @@ function getEspnCallsToday() {
 }
 function incrementEspnCalls(n=1) {
   try { const t=new Date().toISOString().slice(0,10); const c=getEspnCallsToday()+n; localStorage.setItem(LS_ESPN_CALLS_KEY,JSON.stringify({date:t,count:c})); return c; } catch(e){return 0;}
+}
+
+// CricBuzz monthly budget (billing cycle resets on 10th of each month)
+const CB_MONTHLY_LIMIT = 20000;
+const CB_BW_LIMIT_MB   = 10240;
+function getCBCycleKey() {
+  const now = new Date(); const d = now.getUTCDate(), mo = now.getUTCMonth(), yr = now.getUTCFullYear();
+  const cm = d < 10 ? (mo === 0 ? 12 : mo) : mo + 1;
+  const cy = d < 10 && mo === 0 ? yr - 1 : yr;
+  return `ap_cb_calls_${cy}${String(cm).padStart(2,'0')}10`;
+}
+function getCBCallsThisCycle() {
+  try { const s=JSON.parse(localStorage.getItem(getCBCycleKey())||'{}'); return s.count||0; } catch(e){return 0;}
+}
+function incrementCBCalls(n=1) {
+  try { const k=getCBCycleKey(); const s=JSON.parse(localStorage.getItem(k)||'{}'); const c=(s.count||0)+n; localStorage.setItem(k,JSON.stringify({count:c,bwKB:s.bwKB||0})); return c; } catch(e){return 0;}
+}
+function incrementCBBandwidth(bytes) {
+  try { const k=getCBCycleKey(); const s=JSON.parse(localStorage.getItem(k)||'{}'); const bw=(s.bwKB||0)+bytes/1024; localStorage.setItem(k,JSON.stringify({count:s.count||0,bwKB:bw})); } catch(e){}
+}
+function getCBBandwidthMB() {
+  try { const s=JSON.parse(localStorage.getItem(getCBCycleKey())||'{}'); return (s.bwKB||0)/1024; } catch(e){return 0;}
+}
+
+// Rate limiter: 10 req/sec max for CricBuzz
+let _cbLastCallTime = 0;
+async function cbRateLimit() {
+  const wait = 100 - (Date.now() - _cbLastCallTime);
+  if (wait > 0) await new Promise(r => setTimeout(r, wait));
+  _cbLastCallTime = Date.now();
 }
 
 let _cricapiQuotaCache = null; // { remaining, hitsToday, fetchedAt } — populated passively from any CricAPI response
@@ -1013,16 +1043,55 @@ function getETDateTimeParts(date = new Date()) {
   };
 }
 
-function isWithinAutoSyncWindowET(date = new Date()) {
-  const t = getETDateTimeParts(date);
-  const mins = t.hour * 60 + t.minute;
-  return mins >= 360 && mins <= 930; // 6:00 AM to 3:30 PM ET
+function getISTMinutes(date = new Date()) {
+  const parts = new Intl.DateTimeFormat('en-US', { timeZone:'Asia/Kolkata', hour:'2-digit', minute:'2-digit', hour12:false }).formatToParts(date);
+  const h = parseInt(parts.find(p=>p.type==='hour').value,10)||0;
+  const m = parseInt(parts.find(p=>p.type==='minute').value,10)||0;
+  return h * 60 + m;
 }
 
-function isPastAutoSyncWindowEndET(date = new Date()) {
-  const t = getETDateTimeParts(date);
-  return (t.hour * 60 + t.minute) > 930;
+function isMatchTrulyConcluded(match) {
+  if (!match || match.status !== 'done') return false;
+  if (match.potm) return true;
+  return /no result|abandoned|called off|no-result/i.test(match.matchResult || match.result || '');
 }
+
+function areTodayMatchesTrulyConcluded() {
+  const todayIST = new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Kolkata'}).format(new Date());
+  const sched = IPL_2026_SCHEDULE.filter(s => s && s.date === todayIST);
+  if (!sched.length) return false;
+  return sched.every(s => {
+    const m = (liveData.matches||[]).find(m => m && (
+      m.apiId === s.cricbuzz_match_id || m.apiId === s.cricapi_match_id ||
+      matchScheduleTeams(s, m.label||'')
+    ));
+    return isMatchTrulyConcluded(m);
+  });
+}
+
+function isWithinAutoSyncWindow(date = new Date()) {
+  const todayIST = new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Kolkata'}).format(date);
+  const sched = IPL_2026_SCHEDULE.filter(s => s && s.date === todayIST);
+  if (!sched.length) return false;
+  const nowMins = getISTMinutes(date);
+  if (nowMins >= 1439) return false; // midnight failsafe
+  const firstStart = Math.min(...sched.map(s => { const [h,m]=(s.time||'19:30').split(':').map(Number); return h*60+m; }));
+  if (nowMins < firstStart - 20) return false; // before window open
+  return !areTodayMatchesTrulyConcluded();
+}
+
+function isPastAutoSyncWindowEnd(date = new Date()) {
+  const todayIST = new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Kolkata'}).format(date);
+  const sched = IPL_2026_SCHEDULE.filter(s => s && s.date === todayIST);
+  if (!sched.length) return false;
+  const nowMins = getISTMinutes(date);
+  if (nowMins >= 1439) return true;
+  return areTodayMatchesTrulyConcluded();
+}
+
+// Keep ET helper for display only
+function isWithinAutoSyncWindowET(date = new Date()) { return isWithinAutoSyncWindow(date); }
+function isPastAutoSyncWindowEndET(date = new Date()) { return isPastAutoSyncWindowEnd(date); }
 
 function formatAdminDateTime(iso) {
   if (!iso) return '—';
@@ -1367,27 +1436,19 @@ function initFirebaseListener() {
     if (!liveData.apiKeys) liveData.apiKeys = {};
     syncInsightsBatPosCacheWithLiveData();
     migrateCaptainNamesToIds();
-    if (liveData.captains && typeof liveData.captains === 'object' && !Array.isArray(liveData.captains)) {
-      _lastKnownCaptains = JSON.parse(JSON.stringify(liveData.captains));
-    }
-    const mapChanged = ensureCricapiIdMap();
-    if (mapChanged) persistCricapiIdMapSilently();
     ensureEspnMatchSlugMap();
-    renderTab(currentTab);
+    clearTimeout(_renderDebounceTimer);
+    _renderDebounceTimer = setTimeout(() => renderTab(currentTab), 80);
   });
 }
 
 function saveLiveData(silent = false) {
   if (!window._db) { if(!silent) showToast('Firebase unavailable','error'); return; }
-  if ((!liveData.captains || typeof liveData.captains !== 'object' || Array.isArray(liveData.captains)) && _lastKnownCaptains) {
-    liveData.captains = JSON.parse(JSON.stringify(_lastKnownCaptains));
-  }
-  if (liveData.captains && typeof liveData.captains === 'object' && !Array.isArray(liveData.captains)) {
-    _lastKnownCaptains = JSON.parse(JSON.stringify(liveData.captains));
-  }
-  ensureCricapiIdMap();
   ensureEspnMatchSlugMap();
-  window._db.ref('live').set(liveData)
+  // Exclude captains — written exclusively via direct child-path in confirmCV
+  const payload = Object.assign({}, liveData);
+  delete payload.captains;
+  window._db.ref('live').update(payload)
     .then(() => { if(!silent) showToast('Saved!','success'); })
     .catch(() => { if(!silent) showToast('Save failed','error'); });
 }
@@ -1861,15 +1922,15 @@ function renderMatches() {
     const resolvedCricapiId = fix.cricapi_match_id ||
       (liveData.cricapiIdMap && fix.espn_match_id ? liveData.cricapiIdMap[String(fix.espn_match_id)] : null);
     const sv = saved.find(m=>{
-      // Prefer exact ID match (hardcoded or from map)
+      // Exact ID match — try both CricAPI and CricBuzz IDs
       if (resolvedCricapiId && m.apiId===resolvedCricapiId) return true;
-      // If ID is known but didn't match, skip (don't cross-contaminate)
-      if (resolvedCricapiId) return false;
-      // ID unknown: match by team names + date (±1.5 days) to avoid leg-1/leg-2 mixup
-      const label=(m.label||'').toLowerCase();
-      if (!label.includes(homeTeamFull)||!label.includes(awayTeamFull)) return false;
+      if (fix.cricbuzz_match_id && m.apiId===fix.cricbuzz_match_id) return true;
+      // Label+date fallback — handles cross-provider (CricBuzz fetched match has
+      // different apiId than hardcoded cricapi_match_id). IPL has no repeat fixtures
+      // so date+team uniquely identifies a match.
       const mDate=new Date(m.date||''), fDate=new Date(fix.date||'');
-      return Math.abs(mDate-fDate)<=86400000*1.5;
+      if (Math.abs(mDate-fDate)>86400000*1.5) return false;
+      return matchScheduleTeams(fix, m.label||'');
     });
     const isToday=fix.date===today, isPast=fix.date<today;
     const status=sv?.status||(isToday?'today':isPast?'past':'upcoming');
@@ -4661,16 +4722,18 @@ function renderAdminMonitoring() {
 
   const used     = getApiCallsToday();
   const espnUsed = getEspnCallsToday();
+  const cbMonthly = getCBCallsThisCycle();
+  const cbBwMB    = getCBBandwidthMB();
   const sq       = _cricapiQuotaCache;
   const mode     = _monitoringMode;
   const _monProviderName = getActiveDataProvider().name || 'API';
 
   // ── live call counters (always current) ──────────────────────
-  const cricSc   = used >= DAILY_LIMIT ? 'var(--red)' : used >= DAILY_LIMIT_SLOW_AT ? 'var(--gold)' : 'var(--green)';
+  const cbSc   = cbMonthly >= CB_MONTHLY_LIMIT ? 'var(--red)' : cbMonthly >= CB_MONTHLY_LIMIT * 0.85 ? 'var(--gold)' : 'var(--green)';
+  const cbBwSc = cbBwMB >= CB_BW_LIMIT_MB * 0.85 ? 'var(--gold)' : 'var(--green)';
+  const cricSc = cbSc;
   const espnSc   = espnUsed >= ESPN_DAILY_LIMIT * 0.8 ? 'var(--gold)' : 'var(--green)';
-  const sqHtml   = sq
-    ? `<span style="color:var(--muted);font-size:11px;">Server: ${sq.hitsToday} used · ${sq.remaining} remaining · ${new Date(sq.fetchedAt).toLocaleTimeString()}</span>`
-    : `<span style="color:var(--muted);font-size:11px;">Server quota updates automatically on next API call</span>`;
+  const sqHtml   = `<span style="color:var(--muted);font-size:11px;">CricBuzz this cycle: ${cbMonthly.toLocaleString()} / ${CB_MONTHLY_LIMIT.toLocaleString()} calls · ${cbBwMB.toFixed(1)} / ${CB_BW_LIMIT_MB} MB</span>`;
 
   // ── mode-specific data ────────────────────────────────────────
   // After tab: real current data from localStorage + server cache
@@ -4738,9 +4801,9 @@ function renderAdminMonitoring() {
     <div class="mon-card" style="margin-bottom:16px;">
       <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
         <div>
-          <div style="font-size:12px;color:${cricSc};letter-spacing:1px;font-weight:700;">${_monProviderName}: ${used} local calls today · ${Math.max(0,DAILY_LIMIT-used)} remaining (est.)</div>
+          <div style="font-size:12px;color:${cbSc};letter-spacing:1px;font-weight:700;">CricBuzz this cycle: ${cbMonthly.toLocaleString()} / ${CB_MONTHLY_LIMIT.toLocaleString()} · ${cbBwMB.toFixed(1)} MB / ${CB_BW_LIMIT_MB} MB</div>
           <div style="margin-top:4px;">${sqHtml}</div>
-          <div style="font-size:12px;color:${espnSc};letter-spacing:1px;font-weight:700;margin-top:4px;">ESPN: ${espnUsed} calls today</div>
+          <div style="font-size:12px;color:${espnSc};letter-spacing:1px;font-weight:700;margin-top:4px;">ESPN: ${espnUsed} calls today · Session calls (local): ${used}</div>
         </div>
         <div class="mon-toggle">
           <button class="mon-toggle-btn ${mode==='before'?'active-before':''}" onclick="setMonitoringMode('before')">Before</button>
@@ -5131,12 +5194,10 @@ function adminSaveAllCV() {
     }
   }
 
-  liveData.captains = nextCV;
-  saveLiveData();
-  showToast('C/VC settings saved', 'success');
-  _adminCVExpanded = false;
-  renderAdminCVOverride();
-  renderTab('captains');
+  if(!window._db){showToast('Firebase unavailable','error');return;}
+  window._db.ref('live/captains').set(nextCV)
+    .then(()=>{ showToast('C/VC settings saved','success'); _adminCVExpanded=false; renderAdminCVOverride(); renderTab('captains'); })
+    .catch(()=>showToast('Save failed','error'));
 }
 
 function adminCancelCVEdit() {
@@ -5267,16 +5328,7 @@ function isIPLMatchDay() {
   return IPL_2026_SCHEDULE.some(m=>m.date===today);
 }
 
-function areTodayMatchesAllDone() {
-  const todayIST = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
-  const todaySchedule = IPL_2026_SCHEDULE.filter(s => s && s.date === todayIST);
-  if (todaySchedule.length === 0) return false;
-  return todaySchedule.every(s => {
-    const resolvedId = s.cricapi_match_id || (liveData.cricapiIdMap && s.espn_match_id ? liveData.cricapiIdMap[String(s.espn_match_id)] : null);
-    if (!resolvedId) return false;
-    return (liveData.matches || []).some(m => m && m.apiId === resolvedId && m.status === 'done');
-  });
-}
+function areTodayMatchesAllDone() { return areTodayMatchesTrulyConcluded(); }
 
 function getNextMatchDay() {
   const today=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Kolkata'}).format(new Date());
@@ -5293,7 +5345,7 @@ function formatDuration(ms) {
 
 function getCountdownText() {
   if(!_autoPolling){
-    if(!isWithinAutoSyncWindowET()) return 'Auto-sync suspended (runs 6:00 AM to 3:30 PM ET)';
+    if(!isWithinAutoSyncWindow()) return 'Auto-sync suspended (outside match window)';
     const nx=getNextMatchDay();
     if(!nx)return'Season complete';
     const ms=new Date(nx.date+'T20:00:00Z')-new Date();
@@ -5318,8 +5370,8 @@ function startCountdown() {
 
 function startAutoSync() {
   if(_autoPolling)return;
-  if(!isWithinAutoSyncWindowET()){
-    showToast('Auto-sync only runs between 6:00 AM and 3:30 PM ET','error');
+  if(!isWithinAutoSyncWindow()){
+    showToast('Auto-sync only runs during match window (IST)','error');
     renderAdmin();
     return;
   }
@@ -5533,7 +5585,7 @@ function getActiveDataProvider() {
     const selected = providers.find(p => p.selected && p.id !== 'espncricinfo');
     if (selected) return selected;
   } catch(e) {}
-  return PRESET_PROVIDERS.find(p => p.id === 'cricketdata');
+  return PRESET_PROVIDERS.find(p => p.id === 'cricbuzz');
 }
 
 function getProviderIdType() {
@@ -5554,11 +5606,13 @@ function _cricbuzzTeamAbbrev(fullName) {
 }
 
 async function fetchCricbuzzJson(path, options = {}) {
+  await cbRateLimit();
   const providers = getApiProviders();
   const cb = providers.find(p => p.id === 'cricbuzz');
   const apiKey = (cb && cb.apiKey) || RAPIDAPI_KEY;
   const host = 'cricbuzz-cricket.p.rapidapi.com';
   incrementApiCalls(1);
+  incrementCBCalls(1);
   for (let attempt = 0; attempt < 3; attempt++) {
     const resp = await fetch('https://' + host + path, {
       headers: { 'X-RapidAPI-Key': apiKey, 'X-RapidAPI-Host': host },
@@ -5569,7 +5623,9 @@ async function fetchCricbuzzJson(path, options = {}) {
       continue;
     }
     if (!resp.ok) throw new Error(resp.status === 429 ? 'CricBuzz rate limit hit (429) — check your RapidAPI plan or switch to a new key in Admin → API Providers' : 'CricBuzz HTTP ' + resp.status);
-    return resp.json();
+    const data = await resp.json();
+    incrementCBBandwidth(JSON.stringify(data).length);
+    return data;
   }
 }
 
@@ -5781,9 +5837,15 @@ async function syncMissingScheduledMatchesUpToToday(startedOrEndedIds = null) {
     if (!providerMatchId) continue;
     const existingForBackfill = (liveData.matches || []).find(m => m.apiId === providerMatchId);
     if (existingForBackfill) {
-      // Skip concluded and non-today matches; re-fetch today's live/in-progress matches for score updates
-      const hasStarted = existingForBackfill.performances && Object.keys(existingForBackfill.performances).length > 0;
-      if (existingForBackfill.status === 'done' || scheduleMatch.date !== today || !hasStarted) continue;
+      const isComplete = isMatchTrulyConcluded(existingForBackfill)
+        && (existingForBackfill.scorecard_raw || []).length > 0
+        && Object.keys(existingForBackfill.performances || {}).length > 0;
+      if (isComplete) continue; // fully done — nothing to fix
+      // Past match with missing data falls through and gets re-fetched
+      if (scheduleMatch.date === today) {
+        const hasStarted = Object.keys(existingForBackfill.performances || {}).length > 0;
+        if (!hasStarted && existingForBackfill.status !== 'done') continue; // today, not yet started
+      }
     }
 
     try {
@@ -5813,11 +5875,15 @@ async function syncMissingScheduledMatchesUpToToday(startedOrEndedIds = null) {
 }
 
 async function runDailyFinalStackSyncIfNeeded() {
-  const etDate = getETDateTimeParts().date;
-  if (liveData.lastDailyStackSyncDateEt === etDate) return;
-  await fetchCricapiResults({ silent: true });
-  liveData.lastDailyStackSyncDateEt = etDate;
-  saveLiveData(true);
+  const todayIST = new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Kolkata'}).format(new Date());
+  if (liveData.lastDailyStackSyncDateIST === todayIST) return;
+  if (!areTodayMatchesTrulyConcluded()) {
+    await fetchCricapiResults({ silent: true });
+  }
+  if (areTodayMatchesTrulyConcluded()) {
+    liveData.lastDailyStackSyncDateIST = todayIST;
+    saveLiveData(true);
+  }
 }
 
 function getMatchesForToday() {
@@ -5962,25 +6028,27 @@ function parseESPNData(matchData, matchIndex) {
   if (!payload) return;
 
   const match = liveData.matches[matchIndex];
-  if (!match || !match.performances) return;
+  if (!match) return;
 
-  // Parse dot balls for bowlers — resolve via ESPN numeric player_id
-  const innings = getESPNInnings(matchData);
-  innings.forEach(inning => {
-    if (!inning || !inning.bowling) return;
-    inning.bowling.forEach(bowler => {
-      const player = PLAYER_BY_ESPN_NUM_ID[+bowler.player_id];
-      const dots = getESPNBowlerDots(bowler);
-      if (player && dots !== null && match.performances[player.displayName]) {
-        match.performances[player.displayName].dots = dots;
-      }
+  // Parse dot balls for bowlers — requires performances to be loaded
+  if (match.performances) {
+    const innings = getESPNInnings(matchData);
+    innings.forEach(inning => {
+      if (!inning || !inning.bowling) return;
+      inning.bowling.forEach(bowler => {
+        const player = PLAYER_BY_ESPN_NUM_ID[+bowler.player_id];
+        const dots = getESPNBowlerDots(bowler);
+        if (player && dots !== null && match.performances[player.displayName]) {
+          match.performances[player.displayName].dots = dots;
+        }
+      });
     });
-  });
+  }
 
-  // Parse POTM if match is RESULT
+  // Parse POTM if match is RESULT — write even if performances not yet loaded
   if (getESPNMatchStatus(matchData) === 'RESULT') {
     const potmName = getESPNPotmName(matchData);
-    if (potmName) {
+    if (potmName && !match.potm) {
       match.potm = potmName;
     }
   }
@@ -6050,12 +6118,14 @@ async function runSyncNow() {
     for(const m of iplMatches){
       if(!m.matchStarted&&!m.matchEnded)continue;
       try{
+        const _existingForSync = (liveData.matches || []).find(x => x && x.apiId === m.id);
+        const _alreadyDone = _existingForSync && _existingForSync.status === 'done' && (_existingForSync.scorecard_raw || []).length > 0;
         // Check scorecard cache for concluded matches before making an API call
         const _cachedSc = m.matchEnded ? readScorecardCache(_syncProvId, m.id) : null;
         let sc, scorecardData;
-        if (_cachedSc && _cachedSc.data) {
-          sc = _cachedSc;
-          scorecardData = { ...sc.data };
+        if (_alreadyDone || (_cachedSc && _cachedSc.data)) {
+          sc = _cachedSc || {};
+          scorecardData = (_cachedSc && _cachedSc.data) ? { ..._cachedSc.data } : { scorecard: [], matchEnded: true };
         } else {
           sc = await fetchMatchScorecardData(m.id, m.name, m.date);
           scorecardData = sc.data ? { ...sc.data } : { scorecard: [] };
@@ -6068,8 +6138,18 @@ async function runSyncNow() {
         if (scorecardData.matchEnded && !_cachedSc) writeScorecardCache(_syncProvId, m.id, sc);
         const scheduleMatch = findScheduleMatchForCricapiMatch({ id: m.id, name: m.name || '', date: m.date || '' });
         if (scheduleMatch) {
-          const espnResult = await syncEspnForScheduleMatchesAtomic([scheduleMatch], { persistEach: true });
-          espnSynced += espnResult.synced;
+          // Skip ESPN sync for concluded matches that already have full data — only re-fetch
+          // for live matches or done matches missing performances/POTM/scorecard.
+          const _existingForEspn = (liveData.matches || []).find(x => x && x.apiId === m.id);
+          const _espnAlreadyDone = _existingForEspn
+            && _existingForEspn.status === 'done'
+            && (_existingForEspn.scorecard_raw || []).length > 0
+            && _existingForEspn.potm
+            && Object.keys(_existingForEspn.performances || {}).length > 0;
+          if (!_espnAlreadyDone) {
+            const espnResult = await syncEspnForScheduleMatchesAtomic([scheduleMatch], { persistEach: true });
+            espnSynced += espnResult.synced;
+          }
         }
       }catch(e){
         console.warn('[AP] scorecard failed:',m.id,e.message);
@@ -6090,8 +6170,16 @@ async function runSyncNow() {
           }
           const scheduleMatch = findScheduleMatchForCricapiMatch({ id: m.id, name: m.name || '', date: m.date || '' });
           if (scheduleMatch) {
-            const espnResult = await syncEspnForScheduleMatchesAtomic([scheduleMatch], { persistEach: true });
-            espnSynced += espnResult.synced;
+            const _existingForEspn = (liveData.matches || []).find(x => x && x.apiId === m.id);
+            const _espnAlreadyDone = _existingForEspn
+              && _existingForEspn.status === 'done'
+              && (_existingForEspn.scorecard_raw || []).length > 0
+              && _existingForEspn.potm
+              && Object.keys(_existingForEspn.performances || {}).length > 0;
+            if (!_espnAlreadyDone) {
+              const espnResult = await syncEspnForScheduleMatchesAtomic([scheduleMatch], { persistEach: true });
+              espnSynced += espnResult.synced;
+            }
           }
         } catch (fallbackErr) {
           console.warn('[AP] fallback upsert failed:', m.id, fallbackErr.message);
@@ -7197,7 +7285,7 @@ function deleteMatch(idx){if(!confirm('Delete this match?'))return;liveData.matc
 function updateMatchStatus(idx,status){liveData.matches[idx].status=status;}
 function saveMatch(idx){saveLiveData();}
 function setPOTM(idx,name){liveData.matches[idx].potm=name;}
-function resetAllCVPicks(){if(!confirm('Reset ALL captain/vice captain picks?'))return;liveData.captains={};saveLiveData();showToast('All C/VC picks reset','success');renderAdmin();}
+function resetAllCVPicks(){if(!confirm('Reset ALL captain/vice captain picks?'))return;if(!window._db){showToast('Firebase unavailable','error');return;}window._db.ref('live/captains').set({}).then(()=>{showToast('All C/VC picks reset','success');renderAdmin();}).catch(()=>showToast('Save failed','error'));}
 
 function updatePerf(matchIdx,playerName,field,value){
   const m=liveData.matches[matchIdx];
@@ -7261,11 +7349,10 @@ function confirmCV(){
   if(!capSel||!vcSel||!capSel.value||!vcSel.value){showToast('Pick both Captain and Vice Captain','error');return;}
   if(capSel.value===vcSel.value){showToast('C and VC must be different','error');return;}
   if(!confirm('Lock in '+resolveCaptainName(capSel.value)+' as Captain and '+resolveCaptainName(vcSel.value)+' as Vice Captain for '+teamName+'? This cannot be changed.'))return;
-  if(!liveData.captains)liveData.captains={};
-  liveData.captains[teamName]={captain:capSel.value,viceCaptain:vcSel.value,locked:true};
-  saveLiveData();
-  showToast('Picks locked!','success');
-  renderCVPicker();
+  if(!window._db){showToast('Firebase unavailable','error');return;}
+  window._db.ref('live/captains/'+teamName).set({captain:capSel.value,viceCaptain:vcSel.value,locked:true})
+    .then(()=>{ showToast('Picks locked!','success'); renderCVPicker(); })
+    .catch(()=>showToast('Save failed','error'));
 }
 
 // ═══════════════════════════════════════════════════════
@@ -7500,14 +7587,7 @@ window.addEventListener('DOMContentLoaded',()=>{
 
   if(window._db){
     initFirebaseListener();
-    // Pre-load captains before allowing any writes — prevents race-condition wipe on page-load sync
-    window._db.ref('live/captains').once('value').then(snap => {
-      const caps = snap.val();
-      if (caps && typeof caps === 'object' && !Array.isArray(caps)) {
-        _lastKnownCaptains = JSON.parse(JSON.stringify(caps));
-      }
-      initMatchDayWatcher();
-    }).catch(() => { initMatchDayWatcher(); });
+    initMatchDayWatcher();
   } else {
     initMatchDayWatcher();
   }
@@ -7679,6 +7759,20 @@ async function fetchCricapiResults(options = {}) {
       if (_provIdForCB === 'cricbuzz' && !scheduleMatch.cricbuzz_match_id && seriesMatches.length > 0) {
         const seriesMatch2 = findSeriesMatchForScheduleMatch(scheduleMatch, seriesMatches);
         if (seriesMatch2 && seriesMatch2.id) setProviderMatchId(scheduleMatch, seriesMatch2.id);
+      }
+
+      // Skip if Firebase already has complete data for this match — no API call needed
+      const _existingFull = (liveData.matches||[]).find(m => m && (
+        m.apiId === scheduleMatch.cricbuzz_match_id || m.apiId === scheduleMatch.cricapi_match_id ||
+        matchScheduleTeams(scheduleMatch, m.label||'')
+      ));
+      if (_existingFull && isMatchTrulyConcluded(_existingFull) &&
+          (_existingFull.scorecard_raw||[]).length > 0 &&
+          Object.keys(_existingFull.performances||{}).length > 0) {
+        skippedUpcoming++;
+        liveData.importAllScheduledStatus.processed = processed;
+        liveData.importAllScheduledStatus.skippedUpcoming = skippedUpcoming;
+        continue;
       }
 
       if (!getProviderMatchId(scheduleMatch)) {
