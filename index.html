@@ -756,7 +756,7 @@ const TEAM_SLUGS = {
 
 const ADMIN_PASSWORD = 'auctionpacked2026';
 const CV_LOCK_DEADLINE = new Date('2026-03-29T13:30:00Z');
-const APP_VERSION = 'v5.37';
+const APP_VERSION = 'v5.38';
 const RAPIDAPI_KEY = '9303df28b9msh5c73e8cc7014cdcp1187ccjsncb4f2053386e';
 const API_BASE = 'https://api.cricapi.com/v1';
 
@@ -1427,6 +1427,66 @@ function migrateCaptainNamesToIds() {
 }
 
 
+// Set true after the first Firebase snapshot hydrates liveData.
+// Guards saveLiveData against clobbering Firebase with empty/stale in-memory state
+// during cold load, network blips, or autosync racing with hydration —
+// the root cause of points-reset-to-0 incidents.
+var _liveLoadedFromFirebase = false;
+
+// Captures DOM open-state (accordions, modals, scroll) so background sync re-renders
+// don't collapse what the user has open or jump the page.
+function snapshotUiState() {
+  const openRosters = [];
+  try {
+    document.querySelectorAll('[id^="lb-roster-"], [id^="live-roster-"], [id^="admin-match-body-"]').forEach(el => {
+      if (el && el.style && el.style.display !== 'none') openRosters.push(el.id);
+    });
+  } catch(e) {}
+  const playerModal = document.getElementById('playerModal');
+  const playerModalOpen = !!(playerModal && playerModal.style.display && playerModal.style.display !== 'none');
+  return {
+    openRosters,
+    playerModalOpen,
+    scrollY: (typeof window !== 'undefined' && typeof window.scrollY === 'number') ? window.scrollY : 0
+  };
+}
+
+function restoreUiState(snap) {
+  if (!snap) return;
+  try {
+    (snap.openRosters || []).forEach(id => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.style.display = 'block';
+      // Re-orient the squad arrow on the matching header so chevron stays pointing down.
+      const headerEl = el.previousElementSibling;
+      if (headerEl && headerEl.classList && headerEl.classList.contains('lb-row-header')) {
+        const icon = headerEl.querySelector('.squad-arrow-icon');
+        if (icon) icon.style.transform = 'rotate(90deg)';
+      }
+    });
+  } catch(e) {}
+  try {
+    if (typeof snap.scrollY === 'number' && Math.abs((window.scrollY||0) - snap.scrollY) > 2) {
+      window.scrollTo(0, snap.scrollY);
+    }
+  } catch(e) {}
+}
+
+// Re-render the active tab while preserving user-visible state (open accordions,
+// scroll position). Use for sync-driven updates so background data refreshes
+// don't disturb interaction. Manual user actions still call renderTab directly.
+function renderTabPreserveState(tab) {
+  const snap = snapshotUiState();
+  renderTab(tab);
+  // Restore on the next frame after DOM is replaced.
+  if (typeof requestAnimationFrame === 'function') {
+    requestAnimationFrame(() => restoreUiState(snap));
+  } else {
+    setTimeout(() => restoreUiState(snap), 0);
+  }
+}
+
 function initFirebaseListener() {
   if (!window._db) return;
   window._db.ref('live').on('value', snap => {
@@ -1434,16 +1494,31 @@ function initFirebaseListener() {
     liveData = d || { matches: [] };
     if (!liveData.matches) liveData.matches = [];
     if (!liveData.apiKeys) liveData.apiKeys = {};
+    _liveLoadedFromFirebase = true;
     syncInsightsBatPosCacheWithLiveData();
     migrateCaptainNamesToIds();
     ensureEspnMatchSlugMap();
     clearTimeout(_renderDebounceTimer);
-    _renderDebounceTimer = setTimeout(() => renderTab(currentTab), 80);
+    _renderDebounceTimer = setTimeout(() => renderTabPreserveState(currentTab), 80);
   });
 }
 
 function saveLiveData(silent = false) {
   if (!window._db) { if(!silent) showToast('Firebase unavailable','error'); return; }
+  // CRITICAL: refuse writes before the first Firebase snapshot has populated liveData.
+  // Without this, autosync running on a cold-load tab can persist an empty/stale
+  // matches array and zero everyone's points.
+  if (!_liveLoadedFromFirebase) {
+    console.warn('[AP] saveLiveData blocked — Firebase live snapshot not yet loaded');
+    if (!silent) showToast('Sync pending — retry in a moment','error');
+    return;
+  }
+  // Refuse writes when matches array is empty/falsy — sentinel against in-memory wipe.
+  if (!Array.isArray(liveData.matches) || liveData.matches.length === 0) {
+    console.warn('[AP] saveLiveData blocked — liveData.matches is empty, refusing to clobber Firebase');
+    if (!silent) showToast('Sync skipped — local state empty','error');
+    return;
+  }
   ensureEspnMatchSlugMap();
   // Exclude captains — written exclusively via direct child-path in confirmCV
   const payload = Object.assign({}, liveData);
