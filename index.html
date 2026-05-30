@@ -756,7 +756,7 @@ const TEAM_SLUGS = {
 
 const ADMIN_PASSWORD = 'auctionpacked2026';
 const CV_LOCK_DEADLINE = new Date('2026-03-29T13:30:00Z');
-const APP_VERSION = 'v5.38';
+const APP_VERSION = 'v5.39';
 const RAPIDAPI_KEY = '9303df28b9msh5c73e8cc7014cdcp1187ccjsncb4f2053386e';
 const API_BASE = 'https://api.cricapi.com/v1';
 
@@ -1433,6 +1433,11 @@ function migrateCaptainNamesToIds() {
 // the root cause of points-reset-to-0 incidents.
 var _liveLoadedFromFirebase = false;
 
+// Tracks the player name currently shown in the player modal so a sync re-render
+// can refresh the modal's stats from updated liveData without closing the modal.
+// Null when modal is closed.
+var _currentPlayerModalName = null;
+
 // Captures DOM open-state (accordions, modals, scroll) so background sync re-renders
 // don't collapse what the user has open or jump the page.
 function snapshotUiState() {
@@ -1442,11 +1447,13 @@ function snapshotUiState() {
       if (el && el.style && el.style.display !== 'none') openRosters.push(el.id);
     });
   } catch(e) {}
-  const playerModal = document.getElementById('playerModal');
-  const playerModalOpen = !!(playerModal && playerModal.style.display && playerModal.style.display !== 'none');
+  const playerModalEl = document.getElementById('playerModal');
+  // Player modal uses classList.add('open') — NOT style.display.
+  const playerModalOpen = !!(playerModalEl && playerModalEl.classList && playerModalEl.classList.contains('open'));
   return {
     openRosters,
     playerModalOpen,
+    playerModalName: playerModalOpen ? _currentPlayerModalName : null,
     scrollY: (typeof window !== 'undefined' && typeof window.scrollY === 'number') ? window.scrollY : 0
   };
 }
@@ -1465,6 +1472,14 @@ function restoreUiState(snap) {
         if (icon) icon.style.transform = 'rotate(90deg)';
       }
     });
+  } catch(e) {}
+  try {
+    // Player modal lives outside tab content so it survives renderTab, but its
+    // body shows stale points after a sync — refresh by re-invoking openPlayerModal
+    // with the same player. openPlayerModal already re-adds the 'open' class.
+    if (snap.playerModalOpen && snap.playerModalName && typeof openPlayerModal === 'function') {
+      openPlayerModal(snap.playerModalName);
+    }
   } catch(e) {}
   try {
     if (typeof snap.scrollY === 'number' && Math.abs((window.scrollY||0) - snap.scrollY) > 2) {
@@ -7446,6 +7461,7 @@ function openPlayerModal(playerName){
   const modal=document.getElementById('playerModal'),body=document.getElementById('playerModalBody');
   if(!modal||!body)return;
   const pt=getPlayerTotals(),info=pt[playerName];if(!info)return;
+  _currentPlayerModalName = playerName;
   const cv=liveData.captains||{},picks=cv[info.teamName]||{};
   const isCap=resolveCaptainName(picks.captain)===playerName,isVC=resolveCaptainName(picks.viceCaptain)===playerName;
   const role=isCap?' · CAPTAIN':isVC?' · VICE CAPTAIN':'';
@@ -7504,6 +7520,7 @@ function openPlayerModal(playerName){
 function closePlayerModal(e){
   if(e&&e.target!==document.getElementById('playerModal'))return;
   document.getElementById('playerModal').classList.remove('open');
+  _currentPlayerModalName = null;
 }
 
 function openESPNVerificationModal(){
