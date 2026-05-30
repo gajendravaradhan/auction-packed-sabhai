@@ -756,7 +756,7 @@ const TEAM_SLUGS = {
 
 const ADMIN_PASSWORD = 'auctionpacked2026';
 const CV_LOCK_DEADLINE = new Date('2026-03-29T13:30:00Z');
-const APP_VERSION = 'v5.40';
+const APP_VERSION = 'v5.41';
 const RAPIDAPI_KEY = '9303df28b9msh5c73e8cc7014cdcp1187ccjsncb4f2053386e';
 const API_BASE = 'https://api.cricapi.com/v1';
 
@@ -1515,8 +1515,20 @@ function initFirebaseListener() {
     ensureEspnMatchSlugMap();
     // Overlay any persisted playoffTeams resolutions onto IPL_2026_SCHEDULE
     // so subsequent renders read real codes instead of 'TBD'. Then re-run
-    // the resolver in case new league/playoff results arrived while away.
-    try { applyPlayoffTeamsToSchedule(); resolvePlayoffTeams(); } catch(e) { console.warn('[AP] playoff resolve on hydrate failed:', e && e.message); }
+    // the resolver against any newly-arrived league/playoff results. Persist
+    // back to Firebase if the resolver newly filled any slot — without this,
+    // an in-memory resolution would be lost on next reload.
+    try {
+      applyPlayoffTeamsToSchedule();
+      const before = JSON.stringify(liveData.playoffTeams || {});
+      const after = resolvePlayoffTeams();
+      if (after && after !== before) {
+        console.log('[AP] playoff slots updated by listener resolver:', after);
+        // Persist so the next reload starts with resolved bracket already in Firebase.
+        // saveLiveData guards refuse empty-matches writes, so this is safe.
+        saveLiveData(true);
+      }
+    } catch(e) { console.warn('[AP] playoff resolve on hydrate failed:', e && e.message); }
     clearTimeout(_renderDebounceTimer);
     _renderDebounceTimer = setTimeout(() => renderTabPreserveState(currentTab), 80);
   });
@@ -6535,17 +6547,33 @@ function mapTeamNameToFranchiseCode(name) {
   return null;
 }
 
-// Parse "Team X won by N runs/wickets" → franchise code, or null if unparseable
-// (tied / no-result / format change). Uses the schedule entry's home+away
-// as the candidate set so partial-name matches stay scoped.
+// Parse a wide range of result-string formats to a franchise code, or null
+// if unparseable. Tolerates: "X won by N runs", "X won by N wickets",
+// "X won by N wkts", "X won by N wkt", "X beat Y by N ...", "X won the match",
+// trailing parentheticals like "(D/L method)". Uses the schedule entry's
+// home + away as the candidate set so partial matches stay scoped.
 function getMatchWinnerCode(scheduleMatch, liveMatch) {
   if (!scheduleMatch || !liveMatch) return null;
-  const result = String(liveMatch.matchResult || '').trim();
+  let result = String(liveMatch.matchResult || '').trim();
   if (!result) return null;
-  const m = /^(.+?)\s+won\s+by\s+/i.exec(result);
-  if (!m) return null;
-  const winnerRaw = m[1].trim();
+  if (/no result|abandoned|called off|tied|tie\b/i.test(result)) return null;
+  // Strip trailing parenthetical commentary so the winner segment stays clean
+  result = result.replace(/\s*\([^)]*\)\s*$/, '').trim();
+
+  const patterns = [
+    /^(.+?)\s+won\s+by\s+\d+\s+(?:runs?|wickets?|wkts?|wkt)\b/i,
+    /^(.+?)\s+beat\s+.+?\s+by\s+\d+\s+(?:runs?|wickets?|wkts?|wkt)\b/i,
+    /^(.+?)\s+won\s+the\s+match\b/i,
+    /^(.+?)\s+won\b/i,
+  ];
+  let winnerRaw = null;
+  for (const re of patterns) {
+    const m = re.exec(result);
+    if (m && m[1]) { winnerRaw = m[1].trim(); break; }
+  }
+  if (!winnerRaw) return null;
   const winnerNorm = normalizeMatchString(winnerRaw);
+  if (!winnerNorm) return null;
   const candidates = [scheduleMatch.home, scheduleMatch.away].filter(c => c && c !== 'TBD');
   for (const code of candidates) {
     const full = ESPN_TEAM_MAP[code] || '';
@@ -6554,6 +6582,23 @@ function getMatchWinnerCode(scheduleMatch, liveMatch) {
     if (winnerNorm.includes(normalizeMatchString(code))) return code;
   }
   return null;
+}
+
+// Fallback: when matchResult is unparseable but the live match has parsed
+// teams[] (from the API payload), use those to populate the playoff slot's
+// home + away. Winner stays unknown (so bracket cannot advance from this slot
+// alone), but at least the playoff card displays real contestants instead
+// of TBD vs TBD. Returns true if the slot was modified.
+function populatePlayoffSlotFromLiveTeams(slotKey, liveMatch) {
+  if (!liveMatch || !Array.isArray(liveMatch.teams) || liveMatch.teams.length < 2) return false;
+  const homeCode = mapTeamNameToFranchiseCode(liveMatch.teams[0]);
+  const awayCode = mapTeamNameToFranchiseCode(liveMatch.teams[1]);
+  if (!homeCode || !awayCode) return false;
+  const slot = _ensurePlayoffSlot(slotKey);
+  let changed = false;
+  if (slot.home === 'TBD') { slot.home = homeCode; slot.resolved = slot.resolved || 'live-teams'; changed = true; }
+  if (slot.away === 'TBD') { slot.away = awayCode; slot.resolved = slot.resolved || 'live-teams'; changed = true; }
+  return changed;
 }
 
 // Look up the liveData.matches entry corresponding to a schedule match by
@@ -6601,8 +6646,10 @@ function _ensurePlayoffSlot(key) {
 
 // Run the resolver across every slot. Idempotent — only fills 'TBD' slots,
 // never overwrites a resolved team. Safe to call from listeners + post-sync.
+// Returns a string snapshot of playoffTeams so callers can detect whether
+// anything was newly filled (and persist back to Firebase if so).
 function resolvePlayoffTeams() {
-  if (!Array.isArray(liveData.matches)) return;
+  if (!Array.isArray(liveData.matches)) return null;
   // ─ Standings path: Q1 + EL home/away from top 4
   const standings = computeIPLStandings();
   if (standings) {
@@ -6618,6 +6665,14 @@ function resolvePlayoffTeams() {
   const elSched = IPL_2026_SCHEDULE.find(s => s.match === 'EL');
   const q2Sched = IPL_2026_SCHEDULE.find(s => s.match === 'Q2');
   const fSched = IPL_2026_SCHEDULE.find(s => s.match === 'F');
+
+  // Per-slot live-teams fallback first so even unparseable matchResults
+  // still populate contestants in the playoff slot itself.
+  [['Q1', q1Sched], ['EL', elSched], ['Q2', q2Sched], ['F', fSched]].forEach(([key, sched]) => {
+    if (!sched) return;
+    const live = findLiveMatchForPlayoffSchedule(sched);
+    if (live) populatePlayoffSlotFromLiveTeams(key, live);
+  });
 
   if (q1Sched) {
     const q1Live = findLiveMatchForPlayoffSchedule(q1Sched);
@@ -6660,6 +6715,7 @@ function resolvePlayoffTeams() {
     }
   }
   applyPlayoffTeamsToSchedule();
+  return JSON.stringify(liveData.playoffTeams || {});
 }
 
 // Scorecard-derived path: on first scorecard sync for a playoff match, read

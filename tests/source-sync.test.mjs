@@ -87,5 +87,24 @@ test('upsertMatch invokes scorecard playoff resolver before saveLiveData', () =>
 });
 
 test('Firebase listener applies playoff overlay after hydration', () => {
-  assert.match(indexHtml, /applyPlayoffTeamsToSchedule\(\);\s*resolvePlayoffTeams\(\)/);
+  assert.match(indexHtml, /applyPlayoffTeamsToSchedule\(\);[\s\S]{0,200}resolvePlayoffTeams\(\)/);
+});
+
+test('populatePlayoffSlotFromLiveTeams fallback function is defined', () => {
+  assert.match(indexHtml, /function populatePlayoffSlotFromLiveTeams\(/);
+});
+
+test('Listener persists newly resolved playoffTeams via saveLiveData(true) when state changes', () => {
+  // The listener captures a 'before' snapshot, runs resolver, compares
+  // 'after' string, and calls saveLiveData when they differ. The regex
+  // verifies the gate is in place.
+  assert.match(indexHtml, /if\s*\(\s*after\s*&&\s*after\s*!==\s*before\s*\)/);
+  assert.match(indexHtml, /saveLiveData\(true\)/);
+});
+
+test('Robust winner parser handles wkts/beat/parenthetical formats', () => {
+  // Spot-check that key tokens are present in the parsing block.
+  assert.match(indexHtml, /wkts\?\|wkt/);
+  assert.match(indexHtml, /beat\\s\+/);
+  assert.match(indexHtml, /no result\|abandoned/);
 });

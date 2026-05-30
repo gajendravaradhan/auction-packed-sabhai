@@ -83,11 +83,24 @@ function buildResolver(schedule) {
   }
   function getMatchWinnerCode(scheduleMatch, liveMatch) {
     if (!scheduleMatch || !liveMatch) return null;
-    const result = String(liveMatch.matchResult || '').trim();
+    let result = String(liveMatch.matchResult || '').trim();
     if (!result) return null;
-    const m = /^(.+?)\s+won\s+by\s+/i.exec(result);
-    if (!m) return null;
-    const winnerNorm = normalizeMatchString(m[1].trim());
+    if (/no result|abandoned|called off|tied|tie\b/i.test(result)) return null;
+    result = result.replace(/\s*\([^)]*\)\s*$/, '').trim();
+    const patterns = [
+      /^(.+?)\s+won\s+by\s+\d+\s+(?:runs?|wickets?|wkts?|wkt)\b/i,
+      /^(.+?)\s+beat\s+.+?\s+by\s+\d+\s+(?:runs?|wickets?|wkts?|wkt)\b/i,
+      /^(.+?)\s+won\s+the\s+match\b/i,
+      /^(.+?)\s+won\b/i,
+    ];
+    let winnerRaw = null;
+    for (const re of patterns) {
+      const m = re.exec(result);
+      if (m && m[1]) { winnerRaw = m[1].trim(); break; }
+    }
+    if (!winnerRaw) return null;
+    const winnerNorm = normalizeMatchString(winnerRaw);
+    if (!winnerNorm) return null;
     const candidates = [scheduleMatch.home, scheduleMatch.away].filter(c => c && c !== 'TBD');
     for (const code of candidates) {
       const full = ESPN_TEAM_MAP[code] || '';
@@ -96,6 +109,17 @@ function buildResolver(schedule) {
       if (winnerNorm.includes(normalizeMatchString(code))) return code;
     }
     return null;
+  }
+  function populatePlayoffSlotFromLiveTeams(slotKey, liveMatch) {
+    if (!liveMatch || !Array.isArray(liveMatch.teams) || liveMatch.teams.length < 2) return false;
+    const homeCode = mapTeamNameToFranchiseCode(liveMatch.teams[0]);
+    const awayCode = mapTeamNameToFranchiseCode(liveMatch.teams[1]);
+    if (!homeCode || !awayCode) return false;
+    const slot = _ensurePlayoffSlot(slotKey);
+    let changed = false;
+    if (slot.home === 'TBD') { slot.home = homeCode; slot.resolved = slot.resolved || 'live-teams'; changed = true; }
+    if (slot.away === 'TBD') { slot.away = awayCode; slot.resolved = slot.resolved || 'live-teams'; changed = true; }
+    return changed;
   }
   function findLiveMatchForPlayoffSchedule(scheduleMatch) {
     if (!scheduleMatch || !Array.isArray(liveData.matches)) return null;
@@ -141,7 +165,7 @@ function buildResolver(schedule) {
     });
   }
   function resolvePlayoffTeams() {
-    if (!Array.isArray(liveData.matches)) return;
+    if (!Array.isArray(liveData.matches)) return null;
     const standings = computeIPLStandings();
     if (standings) {
       const q1 = _ensurePlayoffSlot('Q1');
@@ -155,6 +179,12 @@ function buildResolver(schedule) {
     const elSched = schedule.find(s => s.match === 'EL');
     const q2Sched = schedule.find(s => s.match === 'Q2');
     const fSched = schedule.find(s => s.match === 'F');
+
+    [['Q1', q1Sched], ['EL', elSched], ['Q2', q2Sched], ['F', fSched]].forEach(([key, sched]) => {
+      if (!sched) return;
+      const live = findLiveMatchForPlayoffSchedule(sched);
+      if (live) populatePlayoffSlotFromLiveTeams(key, live);
+    });
 
     if (q1Sched) {
       const q1Live = findLiveMatchForPlayoffSchedule(q1Sched);
@@ -185,6 +215,7 @@ function buildResolver(schedule) {
       }
     }
     applyPlayoffTeamsToSchedule();
+    return JSON.stringify(liveData.playoffTeams || {});
   }
   function maybeResolvePlayoffFromScorecard(apiId, dateStr, scorecardData) {
     const d = (dateStr || '').slice(0, 10);
@@ -202,7 +233,7 @@ function buildResolver(schedule) {
     applyPlayoffTeamsToSchedule();
   }
 
-  return { liveData, resolvePlayoffTeams, maybeResolvePlayoffFromScorecard, computeIPLStandings, getMatchWinnerCode, applyPlayoffTeamsToSchedule };
+  return { liveData, resolvePlayoffTeams, maybeResolvePlayoffFromScorecard, computeIPLStandings, getMatchWinnerCode, applyPlayoffTeamsToSchedule, populatePlayoffSlotFromLiveTeams };
 }
 
 // Drop 70 league results into liveData. The schedule was built so that each
@@ -399,4 +430,87 @@ test('scorecard date that does not match any playoff is ignored', () => {
   const r = buildResolver(schedule);
   r.maybeResolvePlayoffFromScorecard(null, '2026-04-15', { teams: ['MI', 'CSK'] });
   assert.ok(!r.liveData.playoffTeams);
+});
+
+// ─── Robust matchResult parsing ─────────────────────────────────────────────
+
+test('getMatchWinnerCode parses "won by N wkts" (CricBuzz-style)', () => {
+  const { getMatchWinnerCode } = buildResolver(buildSchedule());
+  const sched = { home: 'MI', away: 'CSK' };
+  assert.equal(getMatchWinnerCode(sched, { matchResult: 'Mumbai Indians won by 5 wkts' }), 'MI');
+  assert.equal(getMatchWinnerCode(sched, { matchResult: 'CSK won by 1 wkt' }), 'CSK');
+});
+
+test('getMatchWinnerCode parses "beat ... by N runs"', () => {
+  const { getMatchWinnerCode } = buildResolver(buildSchedule());
+  const sched = { home: 'RCB', away: 'KKR' };
+  assert.equal(getMatchWinnerCode(sched, { matchResult: 'Royal Challengers Bengaluru beat Kolkata Knight Riders by 12 runs' }), 'RCB');
+});
+
+test('getMatchWinnerCode parses trailing parenthetical "(D/L method)"', () => {
+  const { getMatchWinnerCode } = buildResolver(buildSchedule());
+  const sched = { home: 'MI', away: 'CSK' };
+  assert.equal(getMatchWinnerCode(sched, { matchResult: 'Mumbai Indians won by 3 wickets (D/L method)' }), 'MI');
+});
+
+test('getMatchWinnerCode parses bare "X won the match" and "X won"', () => {
+  const { getMatchWinnerCode } = buildResolver(buildSchedule());
+  const sched = { home: 'GT', away: 'PBKS' };
+  assert.equal(getMatchWinnerCode(sched, { matchResult: 'Gujarat Titans won the match' }), 'GT');
+  assert.equal(getMatchWinnerCode(sched, { matchResult: 'PBKS won' }), 'PBKS');
+});
+
+// ─── Live-teams fallback ────────────────────────────────────────────────────
+
+test('populatePlayoffSlotFromLiveTeams fills slot when teams[] present but result unparseable', () => {
+  const schedule = buildSchedule();
+  const r = buildResolver(schedule);
+  // Q2 played, scorecard arrived, but matchResult is garbled
+  r.liveData.matches.push({
+    date: '2026-05-29',
+    status: 'done',
+    matchResult: 'Match called off due to weather',
+    teams: ['Rajasthan Royals', 'Gujarat Titans'],
+  });
+  r.resolvePlayoffTeams();
+  // Bracket cannot advance (winner unknown), but Q2 slot itself filled
+  assert.equal(r.liveData.playoffTeams.Q2.home, 'RR');
+  assert.equal(r.liveData.playoffTeams.Q2.away, 'GT');
+  assert.equal(r.liveData.playoffTeams.Q2.resolved, 'live-teams');
+  // F.away stays TBD because Q2 winner unknown
+  assert.ok(!r.liveData.playoffTeams.F || r.liveData.playoffTeams.F.away === 'TBD' || r.liveData.playoffTeams.F.away === undefined);
+});
+
+test('populatePlayoffSlotFromLiveTeams ignores match with single team or no teams[]', () => {
+  const { populatePlayoffSlotFromLiveTeams, liveData } = buildResolver(buildSchedule());
+  assert.equal(populatePlayoffSlotFromLiveTeams('Q1', { teams: ['Mumbai Indians'] }), false);
+  assert.equal(populatePlayoffSlotFromLiveTeams('Q1', {}), false);
+  assert.equal(populatePlayoffSlotFromLiveTeams('Q1', null), false);
+});
+
+// ─── Change detection (used by listener to trigger persistence) ─────────────
+
+test('resolvePlayoffTeams return value reflects state — caller can compare before/after', () => {
+  const schedule = buildSchedule();
+  const r = buildResolver(schedule);
+  const before = JSON.stringify(r.liveData.playoffTeams || {});
+  r.liveData.matches.push({ date: '2026-05-26', status: 'done', matchResult: 'Mumbai Indians won by 4 wkts', teams: ['Mumbai Indians', 'Chennai Super Kings'] });
+  const after = r.resolvePlayoffTeams();
+  assert.notEqual(after, before, 'resolver should report a change after new data arrives');
+  // Re-running with no new data → snapshot is identical
+  const after2 = r.resolvePlayoffTeams();
+  assert.equal(after2, after, 'idempotent re-run returns same snapshot');
+});
+
+test('end-to-end: Q1 + EL + Q2 done with mixed result formats → Final fully resolved', () => {
+  const schedule = buildSchedule();
+  const r = buildResolver(schedule);
+  r.liveData.matches.push({ date: '2026-05-26', status: 'done', matchResult: 'Mumbai Indians won by 4 wkts', teams: ['Mumbai Indians', 'Chennai Super Kings'] });
+  r.liveData.matches.push({ date: '2026-05-27', status: 'done', matchResult: 'Royal Challengers Bengaluru beat Kolkata Knight Riders by 18 runs', teams: ['Royal Challengers Bengaluru', 'Kolkata Knight Riders'] });
+  r.liveData.matches.push({ date: '2026-05-29', status: 'done', matchResult: 'CSK won by 2 wickets (D/L method)', teams: ['Chennai Super Kings', 'Royal Challengers Bengaluru'] });
+  r.resolvePlayoffTeams();
+  assert.equal(r.liveData.playoffTeams.F.home, 'MI', 'Q1 winner → F.home');
+  assert.equal(r.liveData.playoffTeams.F.away, 'CSK', 'Q2 winner → F.away');
+  assert.equal(schedule.find(s => s.match === 'F').home, 'MI');
+  assert.equal(schedule.find(s => s.match === 'F').away, 'CSK');
 });
