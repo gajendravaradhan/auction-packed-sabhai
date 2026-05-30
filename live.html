@@ -756,7 +756,7 @@ const TEAM_SLUGS = {
 
 const ADMIN_PASSWORD = 'auctionpacked2026';
 const CV_LOCK_DEADLINE = new Date('2026-03-29T13:30:00Z');
-const APP_VERSION = 'v5.34';
+const APP_VERSION = 'v5.37';
 const RAPIDAPI_KEY = '9303df28b9msh5c73e8cc7014cdcp1187ccjsncb4f2053386e';
 const API_BASE = 'https://api.cricapi.com/v1';
 
@@ -5661,6 +5661,11 @@ function _parseCricbuzzOutdec(outdec) {
   const raw = (outdec || '').trim();
   if (!raw) return { dismissal: '', fielder: null, fielder2: null, dismissalText: '' };
   const lo = raw.toLowerCase();
+  // Not out — CricBuzz writes "not out" in outdec for unbeaten batters; must NOT
+  // be flagged as dismissed (else wrong duck penalty applied when runs=0+balls>0)
+  if (lo === 'not out' || lo.startsWith('not out')) {
+    return { dismissal: 'not out', fielder: null, fielder2: null, dismissalText: raw };
+  }
   // Caught & bowled: "c&b NAME", "c & b NAME", "c and b NAME", "caught and bowled NAME"
   const cbm = raw.match(/^c\s*(?:&|and)\s*b\s+(.+)/i) || raw.match(/^caught\s+and\s+bowled\s+(.+)/i);
   if (cbm) return { dismissal: 'caught', fielder: { name: cbm[1].trim() }, fielder2: null, dismissalText: raw };
@@ -6854,7 +6859,11 @@ function parseScorecard(matchData, providerIdType) {
       p.balls=(p.balls||0)+balls;
       p.fours=(p.fours||0)+fours;
       p.sixes=(p.sixes||0)+sixes;
-      p.dismissed=!(b.dismissal===''||b.dismissal==='not out'||b.dismissal==null);
+      // Guard: if dismissalText starts with "not out", override dismissal flag (catches
+      // any future provider that fails to set b.dismissal='not out' but text confirms it)
+      const _drText=String(b['dismissal-text']||b.dismissalText||b.dismissal_text||'').trim().toLowerCase();
+      const _explicitNotOut=_drText.startsWith('not out');
+      p.dismissed=_explicitNotOut?false:!(b.dismissal===''||b.dismissal==='not out'||b.dismissal==null);
       if(runs>=20&&fours===0&&sixes===0)p._warnings.push('Boundaries may be missing');
     });
 
@@ -6881,10 +6890,10 @@ function parseScorecard(matchData, providerIdType) {
     // C&B and run-outs always parsed from batting dismissals (catching section omits C&B
     // and misattributes run-out direction by crediting the keeper instead of the thrower).
     function _parseCBFielder(b,dr){
-      let fielder=resolvePlayer(b.fielder?.id,b.fielder?.name);
+      let fielder=resolvePlayer(b.fielder?.id,_cleanFielderName(b.fielder?.name));
       if(!fielder){
         const cbm=dr.match(/^c\s*(?:&|and)\s*b\s+(.+)/i)||dr.match(/^caught\s+and\s+bowled\s+(.+)/i);
-        if(cbm)fielder=resolvePlayer(null,cbm[1].trim());
+        if(cbm)fielder=resolvePlayer(null,_cleanFielderName(cbm[1]));
       }
       return fielder;
     }
@@ -6969,7 +6978,7 @@ function parseScorecard(matchData, providerIdType) {
     if(innings.catching&&innings.catching.length>0){
       innings.catching.forEach(c=>{
         // CricAPI uses 'fielder', not 'catcher'
-        const player=resolvePlayer(c.fielder?.id,c.fielder?.name||c.catcher?.name);
+        const player=resolvePlayer(c.fielder?.id,_cleanFielderName(c.fielder?.name||c.catcher?.name));
         if(!player)return;
         const name=player.displayName;
         if(!performances[name])performances[name]={played:true,_warnings:[]};
@@ -6990,10 +6999,10 @@ function parseScorecard(matchData, providerIdType) {
 
         // Regular catch (not C&B — already handled in Step 1a)
         if((dt==='catch'||dt==='caught')&&!isCB){
-          let fielder=resolvePlayer(b.fielder?.id,b.fielder?.name);
+          let fielder=resolvePlayer(b.fielder?.id,_cleanFielderName(b.fielder?.name));
           if(!fielder){
             const cm=dr.match(/^c\s+(.+?)\s+b\s+\S/i);
-            if(cm)fielder=resolvePlayer(null,cm[1].trim());
+            if(cm)fielder=resolvePlayer(null,_cleanFielderName(cm[1]));
           }
           if(fielder){
             if(!performances[fielder.displayName])performances[fielder.displayName]={played:true,_warnings:[]};
@@ -7003,10 +7012,10 @@ function parseScorecard(matchData, providerIdType) {
 
         // Stumped
         if(dt==='stumped'||dt==='st'){
-          let fielder=resolvePlayer(b.fielder?.id,b.fielder?.name);
+          let fielder=resolvePlayer(b.fielder?.id,_cleanFielderName(b.fielder?.name));
           if(!fielder){
             const sm=dr.match(/^st\s+(.+?)\s+b\s+\S/i);
-            if(sm)fielder=resolvePlayer(null,sm[1].trim());
+            if(sm)fielder=resolvePlayer(null,_cleanFielderName(sm[1]));
           }
           if(fielder){
             if(!performances[fielder.displayName])performances[fielder.displayName]={played:true,_warnings:[]};
