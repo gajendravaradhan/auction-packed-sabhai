@@ -756,7 +756,7 @@ const TEAM_SLUGS = {
 
 const ADMIN_PASSWORD = 'auctionpacked2026';
 const CV_LOCK_DEADLINE = new Date('2026-03-29T13:30:00Z');
-const APP_VERSION = 'v5.39';
+const APP_VERSION = 'v5.40';
 const RAPIDAPI_KEY = '9303df28b9msh5c73e8cc7014cdcp1187ccjsncb4f2053386e';
 const API_BASE = 'https://api.cricapi.com/v1';
 
@@ -1513,6 +1513,10 @@ function initFirebaseListener() {
     syncInsightsBatPosCacheWithLiveData();
     migrateCaptainNamesToIds();
     ensureEspnMatchSlugMap();
+    // Overlay any persisted playoffTeams resolutions onto IPL_2026_SCHEDULE
+    // so subsequent renders read real codes instead of 'TBD'. Then re-run
+    // the resolver in case new league/playoff results arrived while away.
+    try { applyPlayoffTeamsToSchedule(); resolvePlayoffTeams(); } catch(e) { console.warn('[AP] playoff resolve on hydrate failed:', e && e.message); }
     clearTimeout(_renderDebounceTimer);
     _renderDebounceTimer = setTimeout(() => renderTabPreserveState(currentTab), 80);
   });
@@ -6490,8 +6494,204 @@ const ESPN_TEAM_MAP = {
   LSG: 'Lucknow Super Giants'
 };
 
+const IPL_FRANCHISE_CODES = Object.keys(ESPN_TEAM_MAP);
+const PLAYOFF_MATCH_KEYS = ['Q1', 'EL', 'Q2', 'F'];
+
 function normalizeMatchString(value) {
   return (value || '').toString().toLowerCase().replace(/[^a-z]/g, '');
+}
+
+// ═══════════════════════════════════════════════════════
+// PLAYOFF CONTESTANT RESOLVER
+// ═══════════════════════════════════════════════════════
+// Two parallel paths fill liveData.playoffTeams[{Q1,EL,Q2,F}]:
+//   1. standings-derived: after 70 league matches done, top-4 by wins
+//      → Q1 home/away = 1st/2nd, EL home/away = 3rd/4th. Bracket advances
+//      from each match's parsed winner: Q1 winner → F home, Q1 loser → Q2
+//      home, EL winner → Q2 away, Q2 winner → F away.
+//   2. scorecard-derived: when a playoff match's first scorecard sync
+//      arrives, read teams[] from the API response. Whichever path
+//      resolves a given slot first wins; subsequent paths skip filled slots.
+
+// Map an API team name (full name like "Mumbai Indians" or code like "MI")
+// to its franchise code. Returns null if no confident match.
+function mapTeamNameToFranchiseCode(name) {
+  if (!name) return null;
+  const target = normalizeMatchString(name);
+  if (!target) return null;
+  // Direct code match first
+  for (const code of IPL_FRANCHISE_CODES) {
+    if (normalizeMatchString(code) === target) return code;
+  }
+  // Full-name match
+  for (const code of IPL_FRANCHISE_CODES) {
+    if (normalizeMatchString(ESPN_TEAM_MAP[code]) === target) return code;
+  }
+  // Substring fallback for noisy API names
+  for (const code of IPL_FRANCHISE_CODES) {
+    const full = normalizeMatchString(ESPN_TEAM_MAP[code]);
+    if (target.includes(full) || full.includes(target)) return code;
+  }
+  return null;
+}
+
+// Parse "Team X won by N runs/wickets" → franchise code, or null if unparseable
+// (tied / no-result / format change). Uses the schedule entry's home+away
+// as the candidate set so partial-name matches stay scoped.
+function getMatchWinnerCode(scheduleMatch, liveMatch) {
+  if (!scheduleMatch || !liveMatch) return null;
+  const result = String(liveMatch.matchResult || '').trim();
+  if (!result) return null;
+  const m = /^(.+?)\s+won\s+by\s+/i.exec(result);
+  if (!m) return null;
+  const winnerRaw = m[1].trim();
+  const winnerNorm = normalizeMatchString(winnerRaw);
+  const candidates = [scheduleMatch.home, scheduleMatch.away].filter(c => c && c !== 'TBD');
+  for (const code of candidates) {
+    const full = ESPN_TEAM_MAP[code] || '';
+    if (winnerNorm === normalizeMatchString(code) || winnerNorm === normalizeMatchString(full)) return code;
+    if (winnerNorm.includes(normalizeMatchString(full)) && full) return code;
+    if (winnerNorm.includes(normalizeMatchString(code))) return code;
+  }
+  return null;
+}
+
+// Look up the liveData.matches entry corresponding to a schedule match by
+// schedule code (Q1/EL/Q2/F) via date — playoff dates are unique so date
+// is sufficient. Returns null if not found.
+function findLiveMatchForPlayoffSchedule(scheduleMatch) {
+  if (!scheduleMatch || !Array.isArray(liveData.matches)) return null;
+  const d = (scheduleMatch.date || '').slice(0, 10);
+  if (!d) return null;
+  return liveData.matches.find(m => m && (m.date || '').slice(0, 10) === d) || null;
+}
+
+// Standings: { CSK: wins, MI: wins, ... } if all 70 league matches done
+// AND no win-count tie at the 4th/5th boundary; otherwise null. NRR-based
+// tiebreaking isn't supported (scorecard data doesn't preserve overs cleanly),
+// so a true tie defers to the scorecard-derived path on playoff days.
+function computeIPLStandings() {
+  if (!Array.isArray(liveData.matches)) return null;
+  const wins = {};
+  IPL_FRANCHISE_CODES.forEach(c => { wins[c] = 0; });
+  let doneCount = 0;
+  for (let n = 1; n <= 70; n++) {
+    const sched = IPL_2026_SCHEDULE.find(s => s.match === n);
+    if (!sched) return null; // schedule incomplete
+    const live = findLiveMatchForPlayoffSchedule(sched);
+    if (!live || live.status !== 'done') return null; // league not finished
+    const winner = getMatchWinnerCode(sched, live);
+    if (!winner) return null; // unparseable result blocks standings
+    wins[winner] = (wins[winner] || 0) + 1;
+    doneCount++;
+  }
+  if (doneCount < 70) return null;
+  const sorted = IPL_FRANCHISE_CODES
+    .map(c => ({ code: c, wins: wins[c] }))
+    .sort((a, b) => b.wins - a.wins || a.code.localeCompare(b.code));
+  if (sorted[3].wins === sorted[4].wins) return null; // tie at qualifier boundary
+  return { ranked: sorted.map(s => s.code), wins };
+}
+
+function _ensurePlayoffSlot(key) {
+  liveData.playoffTeams = liveData.playoffTeams || {};
+  liveData.playoffTeams[key] = liveData.playoffTeams[key] || { home: 'TBD', away: 'TBD', resolved: null };
+  return liveData.playoffTeams[key];
+}
+
+// Run the resolver across every slot. Idempotent — only fills 'TBD' slots,
+// never overwrites a resolved team. Safe to call from listeners + post-sync.
+function resolvePlayoffTeams() {
+  if (!Array.isArray(liveData.matches)) return;
+  // ─ Standings path: Q1 + EL home/away from top 4
+  const standings = computeIPLStandings();
+  if (standings) {
+    const q1 = _ensurePlayoffSlot('Q1');
+    if (q1.home === 'TBD') { q1.home = standings.ranked[0]; q1.resolved = q1.resolved || 'standings'; }
+    if (q1.away === 'TBD') { q1.away = standings.ranked[1]; q1.resolved = q1.resolved || 'standings'; }
+    const el = _ensurePlayoffSlot('EL');
+    if (el.home === 'TBD') { el.home = standings.ranked[2]; el.resolved = el.resolved || 'standings'; }
+    if (el.away === 'TBD') { el.away = standings.ranked[3]; el.resolved = el.resolved || 'standings'; }
+  }
+  // ─ Bracket path: parse Q1/EL/Q2 winners → fill Q2 + F
+  const q1Sched = IPL_2026_SCHEDULE.find(s => s.match === 'Q1');
+  const elSched = IPL_2026_SCHEDULE.find(s => s.match === 'EL');
+  const q2Sched = IPL_2026_SCHEDULE.find(s => s.match === 'Q2');
+  const fSched = IPL_2026_SCHEDULE.find(s => s.match === 'F');
+
+  if (q1Sched) {
+    const q1Live = findLiveMatchForPlayoffSchedule(q1Sched);
+    if (q1Live && q1Live.status === 'done') {
+      const overlay = Object.assign({}, q1Sched, liveData.playoffTeams?.Q1 || {});
+      const winner = getMatchWinnerCode(overlay, q1Live);
+      if (winner) {
+        const loser = overlay.home === winner ? overlay.away : (overlay.away === winner ? overlay.home : null);
+        if (fSched) {
+          const f = _ensurePlayoffSlot('F');
+          if (f.home === 'TBD') { f.home = winner; f.resolved = f.resolved || 'bracket'; }
+        }
+        if (q2Sched && loser && loser !== 'TBD') {
+          const q2 = _ensurePlayoffSlot('Q2');
+          if (q2.home === 'TBD') { q2.home = loser; q2.resolved = q2.resolved || 'bracket'; }
+        }
+      }
+    }
+  }
+  if (elSched) {
+    const elLive = findLiveMatchForPlayoffSchedule(elSched);
+    if (elLive && elLive.status === 'done') {
+      const overlay = Object.assign({}, elSched, liveData.playoffTeams?.EL || {});
+      const winner = getMatchWinnerCode(overlay, elLive);
+      if (winner && q2Sched) {
+        const q2 = _ensurePlayoffSlot('Q2');
+        if (q2.away === 'TBD') { q2.away = winner; q2.resolved = q2.resolved || 'bracket'; }
+      }
+    }
+  }
+  if (q2Sched) {
+    const q2Live = findLiveMatchForPlayoffSchedule(q2Sched);
+    if (q2Live && q2Live.status === 'done') {
+      const overlay = Object.assign({}, q2Sched, liveData.playoffTeams?.Q2 || {});
+      const winner = getMatchWinnerCode(overlay, q2Live);
+      if (winner && fSched) {
+        const f = _ensurePlayoffSlot('F');
+        if (f.away === 'TBD') { f.away = winner; f.resolved = f.resolved || 'bracket'; }
+      }
+    }
+  }
+  applyPlayoffTeamsToSchedule();
+}
+
+// Scorecard-derived path: on first scorecard sync for a playoff match, read
+// teams[] from the API response and seed playoffTeams. Called from upsertMatch.
+function maybeResolvePlayoffFromScorecard(apiId, dateStr, scorecardData) {
+  const d = (dateStr || '').slice(0, 10);
+  if (!d) return;
+  const sched = IPL_2026_SCHEDULE.find(s => PLAYOFF_MATCH_KEYS.includes(s.match) && s.date === d);
+  if (!sched) return;
+  const teams = scorecardData && Array.isArray(scorecardData.teams) ? scorecardData.teams : null;
+  if (!teams || teams.length !== 2) return;
+  const homeCode = mapTeamNameToFranchiseCode(teams[0]);
+  const awayCode = mapTeamNameToFranchiseCode(teams[1]);
+  if (!homeCode || !awayCode) return;
+  const slot = _ensurePlayoffSlot(sched.match);
+  if (slot.home === 'TBD') { slot.home = homeCode; slot.resolved = slot.resolved || 'scorecard'; }
+  if (slot.away === 'TBD') { slot.away = awayCode; slot.resolved = slot.resolved || 'scorecard'; }
+  applyPlayoffTeamsToSchedule();
+}
+
+// Mutate IPL_2026_SCHEDULE entries in place so every render call site that
+// reads s.home / s.away sees the resolved codes. Idempotent and safe to call
+// repeatedly. Entries are objects (mutable) even though the array is const.
+function applyPlayoffTeamsToSchedule() {
+  const pt = liveData.playoffTeams || {};
+  PLAYOFF_MATCH_KEYS.forEach(key => {
+    const entry = IPL_2026_SCHEDULE.find(s => s.match === key);
+    const resolved = pt[key];
+    if (!entry || !resolved) return;
+    if (resolved.home && resolved.home !== 'TBD') entry.home = resolved.home;
+    if (resolved.away && resolved.away !== 'TBD') entry.away = resolved.away;
+  });
 }
 
 function matchScheduleTeams(scheduleMatch, label) {
@@ -6870,6 +7070,11 @@ function upsertMatch(apiId,name,date,scorecardData) {
     if(matchResult)m.matchResult=matchResult;
     liveData.matches.push(m);
   }
+  // Scorecard-derived playoff resolution + bracket advancement.
+  // Runs BEFORE saveLiveData so liveData.playoffTeams gets persisted in
+  // the same Firebase write.
+  try { maybeResolvePlayoffFromScorecard(apiId, date, safeScorecardData); } catch(e) { console.warn('[AP] playoff scorecard resolve failed:', e && e.message); }
+  try { resolvePlayoffTeams(); } catch(e) { console.warn('[AP] playoff resolve failed:', e && e.message); }
   saveLiveData();
 }
 

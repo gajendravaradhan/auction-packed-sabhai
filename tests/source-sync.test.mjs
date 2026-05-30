@@ -61,3 +61,31 @@ test('initFirebaseListener wires renderTabPreserveState (sync-driven render)', (
 test('saveLiveData still strips captains from payload (regression guard)', () => {
   assert.match(indexHtml, /delete payload\.captains/);
 });
+
+test('playoff resolver functions are defined in index.html', () => {
+  assert.match(indexHtml, /function computeIPLStandings\(/);
+  assert.match(indexHtml, /function resolvePlayoffTeams\(/);
+  assert.match(indexHtml, /function maybeResolvePlayoffFromScorecard\(/);
+  assert.match(indexHtml, /function applyPlayoffTeamsToSchedule\(/);
+  assert.match(indexHtml, /function getMatchWinnerCode\(/);
+  assert.match(indexHtml, /function mapTeamNameToFranchiseCode\(/);
+});
+
+test('PLAYOFF_MATCH_KEYS constant exists with Q1/EL/Q2/F', () => {
+  assert.match(indexHtml, /PLAYOFF_MATCH_KEYS\s*=\s*\[\s*'Q1'\s*,\s*'EL'\s*,\s*'Q2'\s*,\s*'F'\s*\]/);
+});
+
+test('upsertMatch invokes scorecard playoff resolver before saveLiveData', () => {
+  // Confirm maybeResolvePlayoffFromScorecard appears before saveLiveData() inside upsertMatch
+  const upsertMatch = /function upsertMatch\([\s\S]*?\n\}/.exec(indexHtml);
+  assert.ok(upsertMatch, 'upsertMatch function must be found');
+  const body = upsertMatch[0];
+  const scorecardIdx = body.indexOf('maybeResolvePlayoffFromScorecard');
+  const saveIdx = body.indexOf('saveLiveData()');
+  assert.ok(scorecardIdx > 0, 'scorecard resolver must be called');
+  assert.ok(saveIdx > scorecardIdx, 'resolver must run before saveLiveData so playoffTeams persists');
+});
+
+test('Firebase listener applies playoff overlay after hydration', () => {
+  assert.match(indexHtml, /applyPlayoffTeamsToSchedule\(\);\s*resolvePlayoffTeams\(\)/);
+});
