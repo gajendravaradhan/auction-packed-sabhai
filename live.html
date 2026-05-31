@@ -756,7 +756,7 @@ const TEAM_SLUGS = {
 
 const ADMIN_PASSWORD = 'auctionpacked2026';
 const CV_LOCK_DEADLINE = new Date('2026-03-29T13:30:00Z');
-const APP_VERSION = 'v5.44';
+const APP_VERSION = 'v5.45';
 const RAPIDAPI_KEY = '9303df28b9msh5c73e8cc7014cdcp1187ccjsncb4f2053386e';
 const API_BASE = 'https://api.cricapi.com/v1';
 
@@ -7897,6 +7897,7 @@ window.addEventListener('resize',()=>{
 // (done-match immutability — Firebase is source of truth for concluded
 // scorecards).
 async function fetchAllConcludedScorecards() {
+  console.log('[AP] fetchAllConcludedScorecards: start');
   const btn = document.getElementById('fetchScoreDataBtn');
   if (btn) { btn.textContent = 'Fetching...'; btn.disabled = true; }
   if (!liveData.matches) liveData.matches = [];
@@ -7904,10 +7905,30 @@ async function fetchAllConcludedScorecards() {
 
   const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
   const eligible = IPL_2026_SCHEDULE.filter(s => s && s.date && s.date <= today);
+  console.log('[AP] fetchAllConcludedScorecards: eligible matches =', eligible.length);
 
-  const providers = (typeof getApiProviders === 'function' ? getApiProviders() : [])
-    .filter(p => p && p.id !== 'espncricinfo' && (liveData.apiKeys?.[p.id] || p.key))
+  // Providers shape from getApiProviders: { id, name, apiKey, selected, ... }
+  // Key may live in liveData.apiKeys[id] (Firebase-synced) OR p.apiKey (local).
+  const allProviders = (typeof getApiProviders === 'function' ? getApiProviders() : []);
+  let providers = allProviders
+    .filter(p => p && p.id !== 'espncricinfo' && (
+      (liveData.apiKeys && liveData.apiKeys[p.id]) || p.apiKey
+    ))
     .sort((a, b) => (a.id === 'cricbuzz' ? -1 : b.id === 'cricbuzz' ? 1 : 0));
+  // Fallback: if filter rejected everything, fall back to the active provider
+  // (covers cases where keys are configured elsewhere).
+  if (providers.length === 0) {
+    try {
+      const active = getActiveDataProvider();
+      if (active && active.id !== 'espncricinfo') providers = [active];
+    } catch(e) {}
+  }
+  console.log('[AP] fetchAllConcludedScorecards: providers =', providers.map(p => p.id));
+  if (providers.length === 0) {
+    showToast('No API providers configured', 'error');
+    if (btn) { btn.textContent = 'Fetch Score Data'; btn.disabled = false; }
+    return;
+  }
 
   liveData.importAllScheduledStatus = {
     state: 'running',
