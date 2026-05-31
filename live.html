@@ -596,9 +596,34 @@ const IPL_2026_SCHEDULE = [
   {match:70,espn_match_id:1529313,date:'2026-05-24',home:'KKR',away:'DC',venue:'Kolkata',time:'19:30',slug:'delhi-capitals-vs-kolkata-knight-riders-70th-match-1529313',cricapi_match_id:null},
   {match:'Q1',espn_match_id:1535462,date:'2026-05-26',home:'RCB',away:'GT',venue:'Dharamsala',time:'19:30',slug:'royal-challengers-bengaluru-vs-gujarat-titans-qualifier-1-1535462',cricapi_match_id:null},
   {match:'EL',espn_match_id:1535463,date:'2026-05-27',home:'RR',away:'SRH',venue:'New Chandigarh',time:'19:30',slug:'rajasthan-royals-vs-sunrisers-hyderabad-eliminator-1535463',cricapi_match_id:null},
-  {match:'Q2',espn_match_id:1535464,date:'2026-05-29',home:'GT',away:'RR',venue:'New Chandigarh',time:'19:30',slug:'gujarat-titans-vs-rajasthan-royals-qualifier-2-1535464',cricapi_match_id:null},
-  {match:'F',espn_match_id:1535465,date:'2026-05-31',home:'RCB',away:'GT',venue:'Ahmedabad',time:'19:30',slug:'royal-challengers-bengaluru-vs-gujarat-titans-final-1535465',cricapi_match_id:null}
+  {match:'Q2',espn_match_id:1535464,date:'2026-05-29',home:'RR',away:'GT',venue:'New Chandigarh',time:'19:30',slug:'rajasthan-royals-vs-gujarat-titans-qualifier-2-1535464',cricapi_match_id:null},
+  {match:'F',espn_match_id:1535465,date:'2026-05-31',home:'GT',away:'RCB',venue:'Ahmedabad',time:'19:30',slug:'gujarat-titans-vs-royal-challengers-bengaluru-final-1535465',cricapi_match_id:null}
 ];
+
+// CricBuzz match IDs sourced from /Users/gajendra/ipl_2026_matches.csv.
+// Applied as a runtime overlay so the static schedule above stays human-
+// readable while always reflecting the latest provider IDs. The overlay
+// re-applies on every page load and survives clear-all (which wipes
+// scheduleMatch.cricbuzz_match_id assignments).
+const CRICBUZZ_MATCH_IDS_2026 = {
+  1:'149618',2:'149629',3:'149640',4:'149651',5:'149662',6:'149673',7:'149684',8:'149695',9:'149699',10:'149710',
+  11:'149721',12:'149732',13:'149743',14:'149746',15:'149757',16:'149768',17:'149779',18:'149790',19:'149801',20:'149812',
+  21:'151752',22:'151763',23:'151774',24:'151785',25:'151796',26:'151807',27:'151818',28:'151829',29:'151840',30:'151845',
+  31:'151856',32:'151867',33:'151878',34:'151889',35:'151891',36:'151902',37:'151913',38:'151924',39:'151935',40:'151943',
+  41:'151954',42:'151965',43:'151976',44:'151987',45:'151998',46:'152009',47:'152020',48:'152031',49:'152042',50:'152053',
+  51:'152064',52:'152075',53:'152086',54:'152097',55:'152108',56:'152119',57:'152130',58:'152141',59:'152152',60:'152163',
+  61:'152174',62:'152185',63:'152196',64:'152207',65:'152218',66:'152229',67:'152240',68:'152241',69:'152252',70:'152263',
+  Q1:'155376',EL:'155387',Q2:'155398',F:'155409'
+};
+
+function applyCricbuzzMatchIdOverlay() {
+  Object.entries(CRICBUZZ_MATCH_IDS_2026).forEach(([key, id]) => {
+    const matchKey = /^\d+$/.test(key) ? +key : key;
+    const entry = IPL_2026_SCHEDULE.find(s => s.match === matchKey);
+    if (entry) entry.cricbuzz_match_id = String(id);
+  });
+}
+applyCricbuzzMatchIdOverlay();
 
 // ═══════════════════════════════════════════════════════
 // PLAYERS — single source of truth
@@ -756,7 +781,7 @@ const TEAM_SLUGS = {
 
 const ADMIN_PASSWORD = 'auctionpacked2026';
 const CV_LOCK_DEADLINE = new Date('2026-03-29T13:30:00Z');
-const APP_VERSION = 'v5.46';
+const APP_VERSION = 'v5.47';
 const RAPIDAPI_KEY = '9303df28b9msh5c73e8cc7014cdcp1187ccjsncb4f2053386e';
 const API_BASE = 'https://api.cricapi.com/v1';
 
@@ -5106,36 +5131,114 @@ function _snapshotLocalStorage() {
   return snap;
 }
 
+// Backup contains ONLY match scorecards from liveData.matches[]. We list the
+// providers that currently have an API key so the user knows whose data the
+// backup represents. Auctions, C/VC, localStorage caches, API keys are NOT
+// included — those live in Firebase and are not the user-facing backup target.
 async function downloadBackup() {
-  _backupRestoreStatus = { type: 'loading', msg: 'Fetching all Firebase data…' };
+  const matches = liveData.matches || [];
+  const keyedProviders = (typeof getApiProviders === 'function' ? getApiProviders() : [])
+    .filter(p => p && p.id !== 'espncricinfo' && (
+      (liveData.apiKeys && liveData.apiKeys[p.id]) || p.apiKey
+    ))
+    .map(p => p.name || p.id);
+  const provLabel = keyedProviders.length ? keyedProviders.join(', ') : 'NONE (no provider keys saved)';
+  const confirmed = confirm(
+    'Download match scorecards backup?\n\n' +
+    'The backup contains ONLY match scorecard data sourced from providers ' +
+    'this app has API keys for:\n  ' + provLabel + '\n\n' +
+    'It does NOT include captain/VC picks, auction rooms, API keys, or ' +
+    'application settings.\n\nProceed?'
+  );
+  if (!confirmed) return;
+  _backupRestoreStatus = { type: 'loading', msg: 'Building backup…' };
   renderAdminBackup();
   try {
-    const auctionsSnap = await window._db.ref('auctions').once('value');
-    const auctions = auctionsSnap.val() || {};
-    const localStorageSnap = _snapshotLocalStorage();
-    const scCacheCount = Object.keys(localStorageSnap).filter(k => k.startsWith(_SC_CACHE_PFX)).length;
     const backup = {
-      version: '1.2',
+      version: '2.0',
       appVersion: APP_VERSION,
       timestamp: new Date().toISOString(),
-      description: 'AuctionPacked full backup — Firebase (/live + /auctions) + localStorage (providers, calls, scorecard cache)',
-      firebase: { live: liveData, auctions },
-      localStorage: localStorageSnap
+      description: 'AuctionPacked scorecards backup (matches only)',
+      providersWithKeys: keyedProviders,
+      matches,
     };
     const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     const ts = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
     a.href = url;
-    a.download = `auctionpacked_backup_${ts}.json`;
+    a.download = `auctionpacked_scorecards_${ts}.json`;
     a.click();
     URL.revokeObjectURL(url);
-    const auctionCount = Object.keys(auctions).length;
-    _backupRestoreStatus = { type: 'success', msg: `Backup downloaded: ${(liveData.matches||[]).length} matches, ${Object.keys(liveData.captains||{}).length} captains, ${auctionCount} auction room${auctionCount !== 1 ? 's' : ''}, ${scCacheCount} scorecard cache entries, API keys included` };
+    _backupRestoreStatus = { type: 'success', msg: `Backup downloaded: ${matches.length} match scorecard${matches.length !== 1 ? 's' : ''} from ${keyedProviders.length} provider${keyedProviders.length !== 1 ? 's' : ''}` };
   } catch(e) {
     _backupRestoreStatus = { type: 'error', msg: 'Backup failed: ' + e.message };
   }
   renderAdminBackup();
+}
+
+// Find an existing live match that corresponds to a backup match. Prefers
+// match IDs (cricbuzz/cricapi/espn) then falls back to date + label/teams.
+function _findMatchingLiveIndex(backupMatch) {
+  if (!backupMatch) return -1;
+  const list = liveData.matches || [];
+  if (backupMatch.apiId) {
+    const i = list.findIndex(m => m && m.apiId === backupMatch.apiId);
+    if (i !== -1) return i;
+  }
+  const bd = (backupMatch.date || '').slice(0, 10);
+  if (!bd) return -1;
+  const bLabel = String(backupMatch.label || '').toLowerCase();
+  return list.findIndex(m => {
+    if (!m) return false;
+    if ((m.date || '').slice(0, 10) !== bd) return false;
+    const mLabel = String(m.label || '').toLowerCase();
+    if (mLabel && bLabel && (mLabel.includes(bLabel.slice(0, 12)) || bLabel.includes(mLabel.slice(0, 12)))) return true;
+    // Last resort: matchScheduleTeams-style team match via labels
+    const t1 = (m.teams && m.teams[0]) || ''; const t2 = (m.teams && m.teams[1]) || '';
+    return bLabel.includes(String(t1).toLowerCase()) && bLabel.includes(String(t2).toLowerCase());
+  });
+}
+
+// Merge a single backup match into liveData.matches. Preserves existing
+// dots/POTM/scorecard_raw when the backup lacks them, fills empty fields,
+// and prefers the backup performances when current performances are empty.
+function _mergeBackupMatch(backupMatch) {
+  const idx = _findMatchingLiveIndex(backupMatch);
+  if (idx === -1) {
+    liveData.matches.push(backupMatch);
+    return 'added';
+  }
+  const cur = liveData.matches[idx];
+  const merged = Object.assign({}, cur);
+  // Performances: prefer backup if current empty; otherwise merge per-player
+  const curPerfs = cur.performances || {};
+  const bakPerfs = backupMatch.performances || {};
+  const curCount = Object.keys(curPerfs).length;
+  if (curCount === 0 && Object.keys(bakPerfs).length > 0) {
+    merged.performances = bakPerfs;
+  } else if (Object.keys(bakPerfs).length > 0) {
+    const out = Object.assign({}, curPerfs);
+    Object.keys(bakPerfs).forEach(name => {
+      out[name] = Object.assign({}, bakPerfs[name], curPerfs[name] || {});
+      // Always re-prefer current dots if set (ESPN augmentation)
+      if (curPerfs[name] && curPerfs[name].dots != null) out[name].dots = curPerfs[name].dots;
+    });
+    merged.performances = out;
+  }
+  // Field-level merges (current wins for these immutables when present)
+  if (!merged.potm && backupMatch.potm) merged.potm = backupMatch.potm;
+  if (!merged.matchResult && backupMatch.matchResult) merged.matchResult = backupMatch.matchResult;
+  if (!(merged.scorecard_raw || []).length && (backupMatch.scorecard_raw || []).length) {
+    merged.scorecard_raw = backupMatch.scorecard_raw;
+  }
+  if (!merged.status || merged.status === 'upcoming') {
+    if (backupMatch.status) merged.status = backupMatch.status;
+  }
+  if (!merged.label && backupMatch.label) merged.label = backupMatch.label;
+  if (!merged.teams && backupMatch.teams) merged.teams = backupMatch.teams;
+  liveData.matches[idx] = merged;
+  return 'merged';
 }
 
 async function restoreFromBackup(input) {
@@ -5146,31 +5249,61 @@ async function restoreFromBackup(input) {
   try {
     const text = await file.text();
     const backup = JSON.parse(text);
-    if (!backup.firebase || !backup.firebase.live) throw new Error('Invalid backup file — missing firebase.live data');
-    const live = backup.firebase.live;
-    const auctions = backup.firebase.auctions || null;
-    const lsSnap = backup.localStorage || null;
-    if (!Array.isArray(live.matches)) throw new Error('Invalid backup — matches field is not an array');
-    const auctionNote = auctions ? `Auction rooms: ${Object.keys(auctions).length}` : 'Auction rooms: not in backup (older format)';
-    const lsNote = lsSnap ? `localStorage: ${Object.keys(lsSnap).length} keys (API keys + scorecard cache)` : 'localStorage: not in backup (older format — API keys not restored)';
+    // Accept both new format (v2 with top-level .matches) and legacy
+    // format (v1 with firebase.live.matches) for forward compatibility.
+    const matchesIn = Array.isArray(backup.matches)
+      ? backup.matches
+      : (backup.firebase && backup.firebase.live && Array.isArray(backup.firebase.live.matches)
+        ? backup.firebase.live.matches : null);
+    if (!matchesIn) throw new Error('Invalid backup — no matches array found');
+    const provLabel = Array.isArray(backup.providersWithKeys) && backup.providersWithKeys.length
+      ? backup.providersWithKeys.join(', ') : 'unknown';
     const confirmed = confirm(
-      `Restore from backup?\n\nTimestamp: ${backup.timestamp || 'unknown'}\nApp version: ${backup.appVersion || 'unknown'}\nMatches: ${live.matches.length}\n${auctionNote}\n${lsNote}\n\nThis will OVERWRITE all current Firebase data and localStorage. Cannot be undone.`
+      'Restore match scorecards from backup?\n\n' +
+      'Timestamp: ' + (backup.timestamp || 'unknown') + '\n' +
+      'App version: ' + (backup.appVersion || 'unknown') + '\n' +
+      'Match scorecards: ' + matchesIn.length + '\n' +
+      'Source providers: ' + provLabel + '\n\n' +
+      'The app will attempt to MERGE the backup into existing match data. ' +
+      'Only if merge fails will the existing data be REPLACED.\n\n' +
+      'Proceed?'
     );
     if (!confirmed) { _backupRestoreStatus = null; renderAdminBackup(); return; }
-    _backupRestoreStatus = { type: 'loading', msg: 'Writing to Firebase…' };
+    _backupRestoreStatus = { type: 'loading', msg: 'Merging…' };
     renderAdminBackup();
-    await window._db.ref('live').set(live);
-    if (auctions) await window._db.ref('auctions').set(auctions);
-    if (lsSnap) {
-      clearScorecardCacheForProvider('');
-      [LS_API_PROVIDERS_KEY, LS_API_CALLS_KEY, LS_ESPN_CALLS_KEY, LS_BATPOS_CACHE_KEY, LS_SERIES_CACHE_KEY].forEach(k => { try { localStorage.removeItem(k); } catch(e) {} });
-      Object.entries(lsSnap).forEach(([k, v]) => { try { localStorage.setItem(k, v); } catch(e) {} });
+
+    let mergeMode = 'merged', added = 0, merged = 0, mergeError = null;
+    try {
+      if (!Array.isArray(liveData.matches)) liveData.matches = [];
+      for (const bm of matchesIn) {
+        const result = _mergeBackupMatch(bm);
+        if (result === 'added') added++; else merged++;
+      }
+      saveLiveData(true);
+    } catch(e) {
+      console.warn('[AP] restore merge failed — falling back to replace:', e.message);
+      mergeError = e.message;
+      mergeMode = 'replaced';
+      // Full replace path: write matches only into liveData.matches.
+      liveData.matches = matchesIn.slice();
+      try {
+        await window._db.ref('live/matches').set(liveData.matches);
+      } catch(e2) {
+        throw new Error('Both merge and replace failed: ' + e2.message);
+      }
     }
-    const auctionCount = auctions ? Object.keys(auctions).length : 0;
-    const scCount = lsSnap ? Object.keys(lsSnap).filter(k => k.startsWith(_SC_CACHE_PFX)).length : 0;
-    _backupRestoreStatus = { type: 'success', msg: `Restored: ${live.matches.length} matches, ${Object.keys(live.captains||{}).length} captains, ${auctionCount} auction room${auctionCount !== 1 ? 's' : ''}${lsSnap ? `, ${scCount} scorecard cache entries, API keys restored` : ' (no localStorage in backup)'}. Page will reload in 3s.` };
+
+    _backupRestoreStatus = {
+      type: 'success',
+      msg: mergeMode === 'merged'
+        ? 'Merged backup: ' + merged + ' matched, ' + added + ' added. Recomputing points…'
+        : 'Merge failed (' + (mergeError || 'unknown') + '). Replaced match data with backup. Recomputing points…'
+    };
     renderAdminBackup();
-    setTimeout(() => location.reload(), 3000);
+
+    // Auto-recompute points after restore — fantasy points must always
+    // reflect current scorecard data.
+    try { if (typeof recomputePointsFromStored === 'function') recomputePointsFromStored(); } catch(e) {}
   } catch(e) {
     _backupRestoreStatus = { type: 'error', msg: 'Restore failed: ' + e.message };
     renderAdminBackup();
@@ -8045,6 +8178,9 @@ async function fetchAllConcludedScorecards() {
   refreshImportAllScheduledStatusUI();
   if (btn) { btn.textContent = 'Fetch Score Data'; btn.disabled = false; }
   showToast('Fetch complete: ' + imported + ' new, ' + refreshed + ' refreshed', 'success');
+  // Auto-recompute fantasy points after every fetch — points must always
+  // reflect the latest scorecard data.
+  try { recomputePointsFromStored(); } catch(e) { console.warn('[AP] auto-recompute after fetch failed:', e.message); }
   renderTab(currentTab);
 }
 

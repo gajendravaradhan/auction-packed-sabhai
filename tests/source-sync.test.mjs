@@ -188,12 +188,13 @@ test('fetchCricapiResults logs skip reason when no provider ID resolved', () => 
 });
 
 test('Playoff schedule entries have real espn_match_id and slugs baked in', () => {
-  // Real playoff IDs from the 2026 bracket — empty slugs caused playoff
-  // POTM regression in v5.42 and earlier.
+  // Real playoff IDs from the 2026 bracket. Home/away ordering matches the
+  // CSV /Users/gajendra/ipl_2026_matches.csv: Q1 RCB vs GT, EL RR vs SRH,
+  // Q2 RR vs GT, F GT vs RCB.
   assert.match(indexHtml, /match:'Q1'.*espn_match_id:1535462.*slug:'royal-challengers-bengaluru-vs-gujarat-titans-qualifier-1-1535462'/);
   assert.match(indexHtml, /match:'EL'.*espn_match_id:1535463.*slug:'rajasthan-royals-vs-sunrisers-hyderabad-eliminator-1535463'/);
-  assert.match(indexHtml, /match:'Q2'.*espn_match_id:1535464.*slug:'gujarat-titans-vs-rajasthan-royals-qualifier-2-1535464'/);
-  assert.match(indexHtml, /match:'F'.*espn_match_id:1535465.*slug:'royal-challengers-bengaluru-vs-gujarat-titans-final-1535465'/);
+  assert.match(indexHtml, /match:'Q2'.*espn_match_id:1535464.*slug:'rajasthan-royals-vs-gujarat-titans-qualifier-2-1535464'/);
+  assert.match(indexHtml, /match:'F'.*espn_match_id:1535465.*slug:'gujarat-titans-vs-royal-challengers-bengaluru-final-1535465'/);
 });
 
 test('ESPN sync gates no longer require slug — only match_id', () => {
