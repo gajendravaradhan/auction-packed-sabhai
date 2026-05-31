@@ -756,7 +756,7 @@ const TEAM_SLUGS = {
 
 const ADMIN_PASSWORD = 'auctionpacked2026';
 const CV_LOCK_DEADLINE = new Date('2026-03-29T13:30:00Z');
-const APP_VERSION = 'v5.45';
+const APP_VERSION = 'v5.46';
 const RAPIDAPI_KEY = '9303df28b9msh5c73e8cc7014cdcp1187ccjsncb4f2053386e';
 const API_BASE = 'https://api.cricapi.com/v1';
 
@@ -7908,24 +7908,17 @@ async function fetchAllConcludedScorecards() {
   console.log('[AP] fetchAllConcludedScorecards: eligible matches =', eligible.length);
 
   // Providers shape from getApiProviders: { id, name, apiKey, selected, ... }
-  // Key may live in liveData.apiKeys[id] (Firebase-synced) OR p.apiKey (local).
+  // Eligibility: provider is selected AND has an API key (in liveData.apiKeys
+  // or on the provider object). ESPN is augmentation, handled separately.
   const allProviders = (typeof getApiProviders === 'function' ? getApiProviders() : []);
   let providers = allProviders
-    .filter(p => p && p.id !== 'espncricinfo' && (
+    .filter(p => p && p.id !== 'espncricinfo' && p.selected && (
       (liveData.apiKeys && liveData.apiKeys[p.id]) || p.apiKey
     ))
     .sort((a, b) => (a.id === 'cricbuzz' ? -1 : b.id === 'cricbuzz' ? 1 : 0));
-  // Fallback: if filter rejected everything, fall back to the active provider
-  // (covers cases where keys are configured elsewhere).
+  console.log('[AP] fetchAllConcludedScorecards: providers (selected + keyed) =', providers.map(p => p.id));
   if (providers.length === 0) {
-    try {
-      const active = getActiveDataProvider();
-      if (active && active.id !== 'espncricinfo') providers = [active];
-    } catch(e) {}
-  }
-  console.log('[AP] fetchAllConcludedScorecards: providers =', providers.map(p => p.id));
-  if (providers.length === 0) {
-    showToast('No API providers configured', 'error');
+    showToast('No selected API provider has a key configured', 'error');
     if (btn) { btn.textContent = 'Fetch Score Data'; btn.disabled = false; }
     return;
   }
@@ -7996,7 +7989,7 @@ async function fetchAllConcludedScorecards() {
       }
     }
 
-    let fetched = false;
+    let fetchedFromAny = false;
     for (const prov of providers) {
       const seriesMatches = seriesMatchesByProvider[prov.id] || [];
       // Resolve provider's match ID
@@ -8006,7 +7999,10 @@ async function fetchAllConcludedScorecards() {
         if (sm && sm.id) scheduleMatch[idField] = sm.id;
       }
       const provMatchId = scheduleMatch[idField];
-      if (!provMatchId) continue;
+      if (!provMatchId) {
+        console.warn('[AP] fetchAllConcludedScorecards:', prov.id, 'no match id for', scheduleMatch.match);
+        continue;
+      }
 
       try {
         const d = await _withTemporaryActiveProvider(prov.id,
@@ -8015,15 +8011,18 @@ async function fetchAllConcludedScorecards() {
           const existed = (liveData.matches || []).some(m => m.apiId === provMatchId);
           upsertMatch(provMatchId, d.data.name || (scheduleMatch.home + ' vs ' + scheduleMatch.away), d.data.date || scheduleMatch.date, d.data);
           if (d.data.matchEnded) writeScorecardCache(prov.id, provMatchId, d);
-          if (existed) refreshed++; else imported++;
-          fetched = true;
-          if (d.data.matchEnded) break; // concluded match — no need to try other providers
+          // Every selected+keyed provider runs to completion — no break.
+          // Cross-provider dedup in upsertMatch merges data into the same
+          // liveData.matches[] entry by date+teams.
+          if (!fetchedFromAny && existed) refreshed++;
+          else if (!fetchedFromAny) imported++;
+          fetchedFromAny = true;
         }
       } catch (e) {
         console.warn('[AP] fetchAllConcludedScorecards:', prov.id, provMatchId, e.message);
       }
     }
-    if (!fetched) failed++;
+    if (!fetchedFromAny) failed++;
 
     // ESPN augmentation (POTM + dots) regardless of which provider supplied the scorecard
     try {
