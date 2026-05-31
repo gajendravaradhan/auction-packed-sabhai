@@ -781,7 +781,7 @@ const TEAM_SLUGS = {
 
 const ADMIN_PASSWORD = 'auctionpacked2026';
 const CV_LOCK_DEADLINE = new Date('2026-03-29T13:30:00Z');
-const APP_VERSION = 'v5.47';
+const APP_VERSION = 'v5.48';
 const RAPIDAPI_KEY = '9303df28b9msh5c73e8cc7014cdcp1187ccjsncb4f2053386e';
 const API_BASE = 'https://api.cricapi.com/v1';
 
@@ -8123,6 +8123,7 @@ async function fetchAllConcludedScorecards() {
     }
 
     let fetchedFromAny = false;
+    const perMatchFailures = [];
     for (const prov of providers) {
       const seriesMatches = seriesMatchesByProvider[prov.id] || [];
       // Resolve provider's match ID
@@ -8133,29 +8134,55 @@ async function fetchAllConcludedScorecards() {
       }
       const provMatchId = scheduleMatch[idField];
       if (!provMatchId) {
-        console.warn('[AP] fetchAllConcludedScorecards:', prov.id, 'no match id for', scheduleMatch.match);
+        perMatchFailures.push(prov.id + ': no match id');
         continue;
       }
 
-      try {
-        const d = await _withTemporaryActiveProvider(prov.id,
-          () => fetchMatchScorecardData(provMatchId, scheduleMatch.home + ' vs ' + scheduleMatch.away, scheduleMatch.date));
-        if (d && d.data && typeof d.data === 'object') {
-          const existed = (liveData.matches || []).some(m => m.apiId === provMatchId);
-          upsertMatch(provMatchId, d.data.name || (scheduleMatch.home + ' vs ' + scheduleMatch.away), d.data.date || scheduleMatch.date, d.data);
-          if (d.data.matchEnded) writeScorecardCache(prov.id, provMatchId, d);
-          // Every selected+keyed provider runs to completion — no break.
-          // Cross-provider dedup in upsertMatch merges data into the same
-          // liveData.matches[] entry by date+teams.
-          if (!fetchedFromAny && existed) refreshed++;
-          else if (!fetchedFromAny) imported++;
-          fetchedFromAny = true;
+      // Per-provider retry loop. Transient errors (429, 5xx, network) get up
+      // to 3 attempts with exponential backoff. Persistent errors (404) bail
+      // immediately so the next provider can be tried.
+      let attempt = 0, success = false, lastErr = null;
+      while (attempt < 3 && !success) {
+        attempt++;
+        try {
+          const d = await _withTemporaryActiveProvider(prov.id,
+            () => fetchMatchScorecardData(provMatchId, scheduleMatch.home + ' vs ' + scheduleMatch.away, scheduleMatch.date));
+          if (d && d.data && typeof d.data === 'object') {
+            const existed = (liveData.matches || []).some(m => m.apiId === provMatchId);
+            upsertMatch(provMatchId, d.data.name || (scheduleMatch.home + ' vs ' + scheduleMatch.away), d.data.date || scheduleMatch.date, d.data);
+            if (d.data.matchEnded) writeScorecardCache(prov.id, provMatchId, d);
+            // Every selected+keyed provider runs to completion — no break.
+            if (!fetchedFromAny && existed) refreshed++;
+            else if (!fetchedFromAny) imported++;
+            fetchedFromAny = true;
+            success = true;
+          } else {
+            lastErr = 'empty response';
+            break; // empty response — no point retrying
+          }
+        } catch (e) {
+          lastErr = e.message || String(e);
+          const transient = /429|rate limit|HTTP 5\d{2}|network|fetch|timeout|aborted/i.test(lastErr);
+          if (!transient) break; // hard failure (404, parse error) — give up on this provider
+          if (attempt < 3) {
+            const backoffMs = 500 * Math.pow(2, attempt - 1);
+            console.warn('[AP] fetchAllConcludedScorecards:', prov.id, 'match', scheduleMatch.match, 'attempt', attempt, 'transient error — retrying in', backoffMs, 'ms:', lastErr);
+            await new Promise(r => setTimeout(r, backoffMs));
+          }
         }
-      } catch (e) {
-        console.warn('[AP] fetchAllConcludedScorecards:', prov.id, provMatchId, e.message);
       }
+      if (!success) {
+        perMatchFailures.push(prov.id + ': ' + lastErr);
+        console.warn('[AP] fetchAllConcludedScorecards:', prov.id, 'match', scheduleMatch.match, 'gave up after', attempt, 'attempts:', lastErr);
+      }
+
+      // Inter-call pacing — keeps CricBuzz happy under burst.
+      await new Promise(r => setTimeout(r, 250));
     }
-    if (!fetchedFromAny) failed++;
+    if (!fetchedFromAny) {
+      failed++;
+      console.warn('[AP] fetchAllConcludedScorecards: MATCH', scheduleMatch.match, 'failed across all providers:', perMatchFailures.join(' | '));
+    }
 
     // ESPN augmentation (POTM + dots) regardless of which provider supplied the scorecard
     try {
