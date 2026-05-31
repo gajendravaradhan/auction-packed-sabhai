@@ -133,3 +133,42 @@ test('fetchCricapiResults logs skip reason when no provider ID resolved', () => 
   assert.match(indexHtml, /no provider ID for match/);
   assert.match(indexHtml, /team\/desc\/date matching all failed/);
 });
+
+test('Playoff schedule entries have real espn_match_id and slugs baked in', () => {
+  // Real playoff IDs from the 2026 bracket — empty slugs caused playoff
+  // POTM regression in v5.42 and earlier.
+  assert.match(indexHtml, /match:'Q1'.*espn_match_id:1535462.*slug:'royal-challengers-bengaluru-vs-gujarat-titans-qualifier-1-1535462'/);
+  assert.match(indexHtml, /match:'EL'.*espn_match_id:1535463.*slug:'rajasthan-royals-vs-sunrisers-hyderabad-eliminator-1535463'/);
+  assert.match(indexHtml, /match:'Q2'.*espn_match_id:1535464.*slug:'gujarat-titans-vs-rajasthan-royals-qualifier-2-1535464'/);
+  assert.match(indexHtml, /match:'F'.*espn_match_id:1535465.*slug:'royal-challengers-bengaluru-vs-gujarat-titans-final-1535465'/);
+});
+
+test('ESPN sync gates no longer require slug — only match_id', () => {
+  // Both gate sites in syncEspnForScheduleMatchesAtomic and ESPN verification
+  // must check only match_id now. Slug is optional.
+  const gateMatches = indexHtml.match(/if\s*\(!espnInfo\.match_id\)\s*continue;/g) || [];
+  assert.ok(gateMatches.length >= 2, 'both ESPN gates must drop slug requirement (found ' + gateMatches.length + ')');
+  // And the legacy gate (match_id || slug) must be gone
+  assert.equal(indexHtml.includes('!espnInfo.match_id || !espnInfo.slug'), false, 'old slug gate must be removed');
+});
+
+test('fetchESPNMatchDetails skips match_slug URL param when slug empty', () => {
+  assert.match(indexHtml, /useSlug\s*=\s*_attempt\s*<=\s*2\s*&&\s*!!slug/);
+});
+
+test('synthesizePlayoffSlug helper is defined and used in resolveESPNMatchInfo', () => {
+  assert.match(indexHtml, /function synthesizePlayoffSlug\(/);
+  assert.match(indexHtml, /slug\s*=\s*synthesizePlayoffSlug\(/);
+});
+
+test('Scorecard resolver overwrites non-manual playoff slots', () => {
+  assert.match(indexHtml, /const isManual\s*=\s*slot\.resolved\s*===\s*'manual'/);
+  assert.match(indexHtml, /if\s*\(slot\.home\s*!==\s*homeCode\)/);
+});
+
+test('window.setPlayoffTeams and window.setPlayoffSlug are exposed for manual override', () => {
+  assert.match(indexHtml, /function setPlayoffTeams\(matchKey/);
+  assert.match(indexHtml, /function setPlayoffSlug\(matchKey/);
+  assert.match(indexHtml, /window\.setPlayoffTeams\s*=\s*setPlayoffTeams/);
+  assert.match(indexHtml, /window\.setPlayoffSlug\s*=\s*setPlayoffSlug/);
+});

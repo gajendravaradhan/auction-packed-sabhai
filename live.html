@@ -594,10 +594,10 @@ const IPL_2026_SCHEDULE = [
   {match:68,espn_match_id:1529311,date:'2026-05-23',home:'LSG',away:'PBKS',venue:'Lucknow',time:'19:30',slug:'punjab-kings-vs-lucknow-super-giants-68th-match-1529311',cricapi_match_id:null},
   {match:69,espn_match_id:1529312,date:'2026-05-24',home:'MI',away:'RR',venue:'Mumbai',time:'15:30',slug:'rajasthan-royals-vs-mumbai-indians-69th-match-1529312',cricapi_match_id:null},
   {match:70,espn_match_id:1529313,date:'2026-05-24',home:'KKR',away:'DC',venue:'Kolkata',time:'19:30',slug:'delhi-capitals-vs-kolkata-knight-riders-70th-match-1529313',cricapi_match_id:null},
-  {match:'Q1',espn_match_id:1529314,date:'2026-05-26',home:'RCB',away:'GT',venue:'Dharamsala',time:'19:30',slug:'',cricapi_match_id:null},
-  {match:'EL',espn_match_id:1529315,date:'2026-05-27',home:'RR',away:'SRH',venue:'New Chandigarh',time:'19:30',slug:'',cricapi_match_id:null},
-  {match:'Q2',espn_match_id:1529316,date:'2026-05-29',home:'RR',away:'GT',venue:'New Chandigarh',time:'19:30',slug:'',cricapi_match_id:null},
-  {match:'F',espn_match_id:1529317,date:'2026-05-31',home:'TBD',away:'TBD',venue:'Ahmedabad',time:'19:30',slug:'',cricapi_match_id:null}
+  {match:'Q1',espn_match_id:1535462,date:'2026-05-26',home:'RCB',away:'GT',venue:'Dharamsala',time:'19:30',slug:'royal-challengers-bengaluru-vs-gujarat-titans-qualifier-1-1535462',cricapi_match_id:null},
+  {match:'EL',espn_match_id:1535463,date:'2026-05-27',home:'RR',away:'SRH',venue:'New Chandigarh',time:'19:30',slug:'rajasthan-royals-vs-sunrisers-hyderabad-eliminator-1535463',cricapi_match_id:null},
+  {match:'Q2',espn_match_id:1535464,date:'2026-05-29',home:'GT',away:'RR',venue:'New Chandigarh',time:'19:30',slug:'gujarat-titans-vs-rajasthan-royals-qualifier-2-1535464',cricapi_match_id:null},
+  {match:'F',espn_match_id:1535465,date:'2026-05-31',home:'RCB',away:'GT',venue:'Ahmedabad',time:'19:30',slug:'royal-challengers-bengaluru-vs-gujarat-titans-final-1535465',cricapi_match_id:null}
 ];
 
 // ═══════════════════════════════════════════════════════
@@ -756,7 +756,7 @@ const TEAM_SLUGS = {
 
 const ADMIN_PASSWORD = 'auctionpacked2026';
 const CV_LOCK_DEADLINE = new Date('2026-03-29T13:30:00Z');
-const APP_VERSION = 'v5.42';
+const APP_VERSION = 'v5.43';
 const RAPIDAPI_KEY = '9303df28b9msh5c73e8cc7014cdcp1187ccjsncb4f2053386e';
 const API_BASE = 'https://api.cricapi.com/v1';
 
@@ -1218,7 +1218,50 @@ function resolveESPNMatchInfo(scheduleMatch) {
   if (stored && stored.match_id && stored.slug) {
     return { match_id: stored.match_id, slug: stored.slug };
   }
-  return { match_id: scheduleMatch.espn_match_id || null, slug: scheduleMatch.slug || null };
+  // Manual admin override for playoff slugs (set via window.setPlayoffSlug)
+  const manualSlug = liveData.playoffTeams?.[key]?.manualSlug;
+  if (manualSlug && scheduleMatch.espn_match_id) {
+    return { match_id: scheduleMatch.espn_match_id, slug: manualSlug };
+  }
+  // Synthesize slug for playoff entries from live-match teams + descriptor.
+  // ESPN tolerates the wrong slug (falls back to match_id-only on retry), so
+  // even a near-miss synthesis unblocks the gate. We try anyway because a
+  // correct synthesis avoids the extra retry round-trip.
+  let slug = scheduleMatch.slug || null;
+  if (!slug && PLAYOFF_MATCH_KEYS.includes(scheduleMatch.match) && scheduleMatch.espn_match_id) {
+    slug = synthesizePlayoffSlug(scheduleMatch);
+  }
+  return { match_id: scheduleMatch.espn_match_id || null, slug: slug || null };
+}
+
+function synthesizePlayoffSlug(scheduleMatch) {
+  const DESC = { Q1: 'qualifier-1', EL: 'eliminator', Q2: 'qualifier-2', F: 'final' };
+  const desc = DESC[scheduleMatch.match];
+  if (!desc) return null;
+  // Prefer live-match teams[] (real names from API). Fall back to schedule
+  // home/away (codes mapped to full names) when liveData not yet populated.
+  const liveMatch = Array.isArray(liveData.matches)
+    ? liveData.matches.find(m => m && (m.date || '').slice(0, 10) === scheduleMatch.date)
+    : null;
+  let team1Slug = null, team2Slug = null;
+  const toSlug = s => String(s || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+  if (liveMatch && Array.isArray(liveMatch.teams) && liveMatch.teams.length === 2) {
+    team1Slug = toSlug(liveMatch.teams[0]);
+    team2Slug = toSlug(liveMatch.teams[1]);
+  } else {
+    const homeFull = ESPN_TEAM_MAP[scheduleMatch.home] || '';
+    const awayFull = ESPN_TEAM_MAP[scheduleMatch.away] || '';
+    if (homeFull && awayFull) {
+      team1Slug = toSlug(homeFull);
+      team2Slug = toSlug(awayFull);
+    }
+  }
+  if (!team1Slug || !team2Slug) {
+    // Last-resort placeholder: just the descriptor + match id. ESPN attempt-3
+    // will drop the slug entirely so this only has to pass the gate.
+    return desc + '-' + scheduleMatch.espn_match_id;
+  }
+  return team1Slug + '-vs-' + team2Slug + '-' + desc + '-' + scheduleMatch.espn_match_id;
 }
 
 // Calls the ESPN liveScores endpoint, finds IPL matches, resolves their match_id+slug,
@@ -6026,7 +6069,10 @@ function getMatchesForToday() {
 
 async function fetchESPNMatchDetails(matchId, slug, _attempt = 1) {
   const baseUrl = 'https://espncricinfo-api.p.rapidapi.com/api/v1/cricketinfo/match-details';
-  const useSlug = _attempt <= 2;
+  // useSlug stays true on attempts 1+2 only when a slug is actually provided.
+  // Playoff schedule entries have empty slug, so we drop the param entirely
+  // — ESPN's match-details endpoint accepts match_id alone (attempt-3 path).
+  const useSlug = _attempt <= 2 && !!slug;
   const url = useSlug
     ? `${baseUrl}?series_slug=ipl-2026-1510719&match_id=${matchId}&match_slug=${slug}`
     : `${baseUrl}?series_slug=ipl-2026-1510719&match_id=${matchId}`;
@@ -6726,6 +6772,10 @@ function resolvePlayoffTeams() {
 
 // Scorecard-derived path: on first scorecard sync for a playoff match, read
 // teams[] from the API response and seed playoffTeams. Called from upsertMatch.
+// Overwrites any non-'manual' prior resolution because the live scorecard is
+// the ground truth — earlier 'standings'/'bracket'/'live-teams'/'scorecard'
+// guesses get superseded once the real match data arrives. Manual admin
+// entries (resolved === 'manual') are preserved.
 function maybeResolvePlayoffFromScorecard(apiId, dateStr, scorecardData) {
   const d = (dateStr || '').slice(0, 10);
   if (!d) return;
@@ -6737,8 +6787,15 @@ function maybeResolvePlayoffFromScorecard(apiId, dateStr, scorecardData) {
   const awayCode = mapTeamNameToFranchiseCode(teams[1]);
   if (!homeCode || !awayCode) return;
   const slot = _ensurePlayoffSlot(sched.match);
-  if (slot.home === 'TBD') { slot.home = homeCode; slot.resolved = slot.resolved || 'scorecard'; }
-  if (slot.away === 'TBD') { slot.away = awayCode; slot.resolved = slot.resolved || 'scorecard'; }
+  const isManual = slot.resolved === 'manual';
+  if (!isManual) {
+    if (slot.home !== homeCode) { slot.home = homeCode; slot.resolved = 'scorecard'; }
+    if (slot.away !== awayCode) { slot.away = awayCode; slot.resolved = 'scorecard'; }
+  } else {
+    // Fill empty slots only — keep admin values intact.
+    if (slot.home === 'TBD') slot.home = homeCode;
+    if (slot.away === 'TBD') slot.away = awayCode;
+  }
   applyPlayoffTeamsToSchedule();
 }
 
@@ -6753,7 +6810,44 @@ function applyPlayoffTeamsToSchedule() {
     if (!entry || !resolved) return;
     if (resolved.home && resolved.home !== 'TBD') entry.home = resolved.home;
     if (resolved.away && resolved.away !== 'TBD') entry.away = resolved.away;
+    if (resolved.manualSlug) entry.slug = resolved.manualSlug;
   });
+}
+
+// Manual admin override — callable from browser console when the resolver
+// cannot recover correct teams (e.g. wrong API data) or when an ESPN slug
+// needs to be supplied for a playoff match. Persisted to Firebase and
+// preserved across automated resolver runs.
+//   window.setPlayoffTeams('Q1', 'MI', 'CSK')           // teams only
+//   window.setPlayoffTeams('F', 'MI', 'CSK', 'mumbai-indians-vs-chennai-super-kings-final-1529317') // teams + slug
+//   window.setPlayoffSlug('F', 'mumbai-indians-vs-chennai-super-kings-final-1529317') // slug only
+function setPlayoffTeams(matchKey, homeCode, awayCode, manualSlug) {
+  if (!PLAYOFF_MATCH_KEYS.includes(matchKey)) {
+    console.warn('[AP] setPlayoffTeams: invalid match key', matchKey, '— must be one of', PLAYOFF_MATCH_KEYS);
+    return false;
+  }
+  if (!_liveLoadedFromFirebase) {
+    console.warn('[AP] setPlayoffTeams: Firebase not yet hydrated — try again in a moment');
+    return false;
+  }
+  const slot = _ensurePlayoffSlot(matchKey);
+  if (homeCode) slot.home = String(homeCode).toUpperCase();
+  if (awayCode) slot.away = String(awayCode).toUpperCase();
+  if (manualSlug) slot.manualSlug = String(manualSlug);
+  slot.resolved = 'manual';
+  applyPlayoffTeamsToSchedule();
+  saveLiveData(true);
+  console.log('[AP] playoff slot', matchKey, 'set manually:', JSON.stringify(slot));
+  return true;
+}
+
+function setPlayoffSlug(matchKey, slug) {
+  return setPlayoffTeams(matchKey, null, null, slug);
+}
+
+if (typeof window !== 'undefined') {
+  window.setPlayoffTeams = setPlayoffTeams;
+  window.setPlayoffSlug = setPlayoffSlug;
 }
 
 function matchScheduleTeams(scheduleMatch, label) {
@@ -6805,7 +6899,9 @@ async function syncEspnForScheduleMatchesAtomic(scheduleMatches, options = {}) {
   for (const scheduleMatch of (scheduleMatches || [])) {
     if (!scheduleMatch) continue;
     const espnInfo = resolveESPNMatchInfo(scheduleMatch);
-    if (!espnInfo.match_id || !espnInfo.slug) continue;
+    // Slug intentionally optional — playoff entries ship with empty slug
+    // and the match-details endpoint accepts match_id alone.
+    if (!espnInfo.match_id) continue;
     const key = String(espnInfo.match_id);
     if (seen.has(key)) continue;
     seen.add(key);
@@ -6959,7 +7055,8 @@ async function fetchESPNDataManual() {
     for (let i = 0; i < matchesToUpdate.length; i++) {
       const scheduleMatch = matchesToUpdate[i];
       const espnInfo = resolveESPNMatchInfo(scheduleMatch);
-      if (!espnInfo.match_id || !espnInfo.slug) continue;
+      // Slug optional — see syncEspnForScheduleMatchesAtomic comment.
+      if (!espnInfo.match_id) continue;
       const entry = verificationEntries[i];
 
       if (!getProviderMatchId(scheduleMatch) && seriesMatches.length > 0) {
