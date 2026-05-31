@@ -109,17 +109,70 @@ test('Robust winner parser handles wkts/beat/parenthetical formats', () => {
   assert.match(indexHtml, /no result\|abandoned/);
 });
 
-test('clearAllDataExceptCaptains does NOT wipe LS_SERIES_CACHE_KEY', () => {
-  // Find the clearAll function body
-  const fn = /async function clearAllDataExceptCaptains\(\)[\s\S]*?\n\}/.exec(indexHtml);
-  assert.ok(fn, 'clearAllDataExceptCaptains must be defined');
+test('admin cleanup: removed function definitions are gone', () => {
+  const removed = [
+    'clearAllDataExceptCaptains',
+    'forceResyncAllCricAPI',
+    'recomputeAllPointsFromCache',
+    'importMatchById',
+    'fixRunoutMismatches',
+    'resetESPNCheckpoint',
+    'resetAllCVPicks',
+    'showCacheManagementModal',
+    'getScorecardCacheStats',
+    'clearAndRefetchFromModal',
+  ];
+  for (const name of removed) {
+    const re = new RegExp('\\bfunction\\s+' + name + '\\b|\\basync\\s+function\\s+' + name + '\\b');
+    assert.ok(!re.test(indexHtml), name + ' definition must be removed from index.html');
+  }
+});
+
+test('admin cleanup: removed button onclick handlers are gone', () => {
+  const removedHandlers = [
+    'onclick="clearAllDataExceptCaptains()"',
+    'onclick="forceResyncAllCricAPI()"',
+    'onclick="recomputeAllPointsFromCache()"',
+    'onclick="fixRunoutMismatches()"',
+    'onclick="resetESPNCheckpoint()"',
+    'onclick="resetAllCVPicks()"',
+    'showCacheManagementModal(',
+    'importMatchById(',
+  ];
+  for (const h of removedHandlers) {
+    assert.ok(!indexHtml.includes(h), 'handler "' + h + '" must be removed');
+  }
+});
+
+test('admin cleanup: new API and Compute sections present', () => {
+  assert.match(indexHtml, /<div class="admin-section-title">API<\/div>/);
+  assert.match(indexHtml, /<div class="admin-section-title">Compute<\/div>/);
+  assert.match(indexHtml, /onclick="fetchAllConcludedScorecards\(\)"/);
+  assert.match(indexHtml, /onclick="recomputePointsFromStored\(\)"/);
+  assert.match(indexHtml, /id="fetchScoreDataBtn"/);
+  assert.match(indexHtml, /id="recomputeBtn"/);
+});
+
+test('admin cleanup: fetchAllConcludedScorecards function defined with multi-provider loop', () => {
+  assert.match(indexHtml, /async function fetchAllConcludedScorecards\(\)/);
+  assert.match(indexHtml, /_withTemporaryActiveProvider/);
+  // Done-match immunity check
+  assert.match(indexHtml, /existing\.status === 'done'/);
+  assert.match(indexHtml, /\(existing\.scorecard_raw \|\| \[\]\)\.length > 0/);
+  assert.match(indexHtml, /Object\.keys\(existing\.performances \|\| \{\}\)\.length > 0/);
+});
+
+test('admin cleanup: recomputePointsFromStored function defined and does not call APIs', () => {
+  const fn = /function recomputePointsFromStored\(\)[\s\S]*?\n\}/.exec(indexHtml);
+  assert.ok(fn, 'recomputePointsFromStored must be defined');
   const body = fn[0];
-  // The localStorage.removeItem block should NOT include LS_SERIES_CACHE_KEY.
-  // (LS_API_CALLS_KEY, LS_ESPN_CALLS_KEY, LS_BATPOS_CACHE_KEY still cleared.)
-  const removeBlock = /\[LS_[A-Z_]+(?:,\s*LS_[A-Z_]+)*\]\.forEach\(k\s*=>\s*\{\s*try\s*\{\s*localStorage\.removeItem\(k\)/.exec(body);
-  assert.ok(removeBlock, 'localStorage.removeItem block must exist');
-  assert.ok(!/LS_SERIES_CACHE_KEY/.test(removeBlock[0]),
-    'LS_SERIES_CACHE_KEY must not appear in the clear list — preserves season match list across clears');
+  // Should NOT contain any fetch* API calls
+  assert.ok(!/fetch[A-Z]\w*\(/i.test(body.replace(/renderTab|fetchScoreData/g, '')),
+    'Recompute must not call any fetch* API functions');
+});
+
+test('admin cleanup: clearScorecardCacheForProvider helper retained for restoreFromBackup', () => {
+  assert.match(indexHtml, /function clearScorecardCacheForProvider\(/);
 });
 
 test('findSeriesMatchForScheduleMatch has playoff-descriptor and date-only fallback paths', () => {

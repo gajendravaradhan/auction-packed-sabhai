@@ -756,7 +756,7 @@ const TEAM_SLUGS = {
 
 const ADMIN_PASSWORD = 'auctionpacked2026';
 const CV_LOCK_DEADLINE = new Date('2026-03-29T13:30:00Z');
-const APP_VERSION = 'v5.43';
+const APP_VERSION = 'v5.44';
 const RAPIDAPI_KEY = '9303df28b9msh5c73e8cc7014cdcp1187ccjsncb4f2053386e';
 const API_BASE = 'https://api.cricapi.com/v1';
 
@@ -1133,9 +1133,11 @@ function getImportAllScheduledStatusMarkup() {
 }
 
 function refreshImportAllScheduledStatusUI() {
-  const el = document.getElementById('importAllStatus');
-  if (!el) return;
-  el.innerHTML = getImportAllScheduledStatusMarkup();
+  const markup = getImportAllScheduledStatusMarkup();
+  ['importAllStatus', 'fetchScoreDataStatus'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.innerHTML = markup;
+  });
 }
 
 function ensureCricapiIdMap() {
@@ -4302,10 +4304,6 @@ function toggleApiProvider(id) {
   p.selected = !wasSelected;
   saveApiProviders(providers);
   renderApiProvidersSection();
-  const nowSelected = p.selected ? p : null;
-  if (nowSelected && (!prevSelected || prevSelected.id !== nowSelected.id)) {
-    showCacheManagementModal(nowSelected.id);
-  }
 }
 
 function saveProviderApiKey(id) {
@@ -4741,20 +4739,6 @@ function renderAdminSettings() {
     <div class="admin-section-title">Backup &amp; Restore</div>
     <div id="adminBackupSection" style="margin-bottom:20px;"></div>
 
-    <div class="admin-section-title">Scorecard Cache</div>
-    <div class="match-input-card" style="margin-bottom:20px;">
-      ${(() => {
-        const prov = getActiveDataProvider();
-        const cached = getScorecardCacheStats(prov.id);
-        return `
-          <div style="font-size:12px;color:var(--muted);letter-spacing:1px;margin-bottom:12px;line-height:1.6;">
-            <strong style="color:var(--gold);">${cached}</strong> concluded match scorecard${cached !== 1 ? 's' : ''} cached locally for <strong>${prov.name}</strong>.<br>
-            Cached matches load instantly — zero API calls. Cache persists across reloads and Firebase resets.
-          </div>
-          <button onclick="showCacheManagementModal('${prov.id}')" style="width:100%;background:var(--surface2);color:var(--gold);border:1px solid var(--border);border-radius:8px;padding:10px 8px;cursor:pointer;font-family:Barlow Condensed,sans-serif;font-size:14px;font-weight:700;letter-spacing:2px;text-transform:uppercase;">MANAGE CACHE</button>`;
-      })()}
-    </div>
-
     <div class="admin-section-title">API Providers</div>
     <div id="apiProvidersSection" style="margin-bottom:20px;"></div>
 
@@ -4787,16 +4771,22 @@ function renderAdminSettings() {
       ${isStopped ? '<p style="color:var(--red);font-size:12px;letter-spacing:1px;margin-top:8px;">Daily limit reached. Resets at midnight.</p>' : ''}
     </div>
 
-    <div class="admin-section-title">Data Sync</div>
+    <div class="admin-section-title">API</div>
     <div class="match-input-card" style="margin-bottom:12px;">
-      <p id="iplYearScheduleDesc" style="font-size:13px;color:var(--muted);letter-spacing:1px;margin-bottom:12px;line-height:1.6;">Fetch ${_activeProviderName} scorecards for all scheduled matches, force a full resync, or recompute points from cached scorecards (no API calls).</p>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
-        <button onclick="fetchCricapiResults()" id="importAllScheduledBtn" style="background:var(--surface2);border:1px solid var(--blue);color:var(--blue);border-radius:8px;padding:12px 8px;cursor:pointer;font-family:Barlow Condensed,sans-serif;font-size:15px;font-weight:700;letter-spacing:2px;text-transform:uppercase;">Fetch ${_activeProviderName} Results</button>
-        <button onclick="forceResyncAllCricAPI()" id="forceResyncBtn" style="background:var(--surface2);border:1px solid #ff7b2f;color:#ff7b2f;border-radius:8px;padding:12px 8px;cursor:pointer;font-family:Barlow Condensed,sans-serif;font-size:15px;font-weight:700;letter-spacing:2px;text-transform:uppercase;">Force Resync All (Clear + Refetch)</button>
-      </div>
-      <button onclick="recomputeAllPointsFromCache()" id="recomputeBtn" style="width:100%;background:var(--surface2);border:1px solid var(--green);color:var(--green);border-radius:8px;padding:12px 8px;cursor:pointer;font-family:Barlow Condensed,sans-serif;font-size:15px;font-weight:700;letter-spacing:2px;text-transform:uppercase;">Recompute All Points From Cache (Zero API)</button>
-      <div id="forceResyncStatus" style="margin-top:6px;font-size:12px;color:var(--muted);letter-spacing:1px;"></div>
-      <div id="importAllStatus" style="margin-top:8px;">${getImportAllScheduledStatusMarkup()}</div>
+      <p style="font-size:13px;color:var(--muted);letter-spacing:1px;margin-bottom:12px;line-height:1.6;">
+        One-shot rescue: walks every concluded scheduled match and tries each configured provider (CricBuzz, CricAPI, ESPN) in sequence, persisting performance data + POTM to Firebase. Skips live, upcoming, and matches that already have a complete scorecard. In a healthy app, autosync covers this — this button exists for recovery.
+      </p>
+      <button onclick="fetchAllConcludedScorecards()" id="fetchScoreDataBtn" style="width:100%;background:var(--surface2);border:1px solid var(--blue);color:var(--blue);border-radius:8px;padding:12px 8px;cursor:pointer;font-family:Barlow Condensed,sans-serif;font-size:15px;font-weight:700;letter-spacing:2px;text-transform:uppercase;">Fetch Score Data</button>
+      <div id="fetchScoreDataStatus" style="margin-top:8px;">${getImportAllScheduledStatusMarkup()}</div>
+    </div>
+
+    <div class="admin-section-title">Compute</div>
+    <div class="match-input-card" style="margin-bottom:12px;">
+      <p style="font-size:13px;color:var(--muted);letter-spacing:1px;margin-bottom:12px;line-height:1.6;">
+        Re-derives points and leaderboard from already-stored scorecards. Zero API calls. Use when scoring rules change or a render appears stale.
+      </p>
+      <button onclick="recomputePointsFromStored()" id="recomputeBtn" style="width:100%;background:var(--surface2);border:1px solid var(--green);color:var(--green);border-radius:8px;padding:12px 8px;cursor:pointer;font-family:Barlow Condensed,sans-serif;font-size:15px;font-weight:700;letter-spacing:2px;text-transform:uppercase;">Recompute Points</button>
+      <div id="recomputeStatus" style="margin-top:8px;font-size:12px;color:var(--muted);letter-spacing:1px;"></div>
     </div>
 
     <div class="admin-section-title">ESPN CricInfo Data</div>
@@ -4810,14 +4800,6 @@ function renderAdminSettings() {
     </div>
 
     <div class="admin-section-title">Saved Matches (${matches.length})</div>
-    <div class="match-input-card" style="margin:10px 0 16px 0;">
-      <div style="font-family:Barlow Condensed,sans-serif;font-size:14px;font-weight:700;letter-spacing:2px;color:var(--muted);margin-bottom:6px;">MANUAL IMPORT BY MATCH ID</div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;">
-        <input id="manualMatchIdInput" placeholder="e.g. 96d2aa6b-ea40-4da4-b4cf-eb996de24ef7" style="flex:1;min-width:160px;background:var(--bg);border:1px solid var(--border);color:var(--text);border-radius:7px;padding:8px 12px;font-size:12px;font-family:inherit;" onkeydown="if(event.key==='Enter')importMatchById(document.getElementById('manualMatchIdInput').value)">
-        <button id="manualImportBtn" onclick="importMatchById(document.getElementById('manualMatchIdInput').value)" style="background:var(--surface2);border:1px solid var(--orange);color:var(--orange);border-radius:7px;padding:8px 14px;cursor:pointer;font-family:Barlow Condensed,sans-serif;font-size:13px;font-weight:700;letter-spacing:2px;">IMPORT</button>
-      </div>
-    </div>
-
     ${matches.length > 0 ? `
       <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
         <button onclick="collapseAllMatches(true)" style="background:none;border:1px solid var(--border);color:var(--muted);border-radius:6px;padding:5px 12px;cursor:pointer;font-family:Barlow Condensed,sans-serif;font-size:12px;font-weight:700;letter-spacing:2px;">COLLAPSE ALL</button>
@@ -4827,20 +4809,6 @@ function renderAdminSettings() {
       ${[...matches].reverse().map((m, i) => renderAdminMatch(m, matches.length - 1 - i)).join('')}
     ` : '<p style="color:var(--muted);font-size:13px;letter-spacing:1px;">No matches imported yet.</p>'}
 
-    <div class="admin-section-title" style="cursor:pointer;" onclick="var d=document.getElementById('adminAdvancedSection');var open=d.style.display!=='none';d.style.display=open?'none':'block';this.querySelector('.adv-chevron').textContent=open?'▶':'▼';">▶ <span class="adv-chevron">▶</span> Advanced</div>
-    <div id="adminAdvancedSection" style="display:none;">
-      <div class="match-input-card" style="margin-bottom:12px;">
-        <p style="font-size:13px;color:var(--muted);letter-spacing:1px;margin-bottom:12px;line-height:1.6;">One-time data fix: corrects runout credits where CricAPI's fielder was misattributed. Also includes ESPN checkpoint reset and C/VC reset for recovery scenarios.</p>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-          <button onclick="fixRunoutMismatches()" style="background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:12px 8px;cursor:pointer;font-family:Barlow Condensed,sans-serif;font-size:14px;font-weight:700;letter-spacing:2px;text-transform:uppercase;">Fix Runout Credits</button>
-          <button onclick="resetESPNCheckpoint()" style="background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:12px 8px;cursor:pointer;font-family:Barlow Condensed,sans-serif;font-size:14px;font-weight:700;letter-spacing:2px;text-transform:uppercase;">Reset ESPN Checkpoint</button>
-        </div>
-        <div style="margin-top:8px;">
-          <button onclick="resetAllCVPicks()" style="width:100%;background:var(--surface2);border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:12px 8px;cursor:pointer;font-family:Barlow Condensed,sans-serif;font-size:14px;font-weight:700;letter-spacing:2px;text-transform:uppercase;">Reset All C/VC Picks</button>
-        </div>
-        <div id="runoutFixStatus" style="font-size:12px;color:var(--muted);letter-spacing:1px;margin-top:8px;"></div>
-      </div>
-    </div>
   `;
   setTimeout(startCountdown, 50);
   renderAdminBackup();
@@ -5113,65 +5081,16 @@ function renderAdminBackup() {
         Full snapshot: ${matches.length} matches (${done} with scorecards), captains, auction rooms, API provider keys, and scorecard cache.
         Restore overwrites Firebase + localStorage — 100% fidelity.
       </div>
-      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:8px;">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
         <button onclick="downloadBackup()" style="background:var(--blue);color:#fff;border:none;border-radius:8px;padding:13px 8px;cursor:pointer;font-family:Barlow Condensed,sans-serif;font-size:15px;font-weight:700;letter-spacing:2px;text-transform:uppercase;">DOWNLOAD BACKUP</button>
         <label style="display:flex;align-items:center;justify-content:center;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:13px 8px;cursor:pointer;font-family:Barlow Condensed,sans-serif;font-size:15px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--gold);">
           RESTORE FROM FILE
           <input type="file" accept=".json" onchange="restoreFromBackup(this)" style="display:none;">
         </label>
       </div>
-      <button onclick="clearAllDataExceptCaptains()" style="width:100%;background:rgba(255,58,92,0.12);color:var(--red);border:1px solid rgba(255,58,92,0.3);border-radius:8px;padding:13px 8px;cursor:pointer;font-family:Barlow Condensed,sans-serif;font-size:15px;font-weight:700;letter-spacing:2px;text-transform:uppercase;">CLEAR ALL DATA (KEEP C/VC)</button>
       ${statusHtml}
     </div>
   `;
-}
-
-async function clearAllDataExceptCaptains() {
-  const confirmed = confirm(
-    '⚠️ CLEAR ALL DATA — ARE YOU SURE?\n\n' +
-    'This will permanently delete:\n' +
-    '  • All match results and scorecards (all innings)\n' +
-    '  • All player fantasy performance data\n' +
-    '  • All fantasy points (board will go blank)\n' +
-    '  • Match status badges (Done / Live / Today)\n' +
-    '  • Player of the Match records\n' +
-    '  • ESPN & provider match ID maps\n' +
-    '  • Local scorecard cache (API calls needed to rebuild)\n' +
-    '  • API call counters\n\n' +
-    'This will PRESERVE:\n' +
-    '  • Captain / Vice Captain picks for all teams\n' +
-    '  • Auction room data\n' +
-    '  • API provider keys and settings\n\n' +
-    '🔴 This action is IRREVERSIBLE unless you have a backup.\n' +
-    'Have you downloaded a backup? Press Cancel to do so first.'
-  );
-  if (!confirmed) return;
-  _backupRestoreStatus = { type: 'loading', msg: 'Clearing data…' };
-  renderAdminBackup();
-  try {
-    const nodes = ['matches', 'cricapiIdMap', 'espnMatchSlugMap', 'importAllScheduledStatus', 'espnLastUpdate', 'lastDailyStackSyncDateEt'];
-    await Promise.all(nodes.map(n => window._db.ref('live/' + n).remove().catch(() => {})));
-    clearScorecardCacheForProvider('');
-    // NOTE: LS_SERIES_CACHE_KEY intentionally NOT cleared. The provider series
-    // endpoint (e.g. CricBuzz /series/v1/9241) trims to a rolling recency
-    // window once the tournament concludes — a fresh fetch after IPL ends
-    // returns only ~30-45 matches, blocking ID resolution for early league
-    // games. Preserving the cached full-season match list lets force-resync
-    // re-bind cricapi_match_id / cricbuzz_match_id for all 74 entries.
-    [LS_API_CALLS_KEY, LS_ESPN_CALLS_KEY, LS_BATPOS_CACHE_KEY].forEach(k => { try { localStorage.removeItem(k); } catch(e) {} });
-    liveData.matches = [];
-    liveData.cricapiIdMap = {};
-    liveData.espnMatchSlugMap = {};
-    delete liveData.importAllScheduledStatus;
-    delete liveData.espnLastUpdate;
-    delete liveData.lastDailyStackSyncDateEt;
-    IPL_2026_SCHEDULE.forEach(m => { delete m.cricapi_match_id; delete m.cricbuzz_match_id; });
-    _backupRestoreStatus = { type: 'success', msg: 'Cleared. C/VC picks and auction rooms preserved. Ready for fresh fetch.' };
-  } catch(e) {
-    _backupRestoreStatus = { type: 'error', msg: 'Clear failed: ' + e.message };
-  }
-  renderAdminBackup();
-  renderAdminSettings();
 }
 
 function _snapshotLocalStorage() {
@@ -5668,14 +5587,8 @@ function writeScorecardCache(providerId, matchId, normalizedResponse) {
   catch(e) {}
 }
 
-function getScorecardCacheStats(providerId) {
-  const pfx = _SC_CACHE_PFX + providerId + '_';
-  let count = 0;
-  try { for (let i = 0; i < localStorage.length; i++) { if ((localStorage.key(i) || '').startsWith(pfx)) count++; } }
-  catch(e) {}
-  return count;
-}
-
+// Scorecard cache helper retained for internal use by restoreFromBackup +
+// autosync skip path. Cache itself is internal; no user-facing UI manages it.
 function clearScorecardCacheForProvider(providerId) {
   const pfx = _SC_CACHE_PFX + (providerId ? providerId + '_' : '');
   try {
@@ -5683,51 +5596,6 @@ function clearScorecardCacheForProvider(providerId) {
     for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k && k.startsWith(pfx)) keys.push(k); }
     keys.forEach(k => localStorage.removeItem(k));
   } catch(e) {}
-}
-
-let _cacheModalPendingProvider = null;
-
-function showCacheManagementModal(newProviderId) {
-  _cacheModalPendingProvider = newProviderId || getActiveDataProvider().id;
-  const existing = document.getElementById('cacheManagementModal');
-  if (existing) existing.remove();
-  const provName = (getApiProviders().find(p => p.id === _cacheModalPendingProvider) || {}).name || _cacheModalPendingProvider;
-  const cached = getScorecardCacheStats(_cacheModalPendingProvider);
-  const modal = document.createElement('div');
-  modal.id = 'cacheManagementModal';
-  modal.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;padding:16px;';
-  modal.innerHTML = `
-    <div style="background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:24px;max-width:420px;width:100%;">
-      <div style="font-family:Barlow Condensed,sans-serif;font-size:20px;font-weight:800;letter-spacing:2px;margin-bottom:8px;">MATCH DATA OPTIONS</div>
-      <div style="font-size:13px;color:var(--muted);margin-bottom:20px;line-height:1.5;">
-        Provider: <strong style="color:var(--gold);">${provName}</strong><br>
-        Local scorecard cache: <strong>${cached} match${cached !== 1 ? 'es' : ''}</strong>
-        ${cached > 0 ? '<br><span style="color:var(--green);font-size:11px;">● Cached matches will load without API calls</span>' : ''}
-      </div>
-      <div style="display:grid;gap:10px;">
-        <button onclick="clearAndRefetchFromModal()" style="background:var(--orange);color:#fff;border:none;border-radius:10px;padding:14px;cursor:pointer;font-family:Barlow Condensed,sans-serif;font-size:15px;font-weight:700;letter-spacing:2px;">CLEAR CACHE &amp; REFETCH</button>
-        <button onclick="document.getElementById('cacheManagementModal').remove()" style="background:transparent;color:var(--muted);border:none;padding:8px;cursor:pointer;font-size:13px;letter-spacing:1px;">DISMISS</button>
-      </div>
-    </div>`;
-  document.body.appendChild(modal);
-}
-
-async function clearAndRefetchFromModal() {
-  document.getElementById('cacheManagementModal')?.remove();
-  const providerId = _cacheModalPendingProvider || getActiveDataProvider().id;
-  clearScorecardCacheForProvider(providerId);
-  if (window._db) {
-    try { await window._db.ref('live/matches').remove(); } catch(e) {}
-    try { await window._db.ref('live/cricapiIdMap').remove(); } catch(e) {}
-    try { await window._db.ref('live/espnMatchSlugMap').remove(); } catch(e) {}
-    try { await window._db.ref('live/importAllScheduledStatus').remove(); } catch(e) {}
-    liveData.matches = [];
-    liveData.cricapiIdMap = {};
-    liveData.espnMatchSlugMap = {};
-    IPL_2026_SCHEDULE.forEach(m => { delete m.cricapi_match_id; delete m.cricbuzz_match_id; });
-  }
-  showToast('Cache cleared. Running full fetch…', '');
-  await fetchCricapiResults();
 }
 
 // ═══════════════════════════════════════════════════════
@@ -6424,30 +6292,6 @@ async function fetchAndShowSchedule() {
     }).join('');
   }catch(e){listEl.innerHTML='<p style="color:var(--red);font-size:13px;">Failed to load.</p>';}
   if(btn){btn.textContent='Refresh Schedule';btn.disabled=false;}
-}
-
-async function importMatchById(matchId) {
-  matchId=(matchId||'').trim();
-  if(!matchId){showToast('Enter a match ID','error');return;}
-  const btn=document.getElementById('manualImportBtn');
-  if(btn){btn.textContent='Importing...';btn.disabled=true;}
-  showToast('Fetching scorecard...','');
-  try{
-    const d=await fetchMatchScorecardData(matchId);
-    if(!d||!d.data){showToast('No scorecard data','error');}
-    else{
-      upsertMatch(matchId,d.data.name||matchId,d.data.date||'',d.data);
-      const scheduleMatch = findScheduleMatchForCricapiMatch({ id: matchId, name: d.data.name || matchId, date: d.data.date || '' });
-      let espnNote = '';
-      if (scheduleMatch) {
-        const espnResult = await syncEspnForScheduleMatchesAtomic([scheduleMatch], { persistEach: true });
-        if (espnResult.synced > 0) espnNote = ' + ESPN';
-      }
-      showToast('Imported: '+(d.data.name||matchId).split(',')[0] + espnNote,'success');
-      renderAdmin();renderTab(currentTab);
-    }
-  }catch(e){showToast('Import failed: '+e.message,'error');}
-  if(btn){btn.textContent='IMPORT';btn.disabled=false;}
 }
 
 async function importMatch(matchId,matchName,matchDate) {
@@ -7167,14 +7011,6 @@ async function fetchESPNDataManual() {
   if (btn) { btn.textContent = 'Fetch ESPN Data'; btn.disabled = false; }
 }
 
-function resetESPNCheckpoint() {
-  if (!confirm('Reset ESPN checkpoint? This will cause the next fetch to update all historical matches.')) return;
-  delete liveData.espnLastUpdate;
-  saveLiveData();
-  renderAdmin();
-  showToast('ESPN checkpoint reset', 'success');
-}
-
 function extractRawScorecard(data) {
   const scorecard = data.scorecard || [];
   if (!scorecard.length) return [];
@@ -7723,55 +7559,6 @@ window.diagnoseRunoutMismatches = diagnoseRunoutMismatches;
 window.showRunoutDiagnostic = showRunoutDiagnostic;
 
 // Correct misclassified runout credits in liveData
-function fixRunoutMismatches() {
-  const _norm = s => (s || '').toLowerCase().replace(/[^a-z]/g, '');
-  function resolveDisplayName(raw) {
-    const cleaned = String(raw || '').replace(/†/g, '').replace(/\s*\(sub\)\s*/i, '').trim();
-    const key = _norm(cleaned);
-    const p = PLAYERS.find(p => _norm(p.displayName) === key || _norm(p.cricapiName) === key);
-    return p ? p.displayName : null;
-  }
-  function cleanFielderName(n) { return String(n || '').replace(/†/g, '').replace(/\s*\(sub\)\s*/i, '').trim(); }
-
-  let fixed = 0;
-  (liveData.matches || []).forEach((match, mi) => {
-    if (!match || !match.scorecard_raw || !match.performances) return;
-    const perfs = match.performances;
-
-    match.scorecard_raw.forEach((inn) => {
-      (inn.batting || []).forEach(b => {
-        const dt = (b.dismissal || '').toLowerCase().trim();
-        if (dt !== 'run out' && dt !== 'runout') return;
-        const dr = String(b.dismissalText || '').trim();
-        const rm = dr.match(/run out\s*\((.+)\)/i);
-        if (!rm) return;
-        const parts = rm[1].split('/').map(s => cleanFielderName(s)).filter(Boolean);
-        if (parts.length <= 1) return;
-
-        const indirectText = resolveDisplayName(parts[0]);
-        const directText = resolveDisplayName(parts[1]);
-
-        // If indirect fielder (from text) currently has runoutDirect credit → remove it
-        if (indirectText && perfs[indirectText] && (perfs[indirectText].runoutDirect || 0) > 0) {
-          perfs[indirectText].runoutDirect--;
-          fixed++;
-          console.log('[AP] Fixed runout: ' + match.label + ' — removed direct credit from ' + indirectText + ' (should be indirect per text "' + dr + '")');
-        }
-      });
-    });
-  });
-
-  if (fixed > 0) {
-    saveLiveData();
-    showToast('Fixed ' + fixed + ' runout misclassification' + (fixed !== 1 ? 's' : ''), 'success');
-    renderTab(currentTab);
-  } else {
-    showToast('No runout misclassifications found', '');
-  }
-  return fixed;
-}
-window.fixRunoutMismatches = fixRunoutMismatches;
-
 // ═══════════════════════════════════════════════════════
 // ADMIN ACTIONS
 // ═══════════════════════════════════════════════════════
@@ -7779,7 +7566,6 @@ function deleteMatch(idx){if(!confirm('Delete this match?'))return;liveData.matc
 function updateMatchStatus(idx,status){liveData.matches[idx].status=status;}
 function saveMatch(idx){saveLiveData();}
 function setPOTM(idx,name){liveData.matches[idx].potm=name;}
-function resetAllCVPicks(){if(!confirm('Reset ALL captain/vice captain picks?'))return;if(!window._db){showToast('Firebase unavailable','error');return;}window._db.ref('live/captains').set({}).then(()=>{showToast('All C/VC picks reset','success');renderAdmin();}).catch(()=>showToast('Save failed','error'));}
 
 function updatePerf(matchIdx,playerName,field,value){
   const m=liveData.matches[matchIdx];
@@ -8100,96 +7886,193 @@ window.addEventListener('resize',()=>{
 // ═══════════════════════════════════════════════════════
 // FORCE RESYNC — clears stale fuzzy-matched performances, refetches clean via ID-based parser
 // ═══════════════════════════════════════════════════════
-async function forceResyncAllCricAPI() {
-  const _resyncProvider = getActiveDataProvider();
-  const _resyncProviderName = _resyncProvider.name || 'API';
-  if (!confirm('This will clear ALL stored performance data for every match and refetch from ' + _resyncProviderName + '.\n\nESPN dot balls and POTM will be preserved.\n\nProceed?')) return;
-  const btn = document.getElementById('forceResyncBtn');
-  const status = document.getElementById('forceResyncStatus');
-  if (btn) { btn.disabled = true; btn.textContent = 'Resyncing...'; }
+// ═══════════════════════════════════════════════════════
+// API SECTION — Fetch Score Data
+// ═══════════════════════════════════════════════════════
+// One-shot rescue: walks every concluded scheduled match (date <= today,
+// excluding live + upcoming) and tries each configured provider (CricBuzz,
+// CricAPI) in sequence per match. Whichever provider returns a valid
+// scorecard first wins. Followed by ESPN sync for POTM + dot balls.
+// Skips matches that already have a complete scorecard + performances
+// (done-match immutability — Firebase is source of truth for concluded
+// scorecards).
+async function fetchAllConcludedScorecards() {
+  const btn = document.getElementById('fetchScoreDataBtn');
+  if (btn) { btn.textContent = 'Fetching...'; btn.disabled = true; }
+  if (!liveData.matches) liveData.matches = [];
+  ensureCricapiIdMap();
 
-  const matches = (liveData.matches || []).filter(m => m && m.apiId && (m.status === 'done' || m.status === 'live'));
-  let done = 0, failed = 0;
+  const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
+  const eligible = IPL_2026_SCHEDULE.filter(s => s && s.date && s.date <= today);
 
-  for (const match of matches) {
-    if (status) status.textContent = `${done + failed + 1}/${matches.length} — ${match.label || match.apiId}`;
-    let fetchId = match.apiId;
-    if (_resyncProvider.id === 'cricbuzz' && _isUUID(fetchId)) {
-      const sched = findScheduleMatchForCricapiMatch({ id: fetchId, name: match.label || '', date: match.date || '' });
-      if (sched && sched.cricbuzz_match_id) {
-        fetchId = sched.cricbuzz_match_id;
-      } else {
-        console.warn('[AP] forceResync: no CricBuzz ID for', fetchId, '— skipping');
-        failed++;
+  const providers = (typeof getApiProviders === 'function' ? getApiProviders() : [])
+    .filter(p => p && p.id !== 'espncricinfo' && (liveData.apiKeys?.[p.id] || p.key))
+    .sort((a, b) => (a.id === 'cricbuzz' ? -1 : b.id === 'cricbuzz' ? 1 : 0));
+
+  liveData.importAllScheduledStatus = {
+    state: 'running',
+    startedAt: new Date().toISOString(),
+    finishedAt: null,
+    processed: 0,
+    total: eligible.length,
+    imported: 0,
+    refreshed: 0,
+    failed: 0,
+    skippedNoId: 0,
+    skippedUpcoming: 0,
+    summary: 'Fetch started (' + providers.length + ' provider' + (providers.length !== 1 ? 's' : '') + ')...'
+  };
+  refreshImportAllScheduledStatusUI();
+
+  let imported = 0, refreshed = 0, failed = 0, skippedDone = 0, skippedUpcoming = 0, processed = 0, espnSynced = 0;
+  const seriesMatchesByProvider = {};
+  for (const prov of providers) {
+    try {
+      const _savedActive = liveData.apiKeys?._activeProviderId;
+      // Temporarily mark this provider as active so fetchProviderSeriesMatchList uses its endpoint
+      seriesMatchesByProvider[prov.id] = await _withTemporaryActiveProvider(prov.id, fetchProviderSeriesMatchList);
+    } catch(e) {
+      console.warn('[AP] series list fetch failed for', prov.id, e.message);
+      seriesMatchesByProvider[prov.id] = [];
+    }
+  }
+
+  for (const scheduleMatch of eligible) {
+    processed++;
+
+    // Done-match immunity: complete scorecard + performances = skip
+    const existing = (liveData.matches || []).find(m => m && (
+      (scheduleMatch.cricbuzz_match_id && m.apiId === scheduleMatch.cricbuzz_match_id) ||
+      (scheduleMatch.cricapi_match_id && m.apiId === scheduleMatch.cricapi_match_id) ||
+      matchScheduleTeams(scheduleMatch, m.label || '')
+    ));
+    const isImmutable = existing && existing.status === 'done' &&
+      (existing.scorecard_raw || []).length > 0 &&
+      Object.keys(existing.performances || {}).length > 0;
+    if (isImmutable) {
+      skippedDone++;
+      liveData.importAllScheduledStatus.processed = processed;
+      liveData.importAllScheduledStatus.refreshed = refreshed;
+      liveData.importAllScheduledStatus.skippedUpcoming = skippedDone;
+      if (processed % 3 === 0) refreshImportAllScheduledStatusUI();
+      continue;
+    }
+
+    // Skip if today's match hasn't started (live/upcoming → autosync owns these)
+    if (scheduleMatch.date === today) {
+      const matchTimePassed = (() => {
+        if (!scheduleMatch.time) return false;
+        const [h, m] = scheduleMatch.time.split(':').map(Number);
+        const nowIST = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+        return (nowIST.getHours() * 60 + nowIST.getMinutes()) > (h * 60 + m + 15);
+      })();
+      if (!matchTimePassed) {
+        skippedUpcoming++;
+        liveData.importAllScheduledStatus.processed = processed;
+        liveData.importAllScheduledStatus.skippedUpcoming = skippedUpcoming;
+        if (processed % 3 === 0) refreshImportAllScheduledStatusUI();
         continue;
       }
     }
-    try {
-      const d = await fetchMatchScorecardData(fetchId, match.label, match.date);
-      const sc = d && d.data ? d.data : null;
-      if (!sc) { failed++; continue; }
 
-      const freshPerfs = parseScorecard(sc, getProviderIdType());
-      // Preserve ESPN dots and POTM already stored; replace everything else
-      const preserved = match.performances || {};
-      Object.keys(preserved).forEach(player => {
-        if (preserved[player].dots != null) {
-          if (freshPerfs[player]) freshPerfs[player].dots = preserved[player].dots;
+    let fetched = false;
+    for (const prov of providers) {
+      const seriesMatches = seriesMatchesByProvider[prov.id] || [];
+      // Resolve provider's match ID
+      const idField = prov.id === 'cricbuzz' ? 'cricbuzz_match_id' : 'cricapi_match_id';
+      if (!scheduleMatch[idField] && seriesMatches.length > 0) {
+        const sm = findSeriesMatchForScheduleMatch(scheduleMatch, seriesMatches);
+        if (sm && sm.id) scheduleMatch[idField] = sm.id;
+      }
+      const provMatchId = scheduleMatch[idField];
+      if (!provMatchId) continue;
+
+      try {
+        const d = await _withTemporaryActiveProvider(prov.id,
+          () => fetchMatchScorecardData(provMatchId, scheduleMatch.home + ' vs ' + scheduleMatch.away, scheduleMatch.date));
+        if (d && d.data && typeof d.data === 'object') {
+          const existed = (liveData.matches || []).some(m => m.apiId === provMatchId);
+          upsertMatch(provMatchId, d.data.name || (scheduleMatch.home + ' vs ' + scheduleMatch.away), d.data.date || scheduleMatch.date, d.data);
+          if (d.data.matchEnded) writeScorecardCache(prov.id, provMatchId, d);
+          if (existed) refreshed++; else imported++;
+          fetched = true;
+          if (d.data.matchEnded) break; // concluded match — no need to try other providers
         }
-      });
-      match.performances = freshPerfs;
-      const rawSc = extractRawScorecard(sc);
-      if (rawSc.length) match.scorecard_raw = rawSc;
-      const matchResult = sc.matchEnded ? (sc.result || sc.status || '') : '';
-      if (matchResult) match.matchResult = matchResult;
-      done++;
-    } catch (e) {
-      console.warn('[AP] forceResync failed for', match.apiId, e.message);
-      failed++;
+      } catch (e) {
+        console.warn('[AP] fetchAllConcludedScorecards:', prov.id, provMatchId, e.message);
+      }
     }
+    if (!fetched) failed++;
+
+    // ESPN augmentation (POTM + dots) regardless of which provider supplied the scorecard
+    try {
+      const espnResult = await syncEspnForScheduleMatchesAtomic([scheduleMatch], { persistEach: false });
+      espnSynced += espnResult.synced;
+    } catch(e) { console.warn('[AP] ESPN sync failed:', e.message); }
+
+    liveData.importAllScheduledStatus.processed = processed;
+    liveData.importAllScheduledStatus.imported = imported;
+    liveData.importAllScheduledStatus.refreshed = refreshed;
+    liveData.importAllScheduledStatus.failed = failed;
+    if (processed % 3 === 0) refreshImportAllScheduledStatusUI();
   }
 
-  saveLiveData();
-  if (btn) { btn.disabled = false; btn.textContent = 'Force Resync All ' + getActiveDataProvider().name + ' Performances (Clear + Refetch)'; }
-  if (status) status.textContent = `Done: ${done} resynced, ${failed} failed.`;
-  showToast(`Resync complete: ${done} matches`, 'success');
+  saveLiveData(true);
+
+  liveData.importAllScheduledStatus.state = 'done';
+  liveData.importAllScheduledStatus.finishedAt = new Date().toISOString();
+  liveData.importAllScheduledStatus.summary = imported + ' new · ' + refreshed + ' refreshed · ' + skippedDone + ' immutable · ' + skippedUpcoming + ' upcoming · ' + failed + ' failed · ' + espnSynced + ' ESPN';
+  refreshImportAllScheduledStatusUI();
+  if (btn) { btn.textContent = 'Fetch Score Data'; btn.disabled = false; }
+  showToast('Fetch complete: ' + imported + ' new, ' + refreshed + ' refreshed', 'success');
   renderTab(currentTab);
 }
 
-function recomputeAllPointsFromCache() {
-  const provId = getActiveDataProvider().id;
-  const matches = (liveData.matches || []).filter(m => m && m.apiId && m.status === 'done');
-  if (matches.length === 0) { showToast('No concluded matches to recompute', ''); return; }
+// Run fn with a specific provider temporarily marked active. Restores prior
+// active provider on completion.
+async function _withTemporaryActiveProvider(providerId, fn) {
+  const providers = getApiProviders();
+  const prevActive = providers.find(p => p.selected && p.id !== 'espncricinfo');
+  providers.forEach(p => { if (p.id !== 'espncricinfo') p.selected = (p.id === providerId); });
+  saveApiProviders(providers);
+  try {
+    return await fn();
+  } finally {
+    const restore = getApiProviders();
+    restore.forEach(p => {
+      if (p.id !== 'espncricinfo') p.selected = (prevActive ? p.id === prevActive.id : p.id === providerId);
+    });
+    saveApiProviders(restore);
+  }
+}
+
+// ═══════════════════════════════════════════════════════
+// COMPUTE SECTION — Recompute points from stored scorecards
+// ═══════════════════════════════════════════════════════
+// Re-derives leaderboard + player points from already-persisted match
+// scorecards in liveData.matches. Zero API calls. Used when scoring rules
+// change or a stale render is suspected.
+function recomputePointsFromStored() {
+  const status = document.getElementById('recomputeStatus');
+  const matches = (liveData.matches || []).filter(m => m && m.performances);
+  if (matches.length === 0) {
+    if (status) status.textContent = 'No stored scorecards to recompute from.';
+    showToast('No matches to recompute', '');
+    return;
+  }
   const btn = document.getElementById('recomputeBtn');
   if (btn) { btn.textContent = 'Recomputing...'; btn.disabled = true; }
-  let done = 0, skipped = 0;
-  for (const match of matches) {
-    const cached = readScorecardCache(provId, match.apiId);
-    if (!cached || !cached.data) { skipped++; continue; }
-    try {
-      const freshPerfs = parseScorecard(cached.data, getProviderIdType());
-      const preserved = match.performances || {};
-      // Preserve ESPN dots and POTM
-      Object.keys(preserved).forEach(player => {
-        if (preserved[player].dots != null) {
-          if (freshPerfs[player]) freshPerfs[player].dots = preserved[player].dots;
-        }
-      });
-      match.performances = freshPerfs;
-      const rawSc = extractRawScorecard(cached.data);
-      if (rawSc.length) match.scorecard_raw = rawSc;
-      const matchResult = cached.data.matchEnded ? (cached.data.result || cached.data.status || '') : '';
-      if (matchResult) match.matchResult = matchResult;
-      done++;
-    } catch (e) {
-      console.warn('[AP] recompute failed:', match.apiId, e.message);
-      skipped++;
-    }
-  }
-  saveLiveData();
-  if (btn) { btn.textContent = 'Recompute All Points From Cache (Zero API)'; btn.disabled = false; }
-  showToast('Recomputed ' + done + ' matches, ' + skipped + ' skipped (not cached)', done > 0 ? 'success' : '');
+  // getPlayerTotals/getTeamTotals derive points on every read from
+  // liveData.matches[].performances. Re-rendering every tab is sufficient
+  // to recompute and display the latest values.
   renderTab(currentTab);
+  ['leaderboard', 'matches', 'players', 'live', 'insights', 'captains'].forEach(t => {
+    try { renderTab(t); } catch(e) {}
+  });
+  renderTab(currentTab);
+  if (status) status.textContent = 'Recomputed from ' + matches.length + ' stored scorecard' + (matches.length !== 1 ? 's' : '') + '. Zero API calls made.';
+  if (btn) { btn.textContent = 'Recompute Points'; btn.disabled = false; }
+  showToast('Recomputed ' + matches.length + ' matches', 'success');
 }
 
 // FETCH CRICAPI RESULTS (ADMIN)
