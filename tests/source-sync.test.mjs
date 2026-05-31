@@ -108,3 +108,28 @@ test('Robust winner parser handles wkts/beat/parenthetical formats', () => {
   assert.match(indexHtml, /beat\\s\+/);
   assert.match(indexHtml, /no result\|abandoned/);
 });
+
+test('clearAllDataExceptCaptains does NOT wipe LS_SERIES_CACHE_KEY', () => {
+  // Find the clearAll function body
+  const fn = /async function clearAllDataExceptCaptains\(\)[\s\S]*?\n\}/.exec(indexHtml);
+  assert.ok(fn, 'clearAllDataExceptCaptains must be defined');
+  const body = fn[0];
+  // The localStorage.removeItem block should NOT include LS_SERIES_CACHE_KEY.
+  // (LS_API_CALLS_KEY, LS_ESPN_CALLS_KEY, LS_BATPOS_CACHE_KEY still cleared.)
+  const removeBlock = /\[LS_[A-Z_]+(?:,\s*LS_[A-Z_]+)*\]\.forEach\(k\s*=>\s*\{\s*try\s*\{\s*localStorage\.removeItem\(k\)/.exec(body);
+  assert.ok(removeBlock, 'localStorage.removeItem block must exist');
+  assert.ok(!/LS_SERIES_CACHE_KEY/.test(removeBlock[0]),
+    'LS_SERIES_CACHE_KEY must not appear in the clear list — preserves season match list across clears');
+});
+
+test('findSeriesMatchForScheduleMatch has playoff-descriptor and date-only fallback paths', () => {
+  assert.match(indexHtml, /PLAYOFF_DESC_RE\s*=\s*\{/);
+  assert.match(indexHtml, /qualifier\\s\*1\\b/);
+  assert.match(indexHtml, /eliminator\\b/);
+  assert.match(indexHtml, /sameDate\.length\s*===\s*1/);
+});
+
+test('fetchCricapiResults logs skip reason when no provider ID resolved', () => {
+  assert.match(indexHtml, /no provider ID for match/);
+  assert.match(indexHtml, /team\/desc\/date matching all failed/);
+});

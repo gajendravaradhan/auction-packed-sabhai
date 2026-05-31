@@ -756,7 +756,7 @@ const TEAM_SLUGS = {
 
 const ADMIN_PASSWORD = 'auctionpacked2026';
 const CV_LOCK_DEADLINE = new Date('2026-03-29T13:30:00Z');
-const APP_VERSION = 'v5.41';
+const APP_VERSION = 'v5.42';
 const RAPIDAPI_KEY = '9303df28b9msh5c73e8cc7014cdcp1187ccjsncb4f2053386e';
 const API_BASE = 'https://api.cricapi.com/v1';
 
@@ -5109,7 +5109,13 @@ async function clearAllDataExceptCaptains() {
     const nodes = ['matches', 'cricapiIdMap', 'espnMatchSlugMap', 'importAllScheduledStatus', 'espnLastUpdate', 'lastDailyStackSyncDateEt'];
     await Promise.all(nodes.map(n => window._db.ref('live/' + n).remove().catch(() => {})));
     clearScorecardCacheForProvider('');
-    [LS_API_CALLS_KEY, LS_ESPN_CALLS_KEY, LS_BATPOS_CACHE_KEY, LS_SERIES_CACHE_KEY].forEach(k => { try { localStorage.removeItem(k); } catch(e) {} });
+    // NOTE: LS_SERIES_CACHE_KEY intentionally NOT cleared. The provider series
+    // endpoint (e.g. CricBuzz /series/v1/9241) trims to a rolling recency
+    // window once the tournament concludes — a fresh fetch after IPL ends
+    // returns only ~30-45 matches, blocking ID resolution for early league
+    // games. Preserving the cached full-season match list lets force-resync
+    // re-bind cricapi_match_id / cricbuzz_match_id for all 74 entries.
+    [LS_API_CALLS_KEY, LS_ESPN_CALLS_KEY, LS_BATPOS_CACHE_KEY].forEach(k => { try { localStorage.removeItem(k); } catch(e) {} });
     liveData.matches = [];
     liveData.cricapiIdMap = {};
     liveData.espnMatchSlugMap = {};
@@ -6846,12 +6852,43 @@ function findSeriesMatchForScheduleMatch(scheduleMatch, seriesMatches) {
   if (!scheduleMatch || !Array.isArray(seriesMatches) || seriesMatches.length === 0) return null;
   const targetDate = (scheduleMatch.date || '').toString().slice(0, 10);
 
-  return seriesMatches.find(m => {
+  // Path 1: team-name match (works for league entries with concrete home/away).
+  const byTeams = seriesMatches.find(m => {
     if (!m || !m.id) return false;
     const matchDate = (m.date || '').toString().slice(0, 10);
     if (targetDate && matchDate !== targetDate) return false;
     return matchScheduleTeams(scheduleMatch, m.name || '');
-  }) || null;
+  });
+  if (byTeams) return byTeams;
+
+  // Path 2: playoff descriptor match — works even when scheduleMatch.home/away
+  // are 'TBD'. CricBuzz series names look like "MI vs CSK, Qualifier 1" and
+  // CricAPI returns analogous "Qualifier 1, ..." text in the name field.
+  const PLAYOFF_DESC_RE = {
+    Q1: /\bqualifier\s*1\b|\b1st\s+qualifier\b/i,
+    EL: /\beliminator\b/i,
+    Q2: /\bqualifier\s*2\b|\b2nd\s+qualifier\b/i,
+    F:  /\bfinal\b/i,
+  };
+  if (PLAYOFF_DESC_RE[scheduleMatch.match]) {
+    const re = PLAYOFF_DESC_RE[scheduleMatch.match];
+    const byDesc = seriesMatches.find(m => {
+      if (!m || !m.id) return false;
+      const matchDate = (m.date || '').toString().slice(0, 10);
+      if (targetDate && matchDate !== targetDate) return false;
+      return re.test(String(m.name || ''));
+    });
+    if (byDesc) return byDesc;
+  }
+
+  // Path 3: date-only fallback when the date has exactly one match in the
+  // series list — useful when the API renamed teams or stripped the name field.
+  if (targetDate) {
+    const sameDate = seriesMatches.filter(m => m && m.id && (m.date || '').toString().slice(0, 10) === targetDate);
+    if (sameDate.length === 1) return sameDate[0];
+  }
+
+  return null;
 }
 
 async function ensureScorecardImportedForScheduleMatch(scheduleMatch) {
@@ -8139,6 +8176,9 @@ async function fetchCricapiResults(options = {}) {
 
       if (!getProviderMatchId(scheduleMatch)) {
         skippedNoId++;
+        console.warn('[AP] fetchCricapiResults: no provider ID for match', scheduleMatch.match,
+          '(' + scheduleMatch.home + ' vs ' + scheduleMatch.away + ', ' + scheduleMatch.date + ')',
+          '— series list returned ' + seriesMatches.length + ' matches; team/desc/date matching all failed.');
         liveData.importAllScheduledStatus.processed = processed;
         liveData.importAllScheduledStatus.skippedNoId = skippedNoId;
         liveData.importAllScheduledStatus.skippedUpcoming = skippedUpcoming;
